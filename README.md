@@ -1,2 +1,3 @@
 # rust-beats
-rust random musical beat generator app
+
+rust random musical beat generator
