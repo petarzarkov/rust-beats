@@ -23,3 +23,7 @@ target
 # Output files
 output.wav
 output/
+
+# Allow docs/ for GitHub Pages, but ignore the songs subdirectory locally
+!docs/
+docs/songs/

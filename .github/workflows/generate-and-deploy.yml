@@ -1,0 +1,105 @@
+name: Generate Beats and Deploy to GitHub Pages
+
+on:
+  push:
+    branches:
+      - main
+  schedule:
+    # Run daily at 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  generate-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+      
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+      
+      - name: Cache cargo registry
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/registry
+          key: ${{ runner.os }}-cargo-registry-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Cache cargo index
+        uses: actions/cache@v4
+        with:
+          path: ~/.cargo/git
+          key: ${{ runner.os }}-cargo-index-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Cache cargo build
+        uses: actions/cache@v4
+        with:
+          path: target
+          key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
+      
+      - name: Build project
+        run: cargo build --release
+      
+      - name: Generate beats
+        run: cargo run --release
+      
+      - name: Create docs directory
+        run: mkdir -p docs/songs
+      
+      - name: Copy song with date
+        run: |
+          DATE=$(date +%Y-%m-%d)
+          cp output/final_song.wav docs/songs/song-${DATE}.wav
+          echo "Generated song: song-${DATE}.wav"
+      
+      - name: Clean up old songs (keep last 7 days)
+        run: |
+          cd docs/songs
+          # Keep only files from the last 7 days
+          find . -name "song-*.wav" -type f -mtime +7 -delete
+          echo "Songs after cleanup:"
+          ls -lh
+      
+      - name: Generate songs list JSON
+        run: |
+          cd docs/songs
+          # Create a JSON file with list of available songs
+          echo "[" > ../songs.json
+          first=true
+          for file in $(ls -t song-*.wav 2>/dev/null); do
+            if [ "$first" = true ]; then
+              first=false
+            else
+              echo "," >> ../songs.json
+            fi
+            # Extract date from filename
+            date=$(echo $file | sed 's/song-\(.*\)\.wav/\1/')
+            size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+            echo "  {\"filename\": \"$file\", \"date\": \"$date\", \"size\": $size}" >> ../songs.json
+          done
+          echo "" >> ../songs.json
+          echo "]" >> ../songs.json
+          cat ../songs.json
+      
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+      
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: 'docs'
+      
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+

@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rust Beats 🥁 - Daily Generated Drum Beats</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #333;
+            line-height: 1.6;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.1em;
+            opacity: 0.95;
+            margin-bottom: 20px;
+        }
+
+        .github-btn {
+            display: inline-block;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            padding: 12px 24px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            border: 2px solid white;
+            margin-top: 10px;
+        }
+
+        .github-btn:hover {
+            background: white;
+            color: #667eea;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.2);
+        }
+
+        .content {
+            padding: 40px;
+        }
+
+        .description {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 30px;
+            border-left: 4px solid #667eea;
+        }
+
+        .description h2 {
+            color: #667eea;
+            margin-bottom: 12px;
+            font-size: 1.5em;
+        }
+
+        .description p {
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .latest-song {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+            color: white;
+        }
+
+        .latest-song h2 {
+            margin-bottom: 15px;
+            font-size: 1.8em;
+        }
+
+        .song-info {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .song-date {
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+
+        .download-btn {
+            display: inline-block;
+            background: white;
+            color: #f5576c;
+            padding: 10px 20px;
+            border-radius: 25px;
+            text-decoration: none;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
+        }
+
+        audio {
+            width: 100%;
+            margin-top: 10px;
+            border-radius: 25px;
+            outline: none;
+        }
+
+        .previous-songs {
+            margin-top: 30px;
+        }
+
+        .previous-songs h2 {
+            color: #333;
+            margin-bottom: 20px;
+            font-size: 1.6em;
+        }
+
+        .song-item {
+            background: #f8f9fa;
+            padding: 20px;
+            border-radius: 12px;
+            margin-bottom: 15px;
+            border-left: 4px solid #667eea;
+            transition: all 0.3s ease;
+        }
+
+        .song-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+        }
+
+        .song-item-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .song-item-date {
+            font-weight: 600;
+            color: #667eea;
+            font-size: 1.1em;
+        }
+
+        .song-item-size {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .small-download-btn {
+            display: inline-block;
+            background: #667eea;
+            color: white;
+            padding: 6px 15px;
+            border-radius: 20px;
+            text-decoration: none;
+            font-size: 0.9em;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .small-download-btn:hover {
+            background: #764ba2;
+            transform: translateY(-1px);
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #667eea;
+            font-size: 1.2em;
+        }
+
+        .error {
+            background: #fee;
+            color: #c33;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+            border-left: 4px solid #c33;
+        }
+
+        .footer {
+            background: #f8f9fa;
+            padding: 25px;
+            text-align: center;
+            color: #666;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .footer a {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: 600;
+        }
+
+        .footer a:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 600px) {
+            .header h1 {
+                font-size: 2em;
+            }
+
+            .content {
+                padding: 20px;
+            }
+
+            .song-info {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🥁 Rust Beats</h1>
+            <p>Daily Generated Drum Beats with Rust</p>
+            <a href="https://github.com/petarzarkov/rust-beats" target="_blank" class="github-btn">
+                ⭐ View on GitHub
+            </a>
+        </div>
+
+        <div class="content">
+            <div class="description">
+                <h2>About This Project</h2>
+                <p>
+                    <strong>Rust Beats</strong> is a parallel drum beat generator that creates randomized 
+                    musical beats using real audio samples. Each day, a new unique song is automatically 
+                    generated using Rust's concurrency features and probabilistic rhythm algorithms.
+                </p>
+                <p>
+                    Every beat is different, featuring procedurally generated kick, snare, and hi-hat patterns 
+                    with position-aware probabilities that maintain musical coherence.
+                </p>
+            </div>
+
+            <div id="loading" class="loading">
+                Loading songs... 🎵
+            </div>
+
+            <div id="latest-song-container"></div>
+            <div id="previous-songs-container"></div>
+        </div>
+
+        <div class="footer">
+            <p>
+                Generated by <a href="https://github.com/petarzarkov/rust-beats" target="_blank">Rust Beats</a> 
+                | Built with Rust | Deployed via GitHub Actions
+            </p>
+        </div>
+    </div>
+
+    <script>
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 Bytes';
+            const k = 1024;
+            const sizes = ['Bytes', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return Math.round((bytes / Math.pow(k, i)) * 100) / 100 + ' ' + sizes[i];
+        }
+
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            const options = { year: 'numeric', month: 'long', day: 'numeric' };
+            return date.toLocaleDateString('en-US', options);
+        }
+
+        async function loadSongs() {
+            try {
+                const response = await fetch('songs.json');
+                const songs = await response.json();
+
+                document.getElementById('loading').style.display = 'none';
+
+                if (songs.length === 0) {
+                    document.getElementById('latest-song-container').innerHTML = 
+                        '<div class="error">No songs available yet. Check back soon!</div>';
+                    return;
+                }
+
+                // Display latest song
+                const latestSong = songs[0];
+                const latestContainer = document.getElementById('latest-song-container');
+                latestContainer.innerHTML = `
+                    <div class="latest-song">
+                        <h2>🎵 Latest Song</h2>
+                        <div class="song-info">
+                            <div class="song-date">
+                                Generated: ${formatDate(latestSong.date)}
+                            </div>
+                            <a href="songs/${latestSong.filename}" download class="download-btn">
+                                ⬇️ Download (${formatBytes(latestSong.size)})
+                            </a>
+                        </div>
+                        <audio controls preload="metadata">
+                            <source src="songs/${latestSong.filename}" type="audio/wav">
+                            Your browser does not support the audio element.
+                        </audio>
+                    </div>
+                `;
+
+                // Display previous songs (if any)
+                if (songs.length > 1) {
+                    const previousContainer = document.getElementById('previous-songs-container');
+                    let previousHTML = '<div class="previous-songs"><h2>📅 Previous 7 Days</h2>';
+                    
+                    for (let i = 1; i < songs.length; i++) {
+                        const song = songs[i];
+                        previousHTML += `
+                            <div class="song-item">
+                                <div class="song-item-header">
+                                    <div>
+                                        <div class="song-item-date">${formatDate(song.date)}</div>
+                                        <div class="song-item-size">${formatBytes(song.size)}</div>
+                                    </div>
+                                    <a href="songs/${song.filename}" download class="small-download-btn">
+                                        ⬇️ Download
+                                    </a>
+                                </div>
+                                <audio controls preload="metadata">
+                                    <source src="songs/${song.filename}" type="audio/wav">
+                                    Your browser does not support the audio element.
+                                </audio>
+                            </div>
+                        `;
+                    }
+                    
+                    previousHTML += '</div>';
+                    previousContainer.innerHTML = previousHTML;
+                }
+            } catch (error) {
+                document.getElementById('loading').style.display = 'none';
+                document.getElementById('latest-song-container').innerHTML = 
+                    '<div class="error">Error loading songs. Please try again later.</div>';
+                console.error('Error loading songs:', error);
+            }
+        }
+
+        // Load songs when page loads
+        loadSongs();
+    </script>
+</body>
+</html>
+
