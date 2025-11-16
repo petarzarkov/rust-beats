@@ -24,6 +24,5 @@ target
 output.wav
 output/
 
-# Allow docs/ for GitHub Pages, but ignore the songs subdirectory locally
+# Allow docs/ for GitHub Pages
 !docs/
-docs/songs/
