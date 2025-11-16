@@ -9,7 +9,7 @@ const MILLISECONDS_PER_STEP: f32 = 250.0;
 // At 44.1kHz, that is 44100 * 0.25 = 11,025 samples.
 const SAMPLES_PER_STEP: u32 = (SAMPLE_RATE as f32 * (MILLISECONDS_PER_STEP / 1000.0)) as u32;
 
-pub fn render_beat_to_wav(beat: &[DrumSound]) -> Result<(), hound::Error> {
+pub fn render_beat_to_wav(beat: &[DrumSound], filename: &str) -> Result<(), hound::Error> {
     let mut kick_reader = hound::WavReader::open("samples/kick.wav")?;
     let mut snare_reader = hound::WavReader::open("samples/snare.wav")?;
     let mut hihat_reader = hound::WavReader::open("samples/hihat.wav")?;
@@ -28,13 +28,14 @@ pub fn render_beat_to_wav(beat: &[DrumSound]) -> Result<(), hound::Error> {
     
     // This assumes all files are 44.1kHz, 16-bit.
     let spec = kick_reader.spec();
-    let mut writer = hound::WavWriter::create("output.wav", spec)?;
+    let mut writer = hound::WavWriter::create(filename, spec)?;
 
     for sound in beat {
         let sound_data: &Vec<AudioSample> = match sound {
             DrumSound::Kick => &kick_samples,
             DrumSound::Snare => &snare_samples,
             DrumSound::HiHat => &hihat_samples,
+            DrumSound::Rest => &Vec::new(),
         };
 
         for &sample in sound_data {
