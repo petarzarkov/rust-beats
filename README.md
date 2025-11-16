@@ -6,7 +6,7 @@ A parallel drum beat generator written in Rust that creates randomized musical b
 
 **[Listen to daily generated beats →](https://petarzarkov.github.io/rust-beats/)**
 
-Every day at midnight UTC, a new unique song is automatically generated and deployed to GitHub Pages. The website features an audio player where you can listen to the latest beat and browse through the previous 7 days of generated music.
+Every day at midnight UTC, a new unique song is automatically generated and deployed to GitHub Pages. The website features an audio player where you can listen to the latest beat and browse through the previous 7 generated songs.
 
 ## Overview
 
@@ -20,7 +20,7 @@ Every day at midnight UTC, a new unique song is automatically generated and depl
 - **Multi-threaded WAV Rendering**: Each thread independently generates and writes a complete beat to disk
 - **Configurable Beat Length**: Generates 64-step beats (4 measures at 16 steps per measure)
 - **Automated Daily Generation**: GitHub Actions workflow generates new beats daily and on every commit
-- **GitHub Pages Deployment**: Live website with audio player and 7-day song history
+- **GitHub Pages Deployment**: Live website with audio player and history of the last 7 songs
 
 ## How It Works
 
@@ -97,7 +97,7 @@ rust-beats/
 │   └── hihat.wav
 ├── docs/                  # GitHub Pages website
 │   ├── index.html         # Web player interface
-│   ├── songs/             # Generated songs (last 7 days)
+│   ├── songs/             # Generated songs (last 7 songs)
 │   │   └── song-*.wav
 │   └── songs.json         # Song metadata
 ├── output/                # Generated beats (created automatically)
@@ -134,7 +134,7 @@ This project uses GitHub Actions to automatically generate and deploy new beats:
 1. Builds the Rust project in release mode
 2. Generates a new beat composition
 3. Names the output file with the current date (e.g., `song-2025-11-16.wav`)
-4. Cleans up songs older than 7 days
+4. Keeps only the 7 most recent songs
 5. Updates the song list metadata
 6. Deploys to GitHub Pages
 
@@ -143,7 +143,7 @@ This project uses GitHub Actions to automatically generate and deploy new beats:
 Visit **[petarzarkov.github.io/rust-beats](https://petarzarkov.github.io/rust-beats/)** to:
 
 - Listen to the latest generated beat
-- Browse and download songs from the past 7 days
+- Browse and download the previous 7 songs
 - See generation dates and file information
 
 ## License

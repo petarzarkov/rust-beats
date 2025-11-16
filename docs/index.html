@@ -267,15 +267,16 @@
         <div class="content">
             <div class="description">
                 <h2>About This Project</h2>
-                <p>
-                    <strong>Rust Beats</strong> is a parallel drum beat generator that creates randomized 
-                    musical beats using real audio samples. Each day, a new unique song is automatically 
-                    generated using Rust's concurrency features and probabilistic rhythm algorithms.
-                </p>
-                <p>
-                    Every beat is different, featuring procedurally generated kick, snare, and hi-hat patterns 
-                    with position-aware probabilities that maintain musical coherence.
-                </p>
+            <p>
+                <strong>Rust Beats</strong> is a parallel drum beat generator that creates randomized 
+                musical beats using real audio samples. Each day, a new unique song is automatically 
+                generated using Rust's concurrency features and probabilistic rhythm algorithms.
+            </p>
+            <p>
+                Every beat is different, featuring procedurally generated kick, snare, and hi-hat patterns 
+                with position-aware probabilities that maintain musical coherence. The last 7 songs are 
+                kept available for listening and downloading.
+            </p>
             </div>
 
             <div id="loading" class="loading">
@@ -346,7 +347,7 @@
                 // Display previous songs (if any)
                 if (songs.length > 1) {
                     const previousContainer = document.getElementById('previous-songs-container');
-                    let previousHTML = '<div class="previous-songs"><h2>📅 Previous 7 Days</h2>';
+                    let previousHTML = '<div class="previous-songs"><h2>📅 Previous Songs</h2>';
                     
                     for (let i = 1; i < songs.length; i++) {
                         const song = songs[i];
