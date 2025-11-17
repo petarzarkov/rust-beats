@@ -59,11 +59,14 @@ jobs:
       - name: Create docs directory
         run: mkdir -p docs/songs
 
-      - name: Copy song with date
+      - name: Copy song with date and metadata
         run: |
           DATE=$(date +%Y-%m-%d)
           cp output/final_song.wav docs/songs/song-${DATE}.wav
+          cp output/song_metadata.json docs/songs/song-${DATE}.json
           echo "Generated song: song-${DATE}.wav"
+          echo "Metadata:"
+          cat docs/songs/song-${DATE}.json
 
       - name: Clean up old songs (keep last 7 songs)
         run: |
@@ -88,7 +91,17 @@ jobs:
             # Extract date from filename
             date=$(echo $file | sed 's/song-\(.*\)\.wav/\1/')
             size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
-            echo "  {\"filename\": \"$file\", \"date\": \"$date\", \"size\": $size}" >> ../songs.json
+            
+            # Check if metadata file exists for this song
+            metadata_file="song-${date}.json"
+            if [ -f "$metadata_file" ]; then
+              # Read name and genre from metadata
+              name=$(jq -r '.name // ""' "$metadata_file" 2>/dev/null || echo "")
+              genre=$(jq -c '.genre // []' "$metadata_file" 2>/dev/null || echo "[]")
+              echo "  {\"filename\": \"$file\", \"date\": \"$date\", \"size\": $size, \"name\": \"$name\", \"genre\": $genre}" >> ../songs.json
+            else
+              echo "  {\"filename\": \"$file\", \"date\": \"$date\", \"size\": $size}" >> ../songs.json
+            fi
           done
           echo "" >> ../songs.json
           echo "]" >> ../songs.json
@@ -98,7 +111,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add docs/songs/*.wav docs/songs.json
+          git add docs/songs/*.wav docs/songs/*.json docs/songs.json
           git diff --staged --quiet || git commit -m "🥁 Add generated song $(date +%Y-%m-%d)"
           git push
 

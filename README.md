@@ -14,13 +14,16 @@ Every day at midnight UTC, a new unique song is automatically generated and depl
 
 ## Features
 
-- **Parallel Beat Generation**: Automatically detects system CPU cores and generates multiple beats concurrently
-- **Probabilistic Rhythm Engine**: Uses weighted random selection to create musically coherent 16-step drum patterns
-- **Real Audio Samples**: Works with actual WAV audio files for authentic drum sounds
-- **Multi-threaded WAV Rendering**: Each thread independently generates and writes a complete beat to disk
-- **Configurable Beat Length**: Generates 64-step beats (4 measures at 16 steps per measure)
-- **Automated Daily Generation**: GitHub Actions workflow generates new beats daily and on every commit
+- **Advanced Song Structure**: Intro, Verse, Chorus, Bridge, Outro with dynamic arrangement
+- **Complete Synthesis Engine**: All sounds generated procedurally - drums, bass, melody, no samples needed
+- **Music Theory Integration**: Real chord progressions, scales, and key-aware melodies
+- **Dynamic Intensity**: Sections vary in volume and complexity for natural song flow
+- **Configurable via TOML**: Easy customization of tempo, structure, metadata
+- **Song Naming System**: Generates funky, jazzy, groovy names automatically
+- **WAV Metadata**: Embeds artist, title, genre, copyright in file properties
+- **Automated Daily Generation**: GitHub Actions workflow generates new songs daily
 - **GitHub Pages Deployment**: Live website with audio player and history of the last 7 songs
+- **Free for Content Creators**: All music is CC0/CC BY license
 
 ## How It Works
 
@@ -48,10 +51,32 @@ Every day at midnight UTC, a new unique song is automatically generated and depl
 ### Prerequisites
 
 - Rust toolchain (1.70+)
-- Audio sample files in `samples/` directory:
-  - `kick.wav`
-  - `snare.wav`
-  - `hihat.wav`
+- No audio samples needed - everything is synthesized!
+
+### Configuration
+
+The project uses a `config.toml` file for customization. Create or edit this file in the project root:
+
+```toml
+[audio]
+sample_rate = 44100  # Sample rate in Hz (44100 = CD quality)
+bit_depth = 16       # Bit depth (16 or 24)
+
+[metadata]
+artist = "Your Name"
+copyright = "Free to use - CC0 Public Domain"
+
+[composition]
+structure = "standard"  # "short" (30-60s) or "standard" (2-3 min full song)
+min_tempo = 90.0        # Minimum BPM
+max_tempo = 130.0       # Maximum BPM
+
+[generation]
+output_dir = "output"
+write_metadata_json = true
+```
+
+If no config file is found, defaults are used automatically.
 
 ### Running
 
@@ -61,23 +86,49 @@ cargo run --release
 
 The application will:
 
-1. Detect the number of CPU cores
-2. Generate that many beats concurrently
-3. Save all beats to the `output/` folder
-4. Print progress for each thread
+1. Load configuration (or use defaults)
+2. Generate a unique song with random parameters
+3. Create synthesized drums, bass, and melody
+4. Save the final song to the output directory
+5. Write metadata JSON for the GitHub workflow
 
 ### Output
 
 ```
-System has 8 logical cores.
-Generating 8 beats concurrently...
-Thread 0: Generating beat...
-Thread 1: Generating beat...
-...
-Thread 0: Successfully wrote output/beat_1.wav
-Thread 1: Successfully wrote output/beat_2.wav
-...
-All beats generated! Check the 'output' folder.
+🎵 Rust Beats - Procedural Music Generator
+============================================
+Artist: Petar Zarkov
+Sample Rate: 44100 Hz
+Structure: standard
+
+📝 Song Name: Cosmic Midnight Groove
+🎸 Genres: ["Funk", "Groovy"]
+🎹 Key: Root MIDI 43, Scale: Dorian
+⏱️  Tempo: 112.3 BPM
+🥁 Groove: Funk
+
+🎼 Generating 52 bars of music...
+   Structure: 7 sections
+   Intro: 4 bars
+   Verse: 8 bars
+   Chorus: 8 bars
+   Verse: 8 bars
+   Chorus: 8 bars
+   Bridge: 8 bars
+   Outro: 4 bars
+
+  ├─ Drums (with dynamics)
+  ├─ Bass (with sections)
+  ├─ Melody (with variation)
+  └─ Mixing
+
+✅ Successfully created: output/final_song.wav
+   Duration: 143.2s (2:23)
+   Samples: 6315600
+
+🎉 Song generation complete!
+   Name: Cosmic Midnight Groove
+   Style: Funk, Groovy @ 112 BPM
 ```
 
 ## Project Structure
@@ -86,22 +137,33 @@ All beats generated! Check the 'output' folder.
 rust-beats/
 ├── .github/
 │   └── workflows/
-│       └── generate-and-deploy.yml  # CI/CD workflow for daily generation
+│       └── generate-and-deploy.yml  # CI/CD workflow
 ├── src/
-│   ├── main.rs            # Entry point and concurrent execution
-│   ├── beat_maker.rs      # Probabilistic beat generation logic
-│   └── audio_renderer.rs  # WAV file processing and rendering
-├── samples/               # Input drum samples (WAV format)
-│   ├── kick.wav
-│   ├── snare.wav
-│   └── hihat.wav
+│   ├── main.rs            # Main orchestrator
+│   ├── config.rs          # Configuration system
+│   ├── composition/       # Music theory & arrangement
+│   │   ├── song_names.rs  # Song name generation
+│   │   ├── music_theory.rs# Keys, scales, chords
+│   │   ├── beat_maker.rs  # Drum pattern generation
+│   │   └── arranger.rs    # Song structure
+│   ├── synthesis/         # Sound synthesis
+│   │   ├── synthesizer.rs # Core synth engine
+│   │   ├── drums.rs       # Drum synthesis
+│   │   ├── bass.rs        # Bass synthesis
+│   │   └── melody.rs      # Melody synthesis
+│   ├── audio/             # Audio rendering
+│   │   └── renderer.rs    # WAV with metadata
+│   └── audio_renderer.rs  # Legacy renderer
 ├── docs/                  # GitHub Pages website
 │   ├── index.html         # Web player interface
-│   ├── songs/             # Generated songs (last 7 songs)
-│   │   └── song-*.wav
-│   └── songs.json         # Song metadata
-├── output/                # Generated beats (created automatically)
-│   └── beat_*.wav
+│   ├── songs/             # Generated songs (last 7)
+│   │   ├── song-*.wav
+│   │   └── song-*.json    # Metadata per song
+│   └── songs.json         # Song list
+├── config.toml            # User configuration
+├── output/                # Local generated songs
+│   ├── final_song.wav
+│   └── song_metadata.json
 └── Cargo.toml
 ```
 
@@ -149,3 +211,10 @@ Visit **[petarzarkov.github.io/rust-beats](https://petarzarkov.github.io/rust-be
 ## License
 
 See [LICENSE](LICENSE) file for details.
+
+### Local dev
+
+- if you have nodejs
+  - `npx serve docs -p 8000` to serve locally
+- or python
+  - `python3 -m http.server 8000`

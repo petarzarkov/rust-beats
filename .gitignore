@@ -21,7 +21,6 @@ target
 #.idea/
 
 # Output files
-output.wav
 output/
 
 # Allow docs/ for GitHub Pages

@@ -119,6 +119,27 @@
             font-weight: 500;
         }
 
+        .song-title {
+            font-size: 1.3em;
+            font-weight: 600;
+            margin-bottom: 5px;
+        }
+
+        .song-tags {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .tag {
+            background: rgba(255, 255, 255, 0.3);
+            padding: 4px 12px;
+            border-radius: 15px;
+            font-size: 0.85em;
+            font-weight: 500;
+        }
+
         .download-btn {
             display: inline-block;
             background: white;
@@ -266,16 +287,21 @@
 
         <div class="content">
             <div class="description">
-                <h2>About This Project</h2>
+                <h2>🎸 Procedurally Generated Royalty-Free Music</h2>
             <p>
-                <strong>Rust Beats</strong> is a parallel drum beat generator that creates randomized 
-                musical beats using real audio samples. Each day, a new unique song is automatically 
-                generated using Rust's concurrency features and probabilistic rhythm algorithms.
+                <strong>Rust Beats</strong> is a procedural music generation system that creates unique 
+                funk, jazz, and electro-swing tracks using synthesis algorithms and music theory.
+                Each day, a brand new song is automatically generated with a unique personality!
+            </p>
+            <p style="background: #e8f5e9; padding: 15px; border-radius: 8px; border-left: 4px solid #4caf50;">
+                <strong>✅ 100% Free to Use!</strong><br>
+                All music is free for content creators, YouTubers, streamers, podcasters, and anyone else!
+                No attribution required (but appreciated). License: CC0 Public Domain / CC BY.
             </p>
             <p>
-                Every beat is different, featuring procedurally generated kick, snare, and hi-hat patterns 
-                with position-aware probabilities that maintain musical coherence. The last 7 songs are 
-                kept available for listening and downloading.
+                Every song features: synthesized instruments, music theory-based chord progressions, 
+                funky bass lines, groovy drum patterns, and melodic elements. No samples - everything 
+                is generated from scratch!
             </p>
             </div>
 
@@ -326,9 +352,19 @@
                 // Display latest song
                 const latestSong = songs[0];
                 const latestContainer = document.getElementById('latest-song-container');
+                
+                let tagsHTML = '';
+                if (latestSong.genre && latestSong.genre.length > 0) {
+                    tagsHTML = '<div class="song-tags">' + 
+                        latestSong.genre.map(tag => `<span class="tag">${tag}</span>`).join('') +
+                        '</div>';
+                }
+                
                 latestContainer.innerHTML = `
                     <div class="latest-song">
                         <h2>🎵 Latest Song</h2>
+                        ${latestSong.name ? `<div class="song-title">${latestSong.name}</div>` : ''}
+                        ${tagsHTML}
                         <div class="song-info">
                             <div class="song-date">
                                 Generated: ${formatDate(latestSong.date)}
@@ -351,12 +387,19 @@
                     
                     for (let i = 1; i < songs.length; i++) {
                         const song = songs[i];
+                        
+                        let songTags = '';
+                        if (song.genre && song.genre.length > 0) {
+                            songTags = song.genre.slice(0, 2).join(', ');
+                        }
+                        
                         previousHTML += `
                             <div class="song-item">
                                 <div class="song-item-header">
                                     <div>
+                                        ${song.name ? `<div class="song-item-date"><strong>${song.name}</strong></div>` : ''}
                                         <div class="song-item-date">${formatDate(song.date)}</div>
-                                        <div class="song-item-size">${formatBytes(song.size)}</div>
+                                        ${songTags ? `<div class="song-item-size">${songTags} • ${formatBytes(song.size)}</div>` : `<div class="song-item-size">${formatBytes(song.size)}</div>`}
                                     </div>
                                     <a href="songs/${song.filename}" download class="small-download-btn">
                                         ⬇️ Download

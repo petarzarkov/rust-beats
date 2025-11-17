@@ -1,0 +1,30 @@
+# Rust Beats Configuration
+
+[audio]
+# Sample rate in Hz (44100 = CD quality, 48000 = professional)
+sample_rate = 44100
+# Bit depth for WAV files (16 or 24)
+bit_depth = 16
+
+[metadata]
+# Artist name that appears in WAV metadata and webpage
+artist = "Petar Zarkov"
+# Copyright/license information
+copyright = "Free to use - CC0 Public Domain"
+# Software identifier
+software = "Rust Beats - Procedural Music Generator"
+
+[composition]
+# Song structure: "short" (30-60s for testing) or "standard" (2-3 min full song)
+structure = "standard"
+# Minimum tempo in BPM
+min_tempo = 90.0
+# Maximum tempo in BPM
+max_tempo = 130.0
+
+[generation]
+# Output directory for generated songs
+output_dir = "output"
+# Whether to write metadata JSON alongside WAV files
+write_metadata_json = true
+

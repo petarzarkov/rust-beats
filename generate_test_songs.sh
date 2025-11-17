@@ -22,12 +22,14 @@ for i in {6..0}; do
         DATE=$(date -d "${i} days ago" +%Y-%m-%d)
     fi
     
-    # Run cargo to generate a beat
+    # Run cargo to generate a song
     cargo run --release
     
-    # Copy the final song with the dated filename
+    # Copy the final song and metadata with the dated filename
     cp output/final_song.wav docs/songs/song-${DATE}.wav
+    cp output/song_metadata.json docs/songs/song-${DATE}.json
     echo "Created: docs/songs/song-${DATE}.wav"
+    echo "Created: docs/songs/song-${DATE}.json"
 done
 
 echo ""
@@ -49,7 +51,15 @@ for file in $(ls -t song-*.wav 2>/dev/null); do
     fi
     date=$(echo $file | sed 's/song-\(.*\)\.wav/\1/')
     size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
-    echo "  {\"filename\": \"$file\", \"date\": \"$date\", \"size\": $size}" >> ../songs.json
+    
+    metadata_file="song-${date}.json"
+    if [ -f "$metadata_file" ]; then
+        name=$(jq -r '.name // ""' "$metadata_file" 2>/dev/null || echo "")
+        genre=$(jq -c '.genre // []' "$metadata_file" 2>/dev/null || echo "[]")
+        echo "  {\"filename\": \"$file\", \"date\": \"$date\", \"size\": $size, \"name\": \"$name\", \"genre\": $genre}" >> ../songs.json
+    else
+        echo "  {\"filename\": \"$file\", \"date\": \"$date\", \"size\": $size}" >> ../songs.json
+    fi
 done
 echo "" >> ../songs.json
 echo "]" >> ../songs.json
