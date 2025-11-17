@@ -1,7 +1,9 @@
 {
   "artist": "Petar Zarkov",
-  "duration": 292.2635803222656,
-  "genre": ["Ambient", "Jazzy", "Instrumental"],
-  "name": "Mellow City Charm",
-  "tempo": 68.97879028320312
+  "duration": 224.2640380859375,
+  "genre": [
+    "Downtempo"
+  ],
+  "name": "Party Bop",
+  "tempo": 89.8940200805664
 }
