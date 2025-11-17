@@ -4,10 +4,11 @@ mod audio;
 mod config;
 
 use std::fs;
+use rand::Rng;
 use composition::{
     generate_song_name, generate_genre_tags,
     Key, Tempo, generate_chord_progression,
-    generate_drum_pattern, random_groove_style, DrumHit, GrooveStyle,
+    generate_drum_pattern, random_groove_style, DrumHit, GrooveStyle, select_random_drum_kit,
     Arrangement,
 };
 use synthesis::{
@@ -15,7 +16,7 @@ use synthesis::{
     generate_bassline, generate_melody, generate_pads,
     SAMPLE_RATE, LofiProcessor,
 };
-use audio::{render_to_wav_with_metadata, SongMetadata, Track, mix_tracks, master_lofi, stereo_to_mono};
+use audio::{render_to_wav_with_metadata, encode_to_mp3, SongMetadata, Track, mix_tracks, master_lofi, stereo_to_mono};
 use config::Config;
 
 fn main() {
@@ -49,7 +50,76 @@ fn main() {
     
     println!("🎹 Key: Root MIDI {}, Scale: {:?}", key.root, key.scale_type);
     println!("⏱️  Tempo: {:.1} BPM", tempo.bpm);
-    println!("🥁 Groove: {:?}\n", groove_style);
+    println!("🥁 Groove: {:?}", groove_style);
+    
+    // Per-song instrument and style selection for variety
+    let mut rng = rand::thread_rng();
+    
+    // Select lead instrument (Rhodes 40%, Ukulele 15%, Guitar 15%, etc.)
+    let lead_instrument = {
+        let roll: f32 = rng.gen_range(0.0..1.0);
+        if roll < 0.40 { 
+            "Rhodes" 
+        } else if roll < 0.55 {
+            "Ukulele"
+        } else if roll < 0.70 {
+            "Guitar"
+        } else if roll < 0.85 {
+            "Electric"
+        } else {
+            "Organ"
+        }
+    };
+    
+    // Select bass type (current 50%, synth 20%, upright 15%, finger 10%, slap 5%)
+    let bass_type = {
+        let roll: f32 = rng.gen_range(0.0..1.0);
+        if roll < 0.50 {
+            "Standard"
+        } else if roll < 0.70 {
+            "Synth"
+        } else if roll < 0.85 {
+            "Upright"
+        } else if roll < 0.95 {
+            "Finger"
+        } else {
+            "Slap"
+        }
+    };
+    
+    // Select drum kit
+    let drum_kit = select_random_drum_kit();
+    
+    // Percussion additions (30% chance)
+    let add_percussion = rng.gen_range(0.0..1.0) < 0.30;
+    let percussion_type = if add_percussion {
+        let roll: f32 = rng.gen_range(0.0..1.0);
+        if roll < 0.33 { "Tambourine" } 
+        else if roll < 0.66 { "Cowbell" }
+        else { "Bongo" }
+    } else {
+        "None"
+    };
+    
+    // Pad intensity (subtle 40%, medium 40%, prominent 20%)
+    let pad_intensity = {
+        let roll: f32 = rng.gen_range(0.0..1.0);
+        if roll < 0.40 { "Subtle" }
+        else if roll < 0.80 { "Medium" }
+        else { "Prominent" }
+    };
+    
+    // Mixing style
+    let mixing_style = {
+        let roll: f32 = rng.gen_range(0.0..1.0);
+        if roll < 0.25 { "Clean" }
+        else if roll < 0.50 { "Warm" }
+        else if roll < 0.75 { "Punchy" }
+        else { "Spacious" }
+    };
+    
+    println!("🎸 Lead: {}, Bass: {}, Drums: {:?}", lead_instrument, bass_type, drum_kit);
+    println!("🥁 Percussion: {}, Pads: {}, Mix: {}\n", percussion_type, pad_intensity, mixing_style);
 
     // Generate song arrangement
     let arrangement = if config.composition.structure == "short" {
@@ -85,46 +155,83 @@ fn main() {
     println!("  ├─ Pads (atmospheric)");
     let pads = generate_pads(&chords, tempo.bpm, num_bars);
 
-    // Professional multi-track mixing with stereo, panning, EQ
-    println!("  ├─ Multi-track mixing");
+    // Professional multi-track mixing with style variations
+    println!("  ├─ Multi-track mixing ({})", mixing_style);
+    
+    // Adjust mixing parameters based on style
+    let (drum_vol, drum_eq_l, drum_eq_m, drum_eq_h) = match mixing_style {
+        "Clean" => (1.1, 1.2, 1.0, 1.0),   // Clean, balanced
+        "Warm" => (1.0, 1.5, 0.9, 0.7),    // More bass, less treble
+        "Punchy" => (1.3, 1.4, 1.1, 0.9),  // Louder, emphasized low-mid
+        "Spacious" => (1.0, 1.1, 0.95, 1.1), // Airier, more high-end
+        _ => (1.2, 1.4, 1.0, 0.9),
+    };
+    
+    let (bass_vol, bass_eq_l, bass_eq_m, bass_eq_h) = match mixing_style {
+        "Clean" => (0.40, 1.0, 0.8, 0.5),
+        "Warm" => (0.50, 1.3, 0.75, 0.4),  // Warmer, more bass
+        "Punchy" => (0.42, 1.2, 0.85, 0.5),
+        "Spacious" => (0.35, 0.9, 0.8, 0.6),
+        _ => (0.45, 1.1, 0.8, 0.5),
+    };
+    
+    let (melody_vol, melody_eq_l, melody_eq_m, melody_eq_h) = match mixing_style {
+        "Clean" => (0.40, 0.85, 1.1, 1.05),
+        "Warm" => (0.36, 0.95, 1.0, 0.9),  // Darker
+        "Punchy" => (0.40, 0.9, 1.15, 1.0),
+        "Spacious" => (0.35, 0.8, 1.0, 1.15), // Airier
+        _ => (0.38, 0.9, 1.1, 1.0),
+    };
+    
+    // Pad volume based on intensity
+    let pad_vol = match pad_intensity {
+        "Subtle" => 0.25,
+        "Medium" => 0.40,
+        "Prominent" => 0.55,
+        _ => 0.35,
+    };
+    
     let tracks = vec![
-        // Drums: LOUD and punchy - the foundation!
+        // Drums
         Track::new(drums)
-            .with_volume(1.2)  // Much louder!
+            .with_volume(drum_vol)
             .with_pan(0.0)
-            .with_eq(1.4, 1.0, 0.9),  // Punchy, balanced
+            .with_eq(drum_eq_l, drum_eq_m, drum_eq_h),
         
-        // Bass: VERY subtle, background only
+        // Bass
         Track::new(bassline)
-            .with_volume(0.45)  // Much quieter - reduced from 0.65
+            .with_volume(bass_vol)
             .with_pan(0.0)
-            .with_eq(1.1, 0.8, 0.5),  // Minimal presence
+            .with_eq(bass_eq_l, bass_eq_m, bass_eq_h),
         
-        // Melody: Brighter, happier (but still tasteful)
+        // Melody (stereo doubled)
         Track::new(melody.clone())
-            .with_volume(0.38)  // Slightly louder for happiness
+            .with_volume(melody_vol)
             .with_pan(-0.15)
-            .with_eq(0.9, 1.1, 1.0),  // Brighter, more present
+            .with_eq(melody_eq_l, melody_eq_m, melody_eq_h),
         
-        // Melody doubled for stereo width
         Track::new(melody)
-            .with_volume(0.38)  // Slightly louder
+            .with_volume(melody_vol)
             .with_pan(0.15)
-            .with_eq(0.9, 1.1, 1.0),  // Brighter
+            .with_eq(melody_eq_l, melody_eq_m, melody_eq_h),
         
-        // Pads: subtle atmospheric layer
+        // Pads (stereo wide)
         Track::new(pads.clone())
-            .with_volume(0.35)
+            .with_volume(pad_vol)
             .with_pan(-0.5)
-            .with_eq(0.8, 0.9, 0.8),  // Darker
+            .with_eq(0.8, 0.9, 0.8),
         
         Track::new(pads)
-            .with_volume(0.35)
+            .with_volume(pad_vol)
             .with_pan(0.5)
             .with_eq(0.8, 0.9, 0.8),
     ];
     
     let mut stereo_mix = mix_tracks(tracks);
+    
+    // Apply arrangement-aware dynamics (volume automation)
+    println!("  ├─ Arrangement dynamics (volume automation)");
+    apply_arrangement_dynamics(&mut stereo_mix, &arrangement, tempo.bpm);
     
     // Apply lofi mastering chain (compression, warmth, limiting)
     println!("  ├─ Lofi mastering (compression, warmth & limiting)");
@@ -140,12 +247,24 @@ fn main() {
     
     println!("  └─ Finalizing\n");
 
+    // Get current date (YYYY-MM-DD format)
+    let now = std::time::SystemTime::now();
+    let duration_since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap();
+    let secs = duration_since_epoch.as_secs();
+    let days = secs / 86400;
+    let years = 1970 + days / 365;
+    let remaining_days = days % 365;
+    let month = (remaining_days / 30) + 1;
+    let day = (remaining_days % 30) + 1;
+    let date = format!("{:04}-{:02}-{:02}", years, month.min(12), day.min(31));
+    
     // Create metadata
     let metadata = SongMetadata {
         title: song_name.clone(),
         artist: config.metadata.artist.clone(),
         copyright: config.metadata.copyright.clone(),
         genre: genre_tags.clone(),
+        date: date.clone(),
     };
 
     // Save the song
@@ -161,6 +280,17 @@ fn main() {
         }
     }
 
+    // Generate MP3 file for smaller file size
+    let mp3_path = format!("{}/final_song.mp3", output_dir);
+    match encode_to_mp3(&final_mix, &mp3_path, &song_name, &config.metadata.artist) {
+        Ok(_) => {
+            println!("✅ Successfully created MP3: {}", mp3_path);
+        }
+        Err(e) => {
+            eprintln!("⚠️  Warning: Could not create MP3: {}", e);
+        }
+    }
+
     // Save metadata for the workflow
     if config.generation.write_metadata_json {
         let metadata_path = format!("{}/song_metadata.json", output_dir);
@@ -170,6 +300,7 @@ fn main() {
             "genre": genre_tags,
             "tempo": tempo.bpm,
             "duration": final_mix.len() as f32 / SAMPLE_RATE as f32,
+            "date": date,
         });
         
         if let Err(e) = fs::write(&metadata_path, serde_json::to_string_pretty(&metadata_json).unwrap()) {
@@ -250,6 +381,63 @@ fn render_arranged_melody(arrangement: &Arrangement, key: &Key, chords: &[compos
     }
     
     all_melody
+}
+
+/// Apply volume automation based on arrangement sections
+/// Intro/Outro: quieter, Verse: normal, Chorus: louder, Bridge: medium
+/// Works with interleaved stereo buffer (L, R, L, R, ...)
+fn apply_arrangement_dynamics(stereo_buffer: &mut Vec<f32>, arrangement: &Arrangement, bpm: f32) {
+    use composition::Section;
+    
+    let samples_per_bar = (SAMPLE_RATE as f32 * 60.0 / bpm * 4.0) as usize * 2; // *2 for stereo
+    let mut current_sample = 0;
+    
+    for (section_type, bars) in &arrangement.sections {
+        let section_samples = samples_per_bar * bars;
+        let section_end = (current_sample + section_samples).min(stereo_buffer.len());
+        
+        // Determine volume multiplier for this section
+        let base_volume = match section_type {
+            Section::Intro => 0.75,   // Quieter intro
+            Section::Verse => 0.95,   // Standard verse
+            Section::Chorus => 1.15,  // Louder chorus
+            Section::Bridge => 0.90,  // Medium bridge
+            Section::Outro => 0.70,   // Quiet outro
+        };
+        
+        // Apply volume to section with smooth transitions
+        let fade_samples = samples_per_bar / 4; // Quarter bar fade
+        
+        for i in (current_sample..section_end).step_by(2) {
+            if i + 1 >= stereo_buffer.len() {
+                break;
+            }
+            
+            let progress_in_section = i - current_sample;
+            let samples_remaining = section_end - i;
+            
+            // Smooth fade in/out
+            let mut volume = base_volume;
+            
+            // Fade in at section start
+            if progress_in_section < fade_samples {
+                let fade_in = progress_in_section as f32 / fade_samples as f32;
+                volume *= fade_in;
+            }
+            
+            // Fade out at section end (especially for outro)
+            if *section_type == Section::Outro && samples_remaining < section_samples / 2 {
+                let fade_out = samples_remaining as f32 / (section_samples as f32 / 2.0);
+                volume *= fade_out.max(0.3); // Don't fade completely to silence
+            }
+            
+            // Apply volume to both channels
+            stereo_buffer[i] *= volume;
+            stereo_buffer[i + 1] *= volume;
+        }
+        
+        current_sample = section_end;
+    }
 }
 
 /// Render a drum pattern with intensity control

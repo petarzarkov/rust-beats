@@ -25,10 +25,10 @@ for i in {6..0}; do
     # Run cargo to generate a song
     cargo run --release
     
-    # Copy the final song and metadata with the dated filename
-    cp output/final_song.wav docs/songs/song-${DATE}.wav
+    # Copy the final song (MP3 only) and metadata with the dated filename
+    cp output/final_song.mp3 docs/songs/song-${DATE}.mp3
     cp output/song_metadata.json docs/songs/song-${DATE}.json
-    echo "Created: docs/songs/song-${DATE}.wav"
+    echo "Created: docs/songs/song-${DATE}.mp3"
     echo "Created: docs/songs/song-${DATE}.json"
 done
 
@@ -43,13 +43,13 @@ echo "Generating songs.json..."
 cd docs/songs
 echo "[" > ../songs.json
 first=true
-for file in $(ls -t song-*.wav 2>/dev/null); do
+for file in $(ls -t song-*.mp3 2>/dev/null); do
     if [ "$first" = true ]; then
         first=false
     else
         echo "," >> ../songs.json
     fi
-    date=$(echo $file | sed 's/song-\(.*\)\.wav/\1/')
+    date=$(echo $file | sed 's/song-\(.*\)\.mp3/\1/')
     size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
     
     metadata_file="song-${date}.json"

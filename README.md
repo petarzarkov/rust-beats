@@ -1,6 +1,6 @@
 # rust-beats 🥁
 
-A parallel drum beat generator written in Rust that creates randomized musical beats using real audio samples.
+A procedural music generator written in Rust that creates unique lofi/chill songs with complete synthesis - no samples needed!
 
 ## 🎵 Live Demo
 
@@ -10,41 +10,63 @@ Every day at midnight UTC, a new unique song is automatically generated and depl
 
 ## Overview
 
-`rust-beats` is a command-line application that generates unique drum beats by procedurally combining kick, snare, and hi-hat samples. It leverages Rust's concurrency features to generate multiple beats simultaneously, utilizing all available CPU cores for efficient parallel processing.
+`rust-beats` is a command-line application that generates unique, complete songs through procedural synthesis and music theory. Every sound is synthesized from scratch - drums, bass, melody, and pads - with no samples required. Each song features real chord progressions, scales, dynamic arrangements, and varied instrumentation.
 
 ## Features
 
+### 🎼 Music Generation
+
 - **Advanced Song Structure**: Intro, Verse, Chorus, Bridge, Outro with dynamic arrangement
-- **Complete Synthesis Engine**: All sounds generated procedurally - drums, bass, melody, no samples needed
-- **Music Theory Integration**: Real chord progressions, scales, and key-aware melodies
-- **Dynamic Intensity**: Sections vary in volume and complexity for natural song flow
-- **Configurable via TOML**: Easy customization of tempo, structure, metadata
-- **Song Naming System**: Generates funky, jazzy, groovy names automatically
-- **WAV Metadata**: Embeds artist, title, genre, copyright in file properties
+- **Complete Synthesis Engine**: All sounds generated procedurally - no samples needed
+- **Music Theory Integration**: Real chord progressions, scales (Major, Minor, Dorian, Lydian, etc.)
+- **Varied Instrumentation**: Rhodes, acoustic guitar, ukulele, electric guitar, multiple bass types
+- **Diverse Percussion**: Tambourine, cowbell, bongo, woodblock, 6 different drum kit styles
+- **Dynamic Intensity**: Volume automation across sections for natural song flow
+- **Mixing Variations**: 4 mixing styles (Clean, Warm, Punchy, Spacious) for sonic diversity
+
+### 🎵 Output & Quality
+
+- **Dual Format Export**: High-quality WAV (16-bit, 44.1kHz) + compressed MP3 (192kbps)
+- **File Size Optimized**: MP3 reduces size by ~85% (10-20MB WAV → 1-3MB MP3)
+- **Rich Metadata**: Embeds artist, title, genre, copyright, and date in files
+- **Song Naming System**: Generates creative names automatically
+
+### ⚙️ Configuration & Automation
+
+- **Configurable via TOML**: Easy customization of tempo, structure, metadata, author
 - **Automated Daily Generation**: GitHub Actions workflow generates new songs daily
 - **GitHub Pages Deployment**: Live website with audio player and history of the last 7 songs
 - **Free for Content Creators**: All music is CC0/CC BY license
 
 ## How It Works
 
-1. **Beat Generation** (`beat_maker.rs`):
+1. **Music Theory** (`composition/`):
 
-   - Creates a sequence of 64 drum events (kick, snare, hi-hat, or rest)
-   - Uses position-aware probabilities to maintain musical coherence
-   - Emphasizes strong beats (positions 0, 4, 8, 12) with kicks and snares
-   - Fills in with hi-hats and occasional variations
+   - Generates random key and scale (Major, Minor, Dorian, Lydian, Pentatonic, etc.)
+   - Creates chord progressions using music theory rules
+   - Defines song arrangement (Intro, Verse, Chorus, Bridge, Outro)
+   - Generates drum patterns for different groove styles (Funk, Jazz, Lofi, Hip-Hop, Rock)
 
-2. **Audio Rendering** (`audio_renderer.rs`):
+2. **Sound Synthesis** (`synthesis/`):
 
-   - Loads sample WAV files from the `samples/` directory
-   - Maps each drum event to its corresponding audio sample
-   - Renders the beat at 44.1kHz sample rate with 250ms per step
-   - Writes the final composition as a WAV file
+   - **Drums**: Synthesizes kick, snare, hi-hat, clap using oscillators and envelopes
+   - **Bass**: Multiple bass types (standard, synth, upright, finger, slap) with varied timbres
+   - **Melody**: Rhodes piano, guitar, ukulele with humanized timing and velocity
+   - **Pads**: Atmospheric layers with slow attack/release for ambient texture
+   - **Effects**: Lofi processing (vinyl crackle, tape saturation, bit crushing)
 
-3. **Concurrent Execution** (`main.rs`):
-   - Spawns one thread per logical CPU core
-   - Each thread generates a unique random beat
-   - All beats are saved to the `output/` directory as `beat_1.wav`, `beat_2.wav`, etc.
+3. **Mixing & Mastering** (`audio/`):
+
+   - Multi-track mixing with volume, panning, and EQ per track
+   - 4 mixing styles with different sonic characteristics
+   - Volume automation based on song sections
+   - Lofi-style mastering with gentle compression and warmth
+   - Stereo-to-mono conversion for final output
+
+4. **Export** (`audio/encoder.rs`):
+   - Renders high-quality WAV with embedded metadata (title, artist, genre, date)
+   - Encodes to MP3 at 192kbps for smaller file size
+   - Both formats saved to output directory
 
 ## Usage
 
@@ -101,34 +123,41 @@ Artist: Petar Zarkov
 Sample Rate: 44100 Hz
 Structure: standard
 
-📝 Song Name: Cosmic Midnight Groove
-🎸 Genres: ["Funk", "Groovy"]
-🎹 Key: Root MIDI 43, Scale: Dorian
-⏱️  Tempo: 112.3 BPM
-🥁 Groove: Funk
+📝 Song Name: Honey Stars
+🎸 Genres: ["Jazz"]
+🎹 Key: Root MIDI 46, Scale: Major
+⏱️  Tempo: 105.1 BPM
+🥁 Groove: Lofi
+🎸 Lead: Electric, Bass: Standard, Drums: Acoustic
+🥁 Percussion: None, Pads: Subtle, Mix: Spacious
 
-🎼 Generating 52 bars of music...
+🎼 Generating 84 bars of music...
    Structure: 7 sections
-   Intro: 4 bars
-   Verse: 8 bars
-   Chorus: 8 bars
-   Verse: 8 bars
-   Chorus: 8 bars
+   Intro: 8 bars
+   Verse: 16 bars
+   Chorus: 16 bars
+   Verse: 16 bars
+   Chorus: 16 bars
    Bridge: 8 bars
    Outro: 4 bars
 
   ├─ Drums (with dynamics)
   ├─ Bass (with sections)
   ├─ Melody (with variation)
-  └─ Mixing
+  ├─ Pads (atmospheric)
+  ├─ Multi-track mixing (Spacious)
+  ├─ Arrangement dynamics (volume automation)
+  ├─ Lofi mastering (compression, warmth & limiting)
+  └─ Lofi effects (vinyl crackle & tape saturation)
 
 ✅ Successfully created: output/final_song.wav
-   Duration: 143.2s (2:23)
-   Samples: 6315600
+   Duration: 201.0s (3:21)
+   Samples: 8,868,900
+✅ Successfully created MP3: output/final_song.mp3
 
 🎉 Song generation complete!
-   Name: Cosmic Midnight Groove
-   Style: Funk, Groovy @ 112 BPM
+   Name: Honey Stars
+   Style: Jazz @ 105 BPM
 ```
 
 ## Project Structure
@@ -157,12 +186,14 @@ rust-beats/
 ├── docs/                  # GitHub Pages website
 │   ├── index.html         # Web player interface
 │   ├── songs/             # Generated songs (last 7)
-│   │   ├── song-*.wav
+│   │   ├── song-*.wav     # High-quality WAV files
+│   │   ├── song-*.mp3     # Compressed MP3 files
 │   │   └── song-*.json    # Metadata per song
 │   └── songs.json         # Song list
 ├── config.toml            # User configuration
 ├── output/                # Local generated songs
-│   ├── final_song.wav
+│   ├── final_song.wav     # WAV output (10-20MB)
+│   ├── final_song.mp3     # MP3 output (1-3MB)
 │   └── song_metadata.json
 └── Cargo.toml
 ```
@@ -171,15 +202,21 @@ rust-beats/
 
 - **Language**: Rust (Edition 2024)
 - **Sample Rate**: 44.1 kHz
-- **Bit Depth**: 16-bit PCM
-- **Step Duration**: 250ms per step
-- **Beat Length**: 64 steps (16 seconds)
-- **Concurrency**: Thread-per-core using `std::thread::scope`
+- **Bit Depth**: 16-bit PCM (WAV)
+- **MP3 Encoding**: 192 kbps, best quality
+- **Song Duration**: 2-3.5 minutes (configurable)
+- **Synthesis**: Pure Rust oscillators, filters, envelopes
+- **Music Theory**: 7 scale types, 17 chord types, key-aware progressions
+- **Instruments**: 10+ synthesized instruments with varied timbres
+- **File Sizes**: WAV ~10-20MB, MP3 ~1-3MB (85% reduction)
 
 ### Dependencies
 
-- `rand` (0.8) - Random number generation for probabilistic beat creation
-- `hound` (3.5) - WAV file reading and writing
+- `rand` (0.8) - Random number generation for procedural music
+- `hound` (3.5) - WAV file writing with metadata
+- `mp3lame-encoder` (0.2) - MP3 encoding for file size optimization
+- `serde` (1.0) - Configuration and metadata serialization
+- `toml` (0.8) - Configuration file parsing
 
 ## GitHub Actions & Deployment
 
@@ -194,19 +231,21 @@ This project uses GitHub Actions to automatically generate and deploy new beats:
 ### Deployment Process
 
 1. Builds the Rust project in release mode
-2. Generates a new beat composition
-3. Names the output file with the current date (e.g., `song-2025-11-16.wav`)
-4. Keeps only the 7 most recent songs
-5. Updates the song list metadata
-6. Deploys to GitHub Pages
+2. Generates a new song with random parameters (key, tempo, instruments, etc.)
+3. Creates both WAV and MP3 files with the current date (e.g., `song-2025-11-16.wav/.mp3`)
+4. Keeps only the 7 most recent songs (automatically removes older files)
+5. Updates the song list metadata including file sizes and song information
+6. Commits the new files to the repository
+7. Deploys to GitHub Pages
 
 ### Viewing the Results
 
 Visit **[petarzarkov.github.io/rust-beats](https://petarzarkov.github.io/rust-beats/)** to:
 
-- Listen to the latest generated beat
-- Browse and download the previous 7 songs
-- See generation dates and file information
+- Listen to the latest generated song
+- Browse and download the previous 7 songs (WAV or MP3)
+- See song names, genres, generation dates, and file sizes
+- Read about the song's key, tempo, and instrumentation
 
 ## License
 

@@ -10,15 +10,17 @@ pub struct SongMetadata {
     pub artist: String,
     pub copyright: String,
     pub genre: Vec<String>,
+    pub date: String,  // Creation date in YYYY-MM-DD format
 }
 
 impl SongMetadata {
-    pub fn new(title: String, artist: String, copyright: String, genre: Vec<String>) -> Self {
+    pub fn new(title: String, artist: String, copyright: String, genre: Vec<String>, date: String) -> Self {
         SongMetadata {
             title,
             artist,
             copyright,
             genre,
+            date,
         }
     }
 }
@@ -93,6 +95,9 @@ fn append_info_chunk(
         let genre_str = metadata.genre.join(", ");
         add_info_field(&mut info_data, b"IGNR", genre_str.as_bytes());
     }
+    
+    // Add ICRD (creation date)
+    add_info_field(&mut info_data, b"ICRD", metadata.date.as_bytes());
     
     // Add ISFT (software)
     add_info_field(&mut info_data, b"ISFT", b"Rust Beats - Procedural Music Generator");

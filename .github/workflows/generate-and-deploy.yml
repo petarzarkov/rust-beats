@@ -62,17 +62,18 @@ jobs:
       - name: Copy song with date and metadata
         run: |
           DATE=$(date +%Y-%m-%d)
-          cp output/final_song.wav docs/songs/song-${DATE}.wav
+          cp output/final_song.mp3 docs/songs/song-${DATE}.mp3
           cp output/song_metadata.json docs/songs/song-${DATE}.json
-          echo "Generated song: song-${DATE}.wav"
+          echo "Generated MP3: song-${DATE}.mp3"
           echo "Metadata:"
           cat docs/songs/song-${DATE}.json
 
       - name: Clean up old songs (keep last 7 songs)
         run: |
           cd docs/songs
-          # Keep only the 7 most recent songs
-          ls -t song-*.wav 2>/dev/null | tail -n +8 | xargs -r rm -f
+          # Keep only the 7 most recent songs (MP3 and metadata)
+          ls -t song-*.mp3 2>/dev/null | tail -n +8 | xargs -r rm -f
+          ls -t song-*.json 2>/dev/null | tail -n +8 | xargs -r rm -f
           echo "Songs after cleanup:"
           ls -lh
 
@@ -82,15 +83,15 @@ jobs:
           # Create a JSON file with list of available songs
           echo "[" > ../songs.json
           first=true
-          for file in $(ls -t song-*.wav 2>/dev/null); do
+          for file in $(ls -t song-*.mp3 2>/dev/null); do
             if [ "$first" = true ]; then
               first=false
             else
               echo "," >> ../songs.json
             fi
             # Extract date from filename
-            date=$(echo $file | sed 's/song-\(.*\)\.wav/\1/')
-            size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+            date=$(echo $file | sed 's/song-\(.*\)\.mp3/\1/')
+            size=$(stat -c%s "$file" 2>/dev/null)
             
             # Check if metadata file exists for this song
             metadata_file="song-${date}.json"
@@ -111,7 +112,7 @@ jobs:
         run: |
           git config --local user.email "github-actions[bot]@users.noreply.github.com"
           git config --local user.name "github-actions[bot]"
-          git add docs/songs/*.wav docs/songs/*.json docs/songs.json
+          git add docs/songs/*.mp3 docs/songs/*.json docs/songs.json
           git diff --staged --quiet || git commit -m "🥁 Add generated song $(date +%Y-%m-%d)"
           git push
 

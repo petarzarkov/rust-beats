@@ -87,7 +87,7 @@ fn generate_funk_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
 fn generate_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
     let num_samples = (duration * SAMPLE_RATE as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
-    let mut rng = rand::thread_rng();
+    let rng = rand::thread_rng();
     
     // Bass envelope: VERY soft attack, gentle sustain (not aggressive)
     let envelope = Envelope {
@@ -147,6 +147,161 @@ pub fn generate_sub_bass(frequency: f32, duration: f32, amplitude: f32) -> Vec<f
     samples
 }
 
+/// Synth bass - analog-style with sawtooth/square waves
+pub fn generate_synth_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
+    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let mut samples = vec![0.0; num_samples];
+    
+    let envelope = Envelope {
+        attack: 0.005,
+        decay: 0.12,
+        sustain: 0.7,
+        release: 0.15,
+    };
+    
+    // Sawtooth for analog character
+    let mut saw1 = Oscillator::new(Waveform::Saw, freq);
+    let mut saw2 = Oscillator::new(Waveform::Saw, freq * 0.995); // Slightly detuned
+    let mut square = Oscillator::new(Waveform::Square, freq * 0.5); // Sub octave
+    
+    let mut filter = LowPassFilter::new(800.0, 0.5);
+    
+    for i in 0..num_samples {
+        let time = i as f32 / SAMPLE_RATE as f32;
+        let env_amp = envelope.get_amplitude(time, None);
+        
+        // Mix sawtooth layers with sub
+        let mut sample = saw1.next_sample() * 0.4
+                       + saw2.next_sample() * 0.4
+                       + square.next_sample() * 0.3;
+        
+        // Filter sweep
+        filter.cutoff = 500.0 + env_amp * 600.0;
+        sample = filter.process(sample);
+        
+        samples[i] = sample * env_amp * velocity * 0.7;
+    }
+    
+    samples
+}
+
+/// Upright bass - woody, pizzicato tone
+pub fn generate_upright_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
+    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let mut samples = vec![0.0; num_samples];
+    
+    // Short attack, medium decay for plucked upright sound
+    let envelope = Envelope {
+        attack: 0.008,
+        decay: 0.25,
+        sustain: 0.3,
+        release: 0.18,
+    };
+    
+    // Emphasis on fundamental with specific harmonics for woody tone
+    let mut fund = Oscillator::new(Waveform::Sine, freq);
+    let mut h2 = Oscillator::new(Waveform::Sine, freq * 2.0);
+    let mut h3 = Oscillator::new(Waveform::Sine, freq * 3.0);
+    
+    let mut filter = LowPassFilter::new(500.0, 0.3);
+    
+    for i in 0..num_samples {
+        let time = i as f32 / SAMPLE_RATE as f32;
+        let env_amp = envelope.get_amplitude(time, None);
+        
+        let mut sample = fund.next_sample() * 0.6
+                       + h2.next_sample() * 0.2
+                       + h3.next_sample() * 0.15;
+        
+        sample = filter.process(sample);
+        samples[i] = sample * env_amp * velocity * 0.75;
+    }
+    
+    samples
+}
+
+/// Finger bass - smooth, rounded attack
+pub fn generate_finger_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
+    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let mut samples = vec![0.0; num_samples];
+    
+    // Softer attack than current bass
+    let envelope = Envelope {
+        attack: 0.025,
+        decay: 0.3,
+        sustain: 0.65,
+        release: 0.22,
+    };
+    
+    // Pure sine layers for smooth finger style
+    let mut fund = Oscillator::new(Waveform::Sine, freq);
+    let mut sub = Oscillator::new(Waveform::Sine, freq * 0.5);
+    let mut h2 = Oscillator::new(Waveform::Sine, freq * 2.0);
+    
+    let mut filter = LowPassFilter::new(450.0, 0.25);
+    
+    for i in 0..num_samples {
+        let time = i as f32 / SAMPLE_RATE as f32;
+        let env_amp = envelope.get_amplitude(time, None);
+        
+        let mut sample = fund.next_sample() * 0.5
+                       + sub.next_sample() * 0.4
+                       + h2.next_sample() * 0.1;
+        
+        sample = filter.process(sample);
+        samples[i] = sample * env_amp * velocity * 0.65;
+    }
+    
+    samples
+}
+
+/// Slap bass - percussive, funky attack
+pub fn generate_slap_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
+    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let mut samples = vec![0.0; num_samples];
+    
+    // Very fast attack with sharp transient
+    let envelope = Envelope {
+        attack: 0.001,
+        decay: 0.08,
+        sustain: 0.2,
+        release: 0.12,
+    };
+    
+    // Triangle for brightness, with harmonics
+    let mut tri = Oscillator::new(Waveform::Triangle, freq);
+    let mut h2 = Oscillator::new(Waveform::Triangle, freq * 2.0);
+    let mut h3 = Oscillator::new(Waveform::Sine, freq * 3.0);
+    
+    // Add percussive click at attack
+    let mut rng = rand::thread_rng();
+    
+    let mut filter = LowPassFilter::new(1800.0, 0.6);
+    
+    for i in 0..num_samples {
+        let time = i as f32 / SAMPLE_RATE as f32;
+        let env_amp = envelope.get_amplitude(time, None);
+        
+        let mut sample = tri.next_sample() * 0.45
+                       + h2.next_sample() * 0.3
+                       + h3.next_sample() * 0.15;
+        
+        // Add sharp transient at the beginning (slap sound)
+        if i < 200 {
+            let click_env = (-(i as f32) / 50.0).exp();
+            let click = (rng.gen_range(0.0..1.0) - 0.5) * 0.4;
+            sample += click * click_env;
+        }
+        
+        filter.cutoff = 1500.0 + env_amp * 1000.0;
+        sample = filter.process(sample);
+        
+        samples[i] = sample * env_amp * velocity * 0.8;
+    }
+    
+    samples
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -158,6 +313,18 @@ mod tests {
         let chords = generate_chord_progression(&key, 4);
         let bassline = generate_bassline(&chords, 110.0, 4);
         assert!(!bassline.is_empty());
+    }
+    
+    #[test]
+    fn test_synth_bass() {
+        let note = generate_synth_bass_note(55.0, 0.5, 0.7);
+        assert!(!note.is_empty());
+    }
+    
+    #[test]
+    fn test_upright_bass() {
+        let note = generate_upright_bass_note(55.0, 0.5, 0.7);
+        assert!(!note.is_empty());
     }
 }
 

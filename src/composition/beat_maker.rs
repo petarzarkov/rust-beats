@@ -27,6 +27,38 @@ pub enum GrooveStyle {
     Lofi,
 }
 
+/// Drum kit type determines the sonic character of drums
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DrumKit {
+    Acoustic,      // Natural, warm drum sounds
+    Electronic808, // Classic drum machine
+    HipHop,        // Punchy, sampled-style
+    Rock,          // Powerful, aggressive
+    Jazz,          // Soft, brushed
+    Lofi,          // Muted, vintage
+}
+
+/// Select a random drum kit with weighted probabilities
+pub fn select_random_drum_kit() -> DrumKit {
+    let mut rng = rand::thread_rng();
+    let roll: f32 = rng.gen_range(0.0..1.0);
+    
+    // Weighted distribution for variety
+    if roll < 0.25 {
+        DrumKit::Lofi
+    } else if roll < 0.45 {
+        DrumKit::Acoustic
+    } else if roll < 0.60 {
+        DrumKit::HipHop
+    } else if roll < 0.75 {
+        DrumKit::Electronic808
+    } else if roll < 0.88 {
+        DrumKit::Jazz
+    } else {
+        DrumKit::Rock
+    }
+}
+
 /// Generate a drum pattern based on groove style
 pub fn generate_drum_pattern(style: GrooveStyle, num_bars: usize) -> DrumPattern {
     let mut pattern = Vec::new();
