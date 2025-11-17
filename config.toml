@@ -17,10 +17,10 @@ software = "Rust Beats - Procedural Music Generator"
 [composition]
 # Song structure: "short" (30-60s for testing) or "standard" (2-3 min full song)
 structure = "standard"
-# Minimum tempo in BPM (lofi sweet spot)
-min_tempo = 60.0
-# Maximum tempo in BPM (laid-back lofi)
-max_tempo = 100.0
+# Minimum tempo in BPM (upbeat, energetic)
+min_tempo = 95.0
+# Maximum tempo in BPM (upbeat, energetic)
+max_tempo = 160.0
 
 [generation]
 # Output directory for generated songs

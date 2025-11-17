@@ -54,129 +54,106 @@ fn generate_ear_candy_bar(
     // Choose ear candy type for this bar
     let candy_type = rng.gen_range(0..100);
     
-    if candy_type < 20 {
-        // Bell/twinkle effects - quick, bright notes
-        generate_twinkle_candy(&mut bar, &chord_tones, bar_duration, rng);
-    } else if candy_type < 40 {
-        // Dual note presses (F+F#, semitone clusters)
-        generate_dual_note_candy(&mut bar, &chord_tones, bar_duration, rng);
-    } else if candy_type < 60 {
-        // Beep boop electronic blips
-        generate_beep_boop_candy(&mut bar, &chord_tones, bar_duration, rng);
-    } else if candy_type < 80 {
-        // Quick arpeggio bursts (jungle-ish)
-        generate_quick_arpeggio_candy(&mut bar, &chord_tones, bar_duration, rng);
+    if candy_type < 30 {
+        // Rhythmic Rhodes hits on the beat
+        generate_on_beat_hits_candy(&mut bar, &chord_tones, bar_duration, rng);
+    } else if candy_type < 55 {
+        // Syncopated rhythmic patterns
+        generate_syncopated_rhythm_candy(&mut bar, &chord_tones, bar_duration, rng);
+    } else if candy_type < 75 {
+        // Short chord progression snippets
+        generate_chord_movement_candy(&mut bar, &chord_tones, bar_duration, rng);
     } else {
-        // Maraca/shaker-like rhythmic Rhodes hits
-        generate_rhythmic_hits_candy(&mut bar, &chord_tones, bar_duration, rng);
+        // Ghost note fills (subtle, rhythmic)
+        generate_ghost_note_fills_candy(&mut bar, &chord_tones, bar_duration, rng);
     }
     
     bar
 }
 
-/// Twinkle bells - short, bright, sparse notes
-fn generate_twinkle_candy(
+/// On-beat hits - simple, grounded rhythmic hits
+fn generate_on_beat_hits_candy(
     bar: &mut [f32],
     chord_tones: &[MidiNote],
     bar_duration: f32,
     rng: &mut impl Rng,
 ) {
-    let num_twinkles = rng.gen_range(2..=4);
+    // Hit on beats 1, 2, 3, or 4
+    let beat_duration = bar_duration / 4.0;
+    let beats_to_hit = vec![0, 1, 2, 3];
+    let num_hits = rng.gen_range(2..=3);
     
-    for _ in 0..num_twinkles {
-        let time = rng.gen_range(0.0..bar_duration);
-        let note = chord_tones[rng.gen_range(0..chord_tones.len())] + 24; // High octave
+    for i in 0..num_hits {
+        let beat = beats_to_hit[i];
+        let time = beat as f32 * beat_duration;
+        let note = chord_tones[rng.gen_range(0..chord_tones.len())] + 12;
         let freq = midi_to_freq(note);
         
-        // Very short, bell-like
-        let twinkle = generate_bell_sound(freq, 0.15, 0.6);
+        // Short, punchy hit
+        let hit = generate_rhodes_note(freq, 0.2, 0.7);
         
         let start_sample = (time * SAMPLE_RATE as f32) as usize;
-        for (i, &sample) in twinkle.iter().enumerate() {
-            let idx = start_sample + i;
+        for (j, &sample) in hit.iter().enumerate() {
+            let idx = start_sample + j;
             if idx < bar.len() {
-                bar[idx] += sample * 0.5;
+                bar[idx] += sample * 0.45;
             }
         }
     }
 }
 
-/// Dual note presses - semitone clusters
-fn generate_dual_note_candy(
+/// Syncopated rhythm - offbeat accents
+fn generate_syncopated_rhythm_candy(
     bar: &mut [f32],
     chord_tones: &[MidiNote],
     bar_duration: f32,
     rng: &mut impl Rng,
 ) {
-    let num_hits = rng.gen_range(1..=3);
+    let beat_duration = bar_duration / 4.0;
+    // Syncopated pattern: offbeats and "and" of beats
+    let hit_times = vec![0.5, 1.5, 2.25, 3.0];
     
-    for _ in 0..num_hits {
-        let time = rng.gen_range(0.0..bar_duration);
-        let note1 = chord_tones[rng.gen_range(0..chord_tones.len())] + 12;
-        let note2 = note1 + 1; // Semitone cluster (like F+F#)
-        
-        let freq1 = midi_to_freq(note1);
-        let freq2 = midi_to_freq(note2);
-        
-        // Quick, percussive hits
-        let hit1 = generate_rhodes_note(freq1, 0.25, 0.7);
-        let hit2 = generate_rhodes_note(freq2, 0.25, 0.7);
-        
-        let start_sample = (time * SAMPLE_RATE as f32) as usize;
-        for (i, (&s1, &s2)) in hit1.iter().zip(hit2.iter()).enumerate() {
-            let idx = start_sample + i;
-            if idx < bar.len() {
-                bar[idx] += (s1 + s2) * 0.4;
+    for &beat_offset in &hit_times {
+        if rng.gen_range(0..100) < 70 { // 70% chance for each hit
+            let time = beat_offset * beat_duration;
+            let note = chord_tones[rng.gen_range(0..chord_tones.len())] + 12;
+            let freq = midi_to_freq(note);
+            
+            // Quick staccato
+            let hit = generate_rhodes_note(freq, 0.12, 0.6);
+            
+            let start_sample = (time * SAMPLE_RATE as f32) as usize;
+            for (i, &sample) in hit.iter().enumerate() {
+                let idx = start_sample + i;
+                if idx < bar.len() {
+                    bar[idx] += sample * 0.4;
+                }
             }
         }
     }
 }
 
-/// Beep boop electronic blips
-fn generate_beep_boop_candy(
+/// Chord movement - simple 2-3 note chord progression
+fn generate_chord_movement_candy(
     bar: &mut [f32],
     chord_tones: &[MidiNote],
     bar_duration: f32,
     rng: &mut impl Rng,
 ) {
-    let num_beeps = rng.gen_range(3..=6);
+    let beat_duration = bar_duration / 4.0;
+    let num_chords = rng.gen_range(2..=3);
     
-    for _ in 0..num_beeps {
-        let time = rng.gen_range(0.0..bar_duration);
-        let note = chord_tones[rng.gen_range(0..chord_tones.len())] + rng.gen_range(12..36);
+    for i in 0..num_chords {
+        let time = (i as f32 * 1.5) * beat_duration;
+        let note_idx = i % chord_tones.len();
+        let note = chord_tones[note_idx] + 12;
         let freq = midi_to_freq(note);
         
-        // Short, pure sine beeps
-        let beep = generate_beep_sound(freq, 0.08);
+        // Medium length hit
+        let hit = generate_rhodes_note(freq, 0.25, 0.65);
         
         let start_sample = (time * SAMPLE_RATE as f32) as usize;
-        for (i, &sample) in beep.iter().enumerate() {
-            let idx = start_sample + i;
-            if idx < bar.len() {
-                bar[idx] += sample * 0.4;
-            }
-        }
-    }
-}
-
-/// Quick arpeggio bursts
-fn generate_quick_arpeggio_candy(
-    bar: &mut [f32],
-    chord_tones: &[MidiNote],
-    bar_duration: f32,
-    rng: &mut impl Rng,
-) {
-    let burst_time = rng.gen_range(0.0..(bar_duration * 0.7));
-    let note_duration = 0.12;
-    
-    for (i, &note) in chord_tones.iter().take(3).enumerate() {
-        let time = burst_time + (i as f32 * note_duration);
-        let freq = midi_to_freq(note + 24);
-        
-        let arp_note = generate_rhodes_note(freq, note_duration, 0.6);
-        
-        let start_sample = (time * SAMPLE_RATE as f32) as usize;
-        for (j, &sample) in arp_note.iter().enumerate() {
+        for (j, &sample) in hit.iter().enumerate() {
             let idx = start_sample + j;
             if idx < bar.len() {
                 bar[idx] += sample * 0.5;
@@ -185,82 +162,36 @@ fn generate_quick_arpeggio_candy(
     }
 }
 
-/// Rhythmic hits like maracas
-fn generate_rhythmic_hits_candy(
+/// Ghost note fills - quiet, subtle rhythmic decoration
+fn generate_ghost_note_fills_candy(
     bar: &mut [f32],
     chord_tones: &[MidiNote],
     bar_duration: f32,
     rng: &mut impl Rng,
 ) {
-    // Syncopated rhythm pattern
-    let hit_times = vec![0.0, 0.5, 1.25, 2.0, 2.75, 3.5];
+    let beat_duration = bar_duration / 4.0;
+    // Quick fill at end of bar
+    let fill_times = vec![3.25, 3.5, 3.75];
     
-    for &time in &hit_times {
-        if time >= bar_duration / (60.0 / 4.0) {
-            continue;
-        }
-        let actual_time = time * (bar_duration / 4.0);
-        let note = chord_tones[rng.gen_range(0..chord_tones.len())] + 18;
+    for &beat_offset in &fill_times {
+        let time = beat_offset * beat_duration;
+        let note = chord_tones[rng.gen_range(0..chord_tones.len())] + 12;
         let freq = midi_to_freq(note);
         
-        // Very short, staccato
-        let hit = generate_rhodes_note(freq, 0.08, 0.5);
+        // Very quiet and short (ghost notes)
+        let ghost = generate_rhodes_note(freq, 0.08, 0.4);
         
-        let start_sample = (actual_time * SAMPLE_RATE as f32) as usize;
-        for (i, &sample) in hit.iter().enumerate() {
+        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        for (i, &sample) in ghost.iter().enumerate() {
             let idx = start_sample + i;
             if idx < bar.len() {
-                bar[idx] += sample * 0.5;
+                bar[idx] += sample * 0.3; // Very quiet
             }
         }
     }
 }
 
-/// Generate a bell/twinkle sound
-fn generate_bell_sound(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
-    let mut samples = vec![0.0; num_samples];
-    
-    let mut osc1 = Oscillator::new(Waveform::Sine, freq);
-    let mut osc2 = Oscillator::new(Waveform::Sine, freq * 2.76); // Bell-like overtone
-    let mut osc3 = Oscillator::new(Waveform::Sine, freq * 5.4);
-    
-    for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
-        let env = (-time * 12.0).exp(); // Fast decay
-        
-        let sample = osc1.next_sample() * 0.5
-                   + osc2.next_sample() * 0.3
-                   + osc3.next_sample() * 0.2;
-        
-        samples[i] = sample * env * velocity;
-    }
-    
-    samples
-}
-
-/// Generate a beep boop sound
-fn generate_beep_sound(freq: f32, duration: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
-    let mut samples = vec![0.0; num_samples];
-    
-    let mut osc = Oscillator::new(Waveform::Sine, freq);
-    
-    for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
-        let env = if time < duration * 0.5 {
-            1.0
-        } else {
-            (-((time - duration * 0.5) / (duration * 0.5)) * 8.0).exp()
-        };
-        
-        samples[i] = osc.next_sample() * env * 0.6;
-    }
-    
-    samples
-}
-
-/// OLD FUNCTION - kept for reference but not used
+/// OLD FUNCTIONS - kept for reference but not used
 fn _generate_connected_melody_phrase(
     scale_notes: &[MidiNote],
     chord: &Chord,
