@@ -1,4 +1,6 @@
 [
+  {"filename": "song-2025-11-17.wav", "date": "2025-11-17", "size": 3528044}
+,
   {"filename": "song-2025-11-16.wav", "date": "2025-11-16", "size": 3528044}
 ,
   {"filename": "song-2025-11-15.wav", "date": "2025-11-15", "size": 9702044}
@@ -10,7 +12,5 @@
   {"filename": "song-2025-11-12.wav", "date": "2025-11-12", "size": 9702044}
 ,
   {"filename": "song-2025-11-11.wav", "date": "2025-11-11", "size": 9702044}
-,
-  {"filename": "song-2025-11-10.wav", "date": "2025-11-10", "size": 9702044}
 
 ]
