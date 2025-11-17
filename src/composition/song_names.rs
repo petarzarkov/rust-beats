@@ -85,10 +85,10 @@ pub fn generate_song_name() -> String {
 pub fn generate_genre_tags() -> Vec<String> {
     let mut rng = rand::thread_rng();
     
-    let primary_genres = vec!["Funk", "Jazz", "Electro-Swing", "Soul", "Rock"];
+    let primary_genres = vec!["Lofi", "Chill", "Jazz", "Ambient", "Downtempo"];
     let secondary_styles = vec![
-        "Groovy", "Jazzy", "Funky", "Smooth", "Upbeat", 
-        "Chill", "Energetic", "Retro", "Modern", "Experimental"
+        "Jazzy", "Smooth", "Dreamy", "Mellow", "Relaxing",
+        "Cozy", "Atmospheric", "Retro", "Nostalgic", "Study"
     ];
     
     let mut tags = Vec::new();

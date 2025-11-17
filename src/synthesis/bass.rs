@@ -49,17 +49,17 @@ fn generate_funk_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
         let start_time = beat_pos * (bar_duration / 4.0);
         let duration = note_duration * duration_mult;
         
-        // Occasionally play octave or fifth
+        // Mostly stick to root note for consistency
         let freq_mult = match rng.gen_range(0..100) {
-            0..=75 => 1.0,        // Root
-            76..=90 => 0.5,       // Octave down
-            _ => 1.5,             // Fifth
+            0..=92 => 1.0,        // Root (most of the time)
+            93..=97 => 0.5,       // Octave down (rare)
+            _ => 1.5,             // Fifth (very rare)
         };
         
         let note = generate_bass_note(
             root_freq * freq_mult,
             duration,
-            velocity * 0.85, // Increased from 0.6 for more prominent bass
+            velocity * 0.65, // Gentler - reduced from 0.85
         );
         
         // Add to pattern at the right position
@@ -89,42 +89,39 @@ fn generate_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> 
     let mut samples = Vec::with_capacity(num_samples);
     let mut rng = rand::thread_rng();
     
-    // Bass envelope: punchy attack, medium decay
+    // Bass envelope: VERY soft attack, gentle sustain (not aggressive)
     let envelope = Envelope {
-        attack: 0.005,
-        decay: 0.15,
-        sustain: 0.6,
-        release: 0.08,
+        attack: 0.020,   // Even softer attack
+        decay: 0.25,     // Longer, gentler decay
+        sustain: 0.6,    // Lower sustain for less intensity
+        release: 0.20,   // Even longer release
     };
     
-    let note_off_time = duration * 0.85;
+    let note_off_time = duration * 0.88;
     
-    // Vary the waveform for timbral variety
-    let harmonic_waveform = match rng.gen_range(0..100) {
-        0..=70 => Waveform::Saw,      // Classic bass sound (most common)
-        71..=85 => Waveform::Square,  // Aggressive funk bass
-        _ => Waveform::Triangle,      // Smoother, mellower
-    };
+    // Always use sine for maximum warmth and consistency
+    let harmonic_waveform = Waveform::Sine;
     
-    // Use a mix of sine (sub) and another waveform (character) - more sub bass
+    // Use mostly sine waves for warm, round bass
     let mut sine_osc = Oscillator::new(Waveform::Sine, frequency);
+    let mut sine_osc2 = Oscillator::new(Waveform::Sine, frequency * 0.5); // Sub octave
     let mut harmonic_osc = Oscillator::new(harmonic_waveform, frequency);
-    let mut filter = LowPassFilter::new(1200.0, 0.7); // Increased cutoff for more presence
+    let mut filter = LowPassFilter::new(400.0, 0.3); // VERY low, static cutoff for pure warm bass
     
     for i in 0..num_samples {
         let time = i as f32 / SAMPLE_RATE as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
-        // Mix sub (sine) with harmonics - emphasize sub bass
-        let sub = sine_osc.next_sample() * 0.85; // Increased from 0.7
-        let harmonics = harmonic_osc.next_sample() * 0.4; // Increased from 0.3
-        let mut sample = sub + harmonics;
+        // Mix multiple sine layers for warm, round bass
+        let sub_octave = sine_osc2.next_sample() * 0.6;  // More deep sub
+        let fundamental = sine_osc.next_sample() * 0.5;  // Main tone
+        let harmonics = harmonic_osc.next_sample() * 0.1; // Minimal character
+        let mut sample = sub_octave + fundamental + harmonics;
         
-        // Filter sweep with envelope
-        filter.cutoff = 800.0 + env_amp * 1200.0;
+        // STATIC filter - no movement! Just gentle roll-off
         sample = filter.process(sample);
         
-        samples.push(sample * env_amp * velocity);
+        samples.push(sample * env_amp * velocity * 0.75);  // Softer overall
     }
     
     samples

@@ -41,36 +41,39 @@ fn generate_pad_chord(chord: &Chord, duration: f32) -> Vec<f32> {
         return samples;
     }
     
-    // Very slow attack and release for pad
+    // Very slow attack and release for pad (longer for lofi ambient feel)
     let envelope = Envelope {
-        attack: duration * 0.3,    // 30% of duration for attack
+        attack: duration * 0.4,    // 40% of duration for soft attack
         decay: 0.0,                 // No decay
         sustain: 1.0,               // Full sustain
-        release: duration * 0.4,    // 40% of duration for release
+        release: duration * 0.5,    // 50% of duration for long release
     };
     
     let note_off_time = duration * 0.8;
     
-    // Layer multiple detuned sine waves for each chord note
+    // Layer multiple detuned sine waves for each chord note (pure, warm tones)
     let mut oscillators: Vec<(Oscillator, f32)> = Vec::new();
     
     for &midi_note in &chord_notes {
         let base_freq = midi_to_freq(midi_note + 12); // Octave up for pads
         
-        // Add 3 detuned oscillators per note for chorus effect
-        oscillators.push((Oscillator::new(Waveform::Sine, base_freq * 0.998), 0.15));
-        oscillators.push((Oscillator::new(Waveform::Sine, base_freq), 0.2));
-        oscillators.push((Oscillator::new(Waveform::Sine, base_freq * 1.002), 0.15));
+        // Add 5 detuned sine oscillators per note for rich chorus effect
+        oscillators.push((Oscillator::new(Waveform::Sine, base_freq * 0.996), 0.12));
+        oscillators.push((Oscillator::new(Waveform::Sine, base_freq * 0.999), 0.14));
+        oscillators.push((Oscillator::new(Waveform::Sine, base_freq), 0.18));
+        oscillators.push((Oscillator::new(Waveform::Sine, base_freq * 1.001), 0.14));
+        oscillators.push((Oscillator::new(Waveform::Sine, base_freq * 1.004), 0.12));
         
-        // Add subtle triangle for warmth
-        oscillators.push((Oscillator::new(Waveform::Triangle, base_freq * 0.5), 0.08)); // Sub octave
+        // Add more sine harmonics for richness (no harsh waveforms)
+        oscillators.push((Oscillator::new(Waveform::Sine, base_freq * 2.0), 0.08)); // Octave up
+        oscillators.push((Oscillator::new(Waveform::Sine, base_freq * 0.5), 0.10)); // Sub octave
     }
     
-    // Low-pass filter for warmth
-    let mut filter = LowPassFilter::new(800.0, 0.3);
+    // Low-pass filter for warmth (lower cutoff for darker sound)
+    let mut filter = LowPassFilter::new(600.0, 0.25);
     
     // Slow LFO for movement
-    let mut lfo = LFO::new(0.3, 0.05); // Very slow modulation
+    let mut lfo = LFO::new(0.25, 0.06); // Very slow, gentle modulation
     
     for i in 0..num_samples {
         let time = i as f32 / SAMPLE_RATE as f32;
@@ -82,13 +85,13 @@ fn generate_pad_chord(chord: &Chord, duration: f32) -> Vec<f32> {
             sample += osc.next_sample() * *amp;
         }
         
-        // Apply slow filter modulation
+        // Apply slow filter modulation (less modulation for stability)
         let lfo_val = lfo.next_value();
-        filter.cutoff = 600.0 + lfo_val * 400.0;
+        filter.cutoff = 500.0 + lfo_val * 300.0;
         sample = filter.process(sample);
         
-        // Very gentle overall amplitude (pads should be subtle)
-        samples[i] = sample * env_amp * 0.15;
+        // Very gentle overall amplitude (pads should be subtle and warm)
+        samples[i] = sample * env_amp * 0.12;
     }
     
     samples

@@ -17,6 +17,8 @@ pub enum ScaleType {
     Minor,
     Dorian,
     Mixolydian,
+    Phrygian,       // Dark, Spanish flavor
+    Lydian,         // Dreamy, jazzy
     MinorPentatonic,
     MajorPentatonic,
     Blues,
@@ -39,6 +41,16 @@ pub enum ChordType {
     Major7,
     Diminished,
     Sus4,
+    // Extended jazz chords for lofi
+    Major9,
+    Minor9,
+    Dominant9,
+    Major11,
+    Minor11,
+    Major13,
+    Dominant13,
+    HalfDiminished7,  // m7b5
+    MinorMajor7,
 }
 
 impl ScaleType {
@@ -49,6 +61,8 @@ impl ScaleType {
             ScaleType::Minor => vec![0, 2, 3, 5, 7, 8, 10],
             ScaleType::Dorian => vec![0, 2, 3, 5, 7, 9, 10],
             ScaleType::Mixolydian => vec![0, 2, 4, 5, 7, 9, 10],
+            ScaleType::Phrygian => vec![0, 1, 3, 5, 7, 8, 10],
+            ScaleType::Lydian => vec![0, 2, 4, 6, 7, 9, 11],
             ScaleType::MinorPentatonic => vec![0, 3, 5, 7, 10],
             ScaleType::MajorPentatonic => vec![0, 2, 4, 7, 9],
             ScaleType::Blues => vec![0, 3, 5, 6, 7, 10],
@@ -72,19 +86,25 @@ impl Key {
             46, // Bb
         ];
         
-        let scales = vec![
-            ScaleType::Major,           // Bright, happy
-            ScaleType::Minor,            // Dark, moody
-            ScaleType::Dorian,           // Jazzy, sophisticated
-            ScaleType::Mixolydian,       // Funky, dominant sound
-            ScaleType::MinorPentatonic,  // Blues, rock
-            ScaleType::MajorPentatonic,  // Country, pop
-            ScaleType::Blues,            // Classic blues sound
-        ];
+        // Weighted towards happier scales
+        let scale_choice = rng.gen_range(0..100);
+        let scale_type = if scale_choice < 30 {
+            ScaleType::Major  // 30% - Bright, happy!
+        } else if scale_choice < 50 {
+            ScaleType::MajorPentatonic  // 20% - Simple, cheerful
+        } else if scale_choice < 70 {
+            ScaleType::Lydian  // 20% - Dreamy, uplifting
+        } else if scale_choice < 85 {
+            ScaleType::Mixolydian  // 15% - Funky, bright
+        } else if scale_choice < 93 {
+            ScaleType::Dorian  // 8% - Jazzy (not dark)
+        } else {
+            ScaleType::Minor  // 7% - Occasional moodiness
+        };
         
         Key {
             root: roots[rng.gen_range(0..roots.len())],
-            scale_type: scales[rng.gen_range(0..scales.len())],
+            scale_type,
         }
     }
     
@@ -124,6 +144,16 @@ impl Chord {
             ChordType::Major7 => vec![0, 4, 7, 11],
             ChordType::Diminished => vec![0, 3, 6],
             ChordType::Sus4 => vec![0, 5, 7],
+            // Extended jazz chords
+            ChordType::Major9 => vec![0, 4, 7, 11, 14],
+            ChordType::Minor9 => vec![0, 3, 7, 10, 14],
+            ChordType::Dominant9 => vec![0, 4, 7, 10, 14],
+            ChordType::Major11 => vec![0, 4, 7, 11, 14, 17],
+            ChordType::Minor11 => vec![0, 3, 7, 10, 14, 17],
+            ChordType::Major13 => vec![0, 4, 7, 11, 14, 21],
+            ChordType::Dominant13 => vec![0, 4, 7, 10, 14, 21],
+            ChordType::HalfDiminished7 => vec![0, 3, 6, 10],  // m7b5
+            ChordType::MinorMajor7 => vec![0, 3, 7, 11],
         };
         
         intervals.iter()
@@ -138,27 +168,36 @@ pub fn generate_chord_progression(key: &Key, length: usize) -> Vec<Chord> {
     let mut rng = rand::thread_rng();
     let scale_notes = key.get_scale_notes();
     
-    // Common funk/jazz progressions patterns
-    let patterns = vec![
-        // ii-V-I (jazz standard)
-        vec![(1, ChordType::Minor7), (4, ChordType::Dominant7), (0, ChordType::Major7)],
-        // i-IV-V (funk standard)
-        vec![(0, ChordType::Minor7), (3, ChordType::Dominant7), (4, ChordType::Dominant7)],
-        // I-vi-ii-V
-        vec![(0, ChordType::Major7), (5, ChordType::Minor7), (1, ChordType::Minor7), (4, ChordType::Dominant7)],
-        // Funky i-iv
-        vec![(0, ChordType::Minor7), (3, ChordType::Minor7)],
-        // I-IV with 7ths
-        vec![(0, ChordType::Major7), (3, ChordType::Major7)],
-        // Sus4 funk pattern (creates tension/release)
-        vec![(0, ChordType::Sus4), (3, ChordType::Major), (0, ChordType::Minor7)],
-        // Diminished passing chords (jazz)
-        vec![(0, ChordType::Major7), (0, ChordType::Diminished), (1, ChordType::Minor7), (4, ChordType::Dominant7)],
-        // I-IV-V with variety
-        vec![(0, ChordType::Major), (3, ChordType::Sus4), (4, ChordType::Dominant7)],
-    ];
-    
-    let pattern = &patterns[rng.gen_range(0..patterns.len())];
+    // Weighted towards happier, uplifting progressions
+    let choice = rng.gen_range(0..100);
+    let pattern = if choice < 20 {
+        // I-V-vi-IV (most popular happy progression!)
+        vec![(0, ChordType::Major9), (4, ChordType::Dominant9), (5, ChordType::Minor7), (3, ChordType::Major9)]
+    } else if choice < 35 {
+        // I-IV-V (classic happy progression)
+        vec![(0, ChordType::Major7), (3, ChordType::Major7), (4, ChordType::Dominant7)]
+    } else if choice < 50 {
+        // I-vi-IV-V (upbeat pop progression)
+        vec![(0, ChordType::Major9), (5, ChordType::Minor7), (3, ChordType::Major7), (4, ChordType::Dominant9)]
+    } else if choice < 60 {
+        // I-V-IV (simple, bright)
+        vec![(0, ChordType::Major7), (4, ChordType::Dominant7), (3, ChordType::Major7)]
+    } else if choice < 70 {
+        // ii-V-I (uplifting jazz resolution)
+        vec![(1, ChordType::Minor9), (4, ChordType::Dominant13), (0, ChordType::Major9)]
+    } else if choice < 78 {
+        // sus4 to Major (dreamy, hopeful)
+        vec![(0, ChordType::Sus4), (0, ChordType::Major9), (3, ChordType::Major9)]
+    } else if choice < 85 {
+        // I-III-IV-V (bright and jazzy)
+        vec![(0, ChordType::Major7), (2, ChordType::Major7), (3, ChordType::Major7), (4, ChordType::Dominant7)]
+    } else if choice < 92 {
+        // I-vi-ii-V (smooth jazz standard)
+        vec![(0, ChordType::Major9), (5, ChordType::Minor7), (1, ChordType::Minor7), (4, ChordType::Dominant9)]
+    } else {
+        // vi-IV-I-V (slightly melancholic but resolves happy)
+        vec![(5, ChordType::Minor7), (3, ChordType::Major9), (0, ChordType::Major9), (4, ChordType::Dominant9)]
+    };
     let mut progression = Vec::new();
     
     // Repeat pattern to fill the length

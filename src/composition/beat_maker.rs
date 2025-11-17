@@ -24,6 +24,7 @@ pub enum GrooveStyle {
     ElectroSwing,
     HipHop,
     Rock,
+    Lofi,
 }
 
 /// Generate a drum pattern based on groove style
@@ -38,6 +39,7 @@ pub fn generate_drum_pattern(style: GrooveStyle, num_bars: usize) -> DrumPattern
             GrooveStyle::ElectroSwing => generate_electro_swing_bar(),
             GrooveStyle::HipHop => generate_hiphop_bar(),
             GrooveStyle::Rock => generate_rock_bar(),
+            GrooveStyle::Lofi => generate_lofi_bar(),
         };
         pattern.extend(bar);
     }
@@ -293,17 +295,78 @@ fn generate_rock_bar() -> DrumPattern {
     bar
 }
 
-/// Choose a random groove style weighted toward funk/jazz
+/// Generate a lofi drum bar with laid-back swing feel
+fn generate_lofi_bar() -> DrumPattern {
+    let mut rng = rand::thread_rng();
+    let mut bar = vec![vec![DrumHit::Rest]; 16];
+    
+    // Sparse, laid-back kick pattern
+    bar[0].push(DrumHit::Kick);  // Beat 1
+    
+    if rng.gen_range(0..100) < 60 {
+        bar[6].push(DrumHit::Kick);  // Syncopated kick
+    }
+    
+    if rng.gen_range(0..100) < 40 {
+        bar[11].push(DrumHit::Kick); // Optional late kick
+    }
+    
+    // Soft snare on 2 and 4 (with occasional ghost notes)
+    bar[4].push(DrumHit::Snare);
+    bar[12].push(DrumHit::Snare);
+    
+    // Ghost notes (very soft snare hits)
+    if rng.gen_range(0..100) < 30 {
+        bar[2].push(DrumHit::Snare);  // Ghost note
+    }
+    if rng.gen_range(0..100) < 25 {
+        bar[10].push(DrumHit::Snare); // Ghost note
+    }
+    
+    // Hi-hats with swing (every other 8th is slightly delayed - shuffle feel)
+    let hihat_pattern = rng.gen_range(0..100);
+    if hihat_pattern < 60 {
+        // Swung 8ths (lofi classic)
+        for i in [0, 3, 4, 7, 8, 11, 12, 15] {  // Swung placement
+            if rng.gen_range(0..100) < 85 {
+                bar[i].push(DrumHit::HiHatClosed);
+            }
+        }
+        // Occasional open hat for accent
+        if rng.gen_range(0..100) < 40 {
+            bar[7].push(DrumHit::HiHatOpen);
+        }
+    } else {
+        // Sparse 4s
+        for i in [0, 4, 8, 12] {
+            bar[i].push(DrumHit::HiHatClosed);
+        }
+    }
+    
+    // Optional shaker for texture
+    if rng.gen_range(0..100) < 35 {
+        for i in (0..16).step_by(2) {
+            if rng.gen_range(0..100) < 70 {
+                bar[i].push(DrumHit::Shaker);
+            }
+        }
+    }
+    
+    bar
+}
+
+/// Choose a random groove style weighted toward lofi/chill
 pub fn random_groove_style() -> GrooveStyle {
     let mut rng = rand::thread_rng();
     let roll = rng.gen_range(0..100);
     
     match roll {
-        0..=30 => GrooveStyle::Funk,
-        31..=55 => GrooveStyle::Jazz,
-        56..=75 => GrooveStyle::ElectroSwing,
-        76..=90 => GrooveStyle::HipHop,
-        _ => GrooveStyle::Rock,
+        0..=50 => GrooveStyle::Lofi,          // Most common (lofi focus)
+        51..=65 => GrooveStyle::Jazz,          // Jazzy lofi
+        66..=80 => GrooveStyle::HipHop,       // Hip-hop beats
+        81..=90 => GrooveStyle::ElectroSwing, // Occasional variety
+        91..=95 => GrooveStyle::Funk,          // Rare funky element
+        _ => GrooveStyle::Rock,                // Very rare
     }
 }
 

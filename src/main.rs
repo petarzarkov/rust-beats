@@ -13,9 +13,9 @@ use composition::{
 use synthesis::{
     generate_kick, generate_snare, generate_hihat, generate_clap,
     generate_bassline, generate_melody, generate_pads,
-    mix_buffers, SAMPLE_RATE,
+    SAMPLE_RATE, LofiProcessor,
 };
-use audio::{render_to_wav_with_metadata, SongMetadata, Track, mix_tracks, master, stereo_to_mono};
+use audio::{render_to_wav_with_metadata, SongMetadata, Track, mix_tracks, master_lofi, stereo_to_mono};
 use config::Config;
 
 fn main() {
@@ -88,51 +88,57 @@ fn main() {
     // Professional multi-track mixing with stereo, panning, EQ
     println!("  ├─ Multi-track mixing");
     let tracks = vec![
-        // Drums: center, full spectrum, high volume
+        // Drums: LOUD and punchy - the foundation!
         Track::new(drums)
-            .with_volume(1.0)
+            .with_volume(1.2)  // Much louder!
             .with_pan(0.0)
-            .with_eq(1.2, 1.0, 1.1),  // Boost lows and highs
+            .with_eq(1.4, 1.0, 0.9),  // Punchy, balanced
         
-        // Bass: center, low-mid emphasis
+        // Bass: VERY subtle, background only
         Track::new(bassline)
-            .with_volume(0.85)
+            .with_volume(0.45)  // Much quieter - reduced from 0.65
             .with_pan(0.0)
-            .with_eq(1.5, 1.0, 0.7),  // Heavy bass boost
+            .with_eq(1.1, 0.8, 0.5),  // Minimal presence
         
-        // Melody: slight pan for width, bright
+        // Melody: Brighter, happier (but still tasteful)
         Track::new(melody.clone())
-            .with_volume(0.6)
-            .with_pan(-0.2)
-            .with_eq(0.8, 1.1, 1.3),  // Bright, clear
+            .with_volume(0.38)  // Slightly louder for happiness
+            .with_pan(-0.15)
+            .with_eq(0.9, 1.1, 1.0),  // Brighter, more present
         
-        // Melody (doubled, opposite pan for stereo width)
+        // Melody doubled for stereo width
         Track::new(melody)
-            .with_volume(0.6)
-            .with_pan(0.2)
-            .with_eq(0.8, 1.1, 1.3),
+            .with_volume(0.38)  // Slightly louder
+            .with_pan(0.15)
+            .with_eq(0.9, 1.1, 1.0),  // Brighter
         
-        // Pads: wide stereo, atmospheric
+        // Pads: subtle atmospheric layer
         Track::new(pads.clone())
-            .with_volume(0.4)
-            .with_pan(-0.4)
-            .with_eq(0.9, 1.0, 0.9),  // Subtle, warm
+            .with_volume(0.35)
+            .with_pan(-0.5)
+            .with_eq(0.8, 0.9, 0.8),  // Darker
         
         Track::new(pads)
-            .with_volume(0.4)
-            .with_pan(0.4)
-            .with_eq(0.9, 1.0, 0.9),
+            .with_volume(0.35)
+            .with_pan(0.5)
+            .with_eq(0.8, 0.9, 0.8),
     ];
     
     let mut stereo_mix = mix_tracks(tracks);
     
-    // Apply mastering (compression, limiting, loudness)
-    println!("  ├─ Mastering (compression & limiting)");
-    master(&mut stereo_mix, 0.75);  // Target 75% loudness
+    // Apply lofi mastering chain (compression, warmth, limiting)
+    println!("  ├─ Lofi mastering (compression, warmth & limiting)");
+    master_lofi(&mut stereo_mix, 0.70, 0.5);  // Target 70% loudness, medium lofi intensity
     
-    // Convert stereo to mono for final output
-    println!("  └─ Converting to mono\n");
-    let final_mix = stereo_to_mono(&stereo_mix);
+    // Apply lofi effects (vinyl crackle, tape saturation)
+    println!("  ├─ Lofi effects (vinyl crackle & tape saturation)");
+    let mut final_mix = stereo_to_mono(&stereo_mix);
+    
+    // Apply subtle lofi processing
+    let lofi_processor = LofiProcessor::subtle();
+    lofi_processor.process(&mut final_mix);
+    
+    println!("  └─ Finalizing\n");
 
     // Create metadata
     let metadata = SongMetadata {

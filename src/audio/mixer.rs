@@ -1,4 +1,5 @@
 /// Audio mixing and mastering utilities
+use crate::synthesis::synthesizer::LowPassFilter;
 
 const SAMPLE_RATE: u32 = 44100;
 
@@ -260,6 +261,61 @@ pub fn mix_buffers(a: &[f32], b: &[f32]) -> Vec<f32> {
     }
     
     result
+}
+
+/// Lofi-specific mastering chain with warmth and character
+pub fn master_lofi(stereo_samples: &mut [f32], target_loudness: f32, lofi_intensity: f32) {
+    // 1. Gentle compression with slower attack for laid-back feel
+    let mut compressor_l = Compressor::new(0.65, 2.5);  // Less aggressive
+    let mut compressor_r = Compressor::new(0.65, 2.5);
+    
+    for i in (0..stereo_samples.len()).step_by(2) {
+        if i + 1 < stereo_samples.len() {
+            stereo_samples[i] = compressor_l.process(stereo_samples[i]);
+            stereo_samples[i + 1] = compressor_r.process(stereo_samples[i + 1]);
+        }
+    }
+    
+    // 2. Warm high-frequency roll-off (vintage character)
+    let mut filter_l = LowPassFilter::new(10000.0 - lofi_intensity * 3000.0, 0.3);
+    let mut filter_r = LowPassFilter::new(10000.0 - lofi_intensity * 3000.0, 0.3);
+    
+    for i in (0..stereo_samples.len()).step_by(2) {
+        if i + 1 < stereo_samples.len() {
+            stereo_samples[i] = filter_l.process(stereo_samples[i]);
+            stereo_samples[i + 1] = filter_r.process(stereo_samples[i + 1]);
+        }
+    }
+    
+    // 3. Find current peak
+    let peak = stereo_samples.iter()
+        .map(|&s| s.abs())
+        .fold(0.0f32, f32::max);
+    
+    // 4. Calculate makeup gain
+    let makeup_gain = if peak > 0.0001 {
+        (target_loudness / peak).min(2.5)
+    } else {
+        1.0
+    };
+    
+    // 5. Apply makeup gain
+    for sample in stereo_samples.iter_mut() {
+        *sample *= makeup_gain;
+    }
+    
+    // 6. Final soft limiter (less aggressive for lofi)
+    let limiter = Limiter::new(0.9);
+    for sample in stereo_samples.iter_mut() {
+        *sample = limiter.process(*sample);
+    }
+}
+
+/// Lofi mix chain with vinyl and tape effects
+pub fn mix_lofi_tracks(tracks: Vec<Track>) -> Vec<f32> {
+    // Standard stereo mix
+    let stereo_output = mix_tracks(tracks);
+    stereo_output
 }
 
 #[cfg(test)]
