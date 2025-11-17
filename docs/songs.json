@@ -1,51 +1,16 @@
 [
-  {
-    "filename": "song-2025-11-17.mp3",
-    "date": "2025-11-17",
-    "size": 5006105,
-    "name": "Ultimate Urban Sugar",
-    "genre": ["Ambient", "Jazzy"]
-  },
-  {
-    "filename": "song-2025-11-16.mp3",
-    "date": "2025-11-16",
-    "size": 4560978,
-    "name": "Slick Nights Sensation",
-    "genre": ["Downtempo", "Mellow"]
-  },
-  {
-    "filename": "song-2025-11-15.mp3",
-    "date": "2025-11-15",
-    "size": 4133406,
-    "name": "Soulful Rhythm Charm",
-    "genre": ["Ambient", "Instrumental"]
-  },
-  {
-    "filename": "song-2025-11-14.mp3",
-    "date": "2025-11-14",
-    "size": 5587904,
-    "name": "Wave Lick",
-    "genre": ["Jazz", "Relaxing"]
-  },
-  {
-    "filename": "song-2025-11-13.mp3",
-    "date": "2025-11-13",
-    "size": 4631822,
-    "name": "Lick Swing",
-    "genre": ["Chill"]
-  },
-  {
-    "filename": "song-2025-11-12.mp3",
-    "date": "2025-11-12",
-    "size": 5901373,
-    "name": "Underground Bop Adventure",
-    "genre": ["Lofi", "Instrumental"]
-  },
-  {
-    "filename": "song-2025-11-11.mp3",
-    "date": "2025-11-11",
-    "size": 5030555,
-    "name": "Retro Notes Fever",
-    "genre": ["Downtempo"]
-  }
+  {"filename": "song-2025-11-17.mp3", "date": "2025-11-17", "size": 4486999, "name": "Street River Fever", "genre": ["Lofi","Retro"]}
+,
+  {"filename": "song-2025-11-16.mp3", "date": "2025-11-16", "size": 4560978, "name": "Slick Nights Sensation", "genre": ["Downtempo","Mellow"]}
+,
+  {"filename": "song-2025-11-15.mp3", "date": "2025-11-15", "size": 4133406, "name": "Soulful Rhythm Charm", "genre": ["Ambient","Instrumental"]}
+,
+  {"filename": "song-2025-11-14.mp3", "date": "2025-11-14", "size": 5587904, "name": "Wave Lick", "genre": ["Jazz","Relaxing"]}
+,
+  {"filename": "song-2025-11-13.mp3", "date": "2025-11-13", "size": 4631822, "name": "Lick Swing", "genre": ["Chill"]}
+,
+  {"filename": "song-2025-11-12.mp3", "date": "2025-11-12", "size": 5901373, "name": "Underground Bop Adventure", "genre": ["Lofi","Instrumental"]}
+,
+  {"filename": "song-2025-11-11.mp3", "date": "2025-11-11", "size": 5030555, "name": "Retro Notes Fever", "genre": ["Downtempo"]}
+
 ]

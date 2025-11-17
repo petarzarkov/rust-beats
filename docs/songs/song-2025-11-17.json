@@ -1,8 +1,11 @@
 {
   "artist": "Petar Zarkov",
   "date": "2025-12-05",
-  "duration": 417.16021728515625,
-  "genre": ["Ambient", "Jazzy"],
-  "name": "Ultimate Urban Sugar",
-  "tempo": 48.32675552368164
+  "duration": 373.8915100097656,
+  "genre": [
+    "Lofi",
+    "Retro"
+  ],
+  "name": "Street River Fever",
+  "tempo": 56.486961364746094
 }
