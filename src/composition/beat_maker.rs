@@ -162,14 +162,14 @@ fn generate_funk_bar() -> DrumPattern {
         }
     }
     
-    // Add percussion variety
-    if rng.gen_range(0..100) < 40 {
-        bar[5].push(DrumHit::Shaker);
-        bar[13].push(DrumHit::Shaker);
+    // MUCH SPARSER percussion (was causing jungle dnb feel)
+    // Only 10% chance (down from 40%) and only 1 shaker (not 2!)
+    if rng.gen_range(0..100) < 10 {
+        bar[13].push(DrumHit::Shaker);  // Just one, at end of bar
     }
     
-    // Occasional conga accent
-    if rng.gen_range(0..100) < 30 {
+    // Very rare conga accent (5% down from 30%)
+    if rng.gen_range(0..100) < 5 {
         bar[3].push(DrumHit::Conga);
     }
     
@@ -229,10 +229,12 @@ fn generate_electro_swing_bar() -> DrumPattern {
         }
     }
     
-    // Add some shuffle with shakers
-    if rng.gen_range(0..100) < 70 {
-        for i in [1, 5, 9, 13] {
-            bar[i].push(DrumHit::Shaker);
+    // MUCH SPARSER shakers (down from 70% with 4 hits to 15% with 1-2 hits)
+    if rng.gen_range(0..100) < 15 {
+        // Only 1-2 shakers per bar, not 4!
+        bar[5].push(DrumHit::Shaker);
+        if rng.gen_range(0..100) < 40 {
+            bar[13].push(DrumHit::Shaker);
         }
     }
     
@@ -375,12 +377,12 @@ fn generate_lofi_bar() -> DrumPattern {
         }
     }
     
-    // Optional shaker for texture
-    if rng.gen_range(0..100) < 35 {
-        for i in (0..16).step_by(2) {
-            if rng.gen_range(0..100) < 70 {
-                bar[i].push(DrumHit::Shaker);
-            }
+    // VERY SPARSE shaker for texture (was 35% with up to 8 hits! Now 10% with 1-2 hits)
+    if rng.gen_range(0..100) < 10 {
+        // Only 1-2 shakers per bar, placed sparsely
+        bar[4].push(DrumHit::Shaker);
+        if rng.gen_range(0..100) < 30 {
+            bar[12].push(DrumHit::Shaker);
         }
     }
     

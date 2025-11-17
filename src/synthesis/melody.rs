@@ -17,12 +17,12 @@ pub fn generate_melody(
     let mut melody = Vec::new();
     let mut rng = rand::thread_rng();
     
-    // Generate fun ear candy and sound effects instead of long sustained notes
+    // Generate sparse, tasteful melody accents (much less busy)
     for bar_idx in 0..bars {
         let chord = &chords[bar_idx % chords.len()];
         
-        // 40% chance of ear candy in this bar
-        if rng.gen_range(0..100) < 40 {
+        // Only 15% chance of melody in this bar (down from 40% - much sparser!)
+        if rng.gen_range(0..100) < 15 {
             let pattern = generate_ear_candy_bar(
                 &scale_notes,
                 chord,
@@ -31,7 +31,7 @@ pub fn generate_melody(
             );
             melody.extend(pattern);
         } else {
-            // Rest bar
+            // Rest bar (85% of bars are silent - very sparse)
             let silence_samples = (bar_duration * SAMPLE_RATE as f32) as usize;
             melody.extend(vec![0.0; silence_samples]);
         }
@@ -51,52 +51,50 @@ fn generate_ear_candy_bar(
     
     let chord_tones = chord.get_notes();
     
-    // Choose ear candy type for this bar
+    // Choose ear candy type for this bar - favor simpler, more spacious patterns
     let candy_type = rng.gen_range(0..100);
     
-    if candy_type < 30 {
-        // Rhythmic Rhodes hits on the beat
+    if candy_type < 50 {
+        // Simple on-beat hits (most common - very simple)
         generate_on_beat_hits_candy(&mut bar, &chord_tones, bar_duration, rng);
-    } else if candy_type < 55 {
-        // Syncopated rhythmic patterns
-        generate_syncopated_rhythm_candy(&mut bar, &chord_tones, bar_duration, rng);
     } else if candy_type < 75 {
-        // Short chord progression snippets
+        // Chord movement (melodic, not rhythmic)
         generate_chord_movement_candy(&mut bar, &chord_tones, bar_duration, rng);
     } else {
-        // Ghost note fills (subtle, rhythmic)
+        // Ghost notes (very subtle)
         generate_ghost_note_fills_candy(&mut bar, &chord_tones, bar_duration, rng);
     }
+    // Removed syncopated rhythm entirely - it was causing the jungle dnb feel!
     
     bar
 }
 
-/// On-beat hits - simple, grounded rhythmic hits
+/// On-beat hits - simple, grounded rhythmic hits (VERY sparse)
 fn generate_on_beat_hits_candy(
     bar: &mut [f32],
     chord_tones: &[MidiNote],
     bar_duration: f32,
     rng: &mut impl Rng,
 ) {
-    // Hit on beats 1, 2, 3, or 4
+    // Only 1-2 hits per bar (down from 2-3) - much sparser!
     let beat_duration = bar_duration / 4.0;
     let beats_to_hit = vec![0, 1, 2, 3];
-    let num_hits = rng.gen_range(2..=3);
+    let num_hits = rng.gen_range(1..=2);  // Reduced from 2..=3
     
     for i in 0..num_hits {
-        let beat = beats_to_hit[i];
+        let beat = beats_to_hit[i * 2]; // Skip beats (0, 2 instead of 0, 1, 2)
         let time = beat as f32 * beat_duration;
         let note = chord_tones[rng.gen_range(0..chord_tones.len())] + 12;
         let freq = midi_to_freq(note);
         
-        // Short, punchy hit
-        let hit = generate_rhodes_note(freq, 0.2, 0.7);
+        // Longer, softer hit (less staccato)
+        let hit = generate_rhodes_note(freq, 0.4, 0.6);  // Increased duration, reduced velocity
         
         let start_sample = (time * SAMPLE_RATE as f32) as usize;
         for (j, &sample) in hit.iter().enumerate() {
             let idx = start_sample + j;
             if idx < bar.len() {
-                bar[idx] += sample * 0.45;
+                bar[idx] += sample * 0.35;  // Reduced volume from 0.45
             }
         }
     }
@@ -133,7 +131,7 @@ fn generate_syncopated_rhythm_candy(
     }
 }
 
-/// Chord movement - simple 2-3 note chord progression
+/// Chord movement - simple 1-2 note chord progression (VERY simple and slow)
 fn generate_chord_movement_candy(
     bar: &mut [f32],
     chord_tones: &[MidiNote],
@@ -141,22 +139,22 @@ fn generate_chord_movement_candy(
     rng: &mut impl Rng,
 ) {
     let beat_duration = bar_duration / 4.0;
-    let num_chords = rng.gen_range(2..=3);
+    let num_chords = rng.gen_range(1..=2);  // Reduced from 2..=3
     
     for i in 0..num_chords {
-        let time = (i as f32 * 1.5) * beat_duration;
+        let time = (i as f32 * 2.0) * beat_duration;  // Spread out more (every 2 beats instead of 1.5)
         let note_idx = i % chord_tones.len();
         let note = chord_tones[note_idx] + 12;
         let freq = midi_to_freq(note);
         
-        // Medium length hit
-        let hit = generate_rhodes_note(freq, 0.25, 0.65);
+        // Longer, softer hit (more atmospheric)
+        let hit = generate_rhodes_note(freq, 0.5, 0.55);  // Longer duration, softer velocity
         
         let start_sample = (time * SAMPLE_RATE as f32) as usize;
         for (j, &sample) in hit.iter().enumerate() {
             let idx = start_sample + j;
             if idx < bar.len() {
-                bar[idx] += sample * 0.5;
+                bar[idx] += sample * 0.4;  // Reduced volume from 0.5
             }
         }
     }

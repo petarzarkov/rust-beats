@@ -18,9 +18,9 @@ software = "Rust Beats - Procedural Music Generator"
 # Song structure: "short" (30-60s for testing) or "standard" (2-3 min full song)
 structure = "standard"
 # Minimum tempo in BPM (upbeat, energetic)
-min_tempo = 65.0
+min_tempo = 35.0
 # Maximum tempo in BPM (upbeat, energetic)
-max_tempo = 120.0
+max_tempo = 65.0
 
 [generation]
 # Output directory for generated songs
