@@ -32,8 +32,11 @@ pub fn encode_to_mp3(
     // Encode audio - allocate buffer for MP3 data using MaybeUninit
     use std::mem::MaybeUninit;
     let mut mp3_buffer: Vec<MaybeUninit<u8>> = vec![MaybeUninit::uninit(); pcm_samples.len() * 5 / 4 + 7200];
+    
+    // For mono (1 channel), use MonoPcm instead of InterleavedPcm
+    // InterleavedPcm divides length by 2 (expects stereo), MonoPcm uses full length
     let encoded_size = encoder.encode(
-        mp3lame_encoder::InterleavedPcm(&pcm_samples),
+        mp3lame_encoder::MonoPcm(&pcm_samples),
         mp3_buffer.as_mut_slice()
     ).expect("Failed to encode");
     

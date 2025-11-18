@@ -7,11 +7,13 @@ pub fn generate_bassline(
     chords: &[Chord],
     tempo: f32,
     bars: usize,
+    bass_drop_cfg: &crate::config::BassDropConfig,
 ) -> Vec<f32> {
     let beat_duration = 60.0 / tempo;
     let bar_duration = beat_duration * 4.0;
     
     let mut bassline = Vec::new();
+    let mut rng = rand::thread_rng();
     
     for bar_idx in 0..bars {
         let chord = &chords[bar_idx % chords.len()];
@@ -19,7 +21,31 @@ pub fn generate_bassline(
         let frequency = midi_to_freq(root_note);
         
         // Generate funky bass pattern for this bar
-        let pattern = generate_funk_bass_pattern(frequency, bar_duration);
+        let mut pattern = generate_funk_bass_pattern(frequency, bar_duration);
+        
+        // Add occasional bass drop using config values
+        let should_drop = if bar_idx > 0 && bar_idx % 8 == 0 {
+            rng.gen_range(0.0..1.0) < bass_drop_cfg.default_chance_8th_bar
+        } else if bar_idx > 0 && bar_idx % 12 == 0 {
+            rng.gen_range(0.0..1.0) < bass_drop_cfg.default_chance_12th_bar
+        } else {
+            false
+        };
+        
+        if should_drop {
+            // Add a sub-bass drop on beat 1 (start of bar)
+            let drop_freq = frequency * 0.5; // One octave down
+            let drop_duration = beat_duration * bass_drop_cfg.default_duration_beats;
+            let drop = generate_sub_bass(drop_freq, drop_duration, bass_drop_cfg.amplitude);
+            
+            // Mix the drop into the pattern
+            for (i, &drop_sample) in drop.iter().enumerate() {
+                if i < pattern.len() {
+                    pattern[i] += drop_sample;
+                }
+            }
+        }
+        
         bassline.extend(pattern);
     }
     
@@ -87,7 +113,6 @@ fn generate_funk_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
 fn generate_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
     let num_samples = (duration * SAMPLE_RATE as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
-    let rng = rand::thread_rng();
     
     // Bass envelope: VERY soft attack, gentle sustain (not aggressive)
     let envelope = Envelope {
@@ -297,6 +322,379 @@ pub fn generate_slap_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<f
         sample = filter.process(sample);
         
         samples[i] = sample * env_amp * velocity * 0.8;
+    }
+    
+    samples
+}
+
+/// Generate a rock bassline: root-fifth power chord patterns, palm-muted staccato
+pub fn generate_rock_bassline(
+    chords: &[Chord],
+    tempo: f32,
+    bars: usize,
+    bass_drop_cfg: &crate::config::BassDropConfig,
+) -> Vec<f32> {
+    let beat_duration = 60.0 / tempo;
+    let bar_duration = beat_duration * 4.0;
+    
+    let mut bassline = Vec::new();
+    let mut rng = rand::thread_rng();
+    
+    for bar_idx in 0..bars {
+        let chord = &chords[bar_idx % chords.len()];
+        let root_note = chord.root;
+        let root_freq = midi_to_freq(root_note);
+        let fifth_freq = midi_to_freq(root_note + 7);  // Perfect fifth
+        
+        let mut pattern = generate_rock_bass_pattern(root_freq, fifth_freq, bar_duration);
+        
+        // Add occasional bass drop using config values
+        let should_drop = if bar_idx > 0 && bar_idx % 8 == 0 {
+            rng.gen_range(0.0..1.0) < bass_drop_cfg.rock_chance_8th_bar
+        } else if bar_idx > 0 && bar_idx % 12 == 0 {
+            rng.gen_range(0.0..1.0) < bass_drop_cfg.rock_chance_12th_bar
+        } else {
+            false
+        };
+        
+        if should_drop {
+            // Add a sub-bass drop on beat 1
+            let drop_freq = root_freq * 0.5; // One octave down
+            let drop_duration = beat_duration * bass_drop_cfg.rock_duration_beats;
+            let drop = generate_sub_bass_drop(drop_freq, drop_duration, bass_drop_cfg.rock_amplitude);
+            
+            for (i, &drop_sample) in drop.iter().enumerate() {
+                if i < pattern.len() {
+                    pattern[i] += drop_sample;
+                }
+            }
+        }
+        
+        bassline.extend(pattern);
+    }
+    
+    bassline
+}
+
+/// Generate a rock bass pattern: driving eighth-note patterns with power chords
+fn generate_rock_bass_pattern(root_freq: f32, fifth_freq: f32, bar_duration: f32) -> Vec<f32> {
+    let note_duration = bar_duration / 8.0; // 8th notes
+    
+    let mut pattern = Vec::new();
+    
+    // Driving eighth-note pattern: root-fifth-root-fifth
+    let hits = vec![
+        (0.0, root_freq, 0.8),      // Beat 1
+        (0.5, fifth_freq, 0.6),     // Off-beat
+        (1.0, root_freq, 0.7),      // Beat 2
+        (1.5, fifth_freq, 0.5),     // Off-beat
+        (2.0, root_freq, 0.9),      // Beat 3 (strong)
+        (2.5, fifth_freq, 0.6),     // Off-beat
+        (3.0, root_freq, 0.7),      // Beat 4
+        (3.5, fifth_freq, 0.5),     // Off-beat
+    ];
+    
+    for (beat_pos, freq, velocity) in hits {
+        let start_time = beat_pos * (bar_duration / 4.0);
+        let duration = note_duration * 0.7;  // Staccato (70% duration)
+        
+        let note = generate_rock_bass_note(freq, duration, velocity);
+        
+        let start_sample = (start_time * SAMPLE_RATE as f32) as usize;
+        if start_sample + note.len() > pattern.len() {
+            pattern.resize(start_sample + note.len(), 0.0);
+        }
+        
+        for (i, &sample) in note.iter().enumerate() {
+            let idx = start_sample + i;
+            if idx < pattern.len() {
+                pattern[idx] += sample;
+            }
+        }
+    }
+    
+    let total_samples = (bar_duration * SAMPLE_RATE as f32) as usize;
+    pattern.resize(total_samples, 0.0);
+    
+    pattern
+}
+
+/// Generate a rock bass note: distorted, punchy, with pick attack
+pub fn generate_rock_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
+    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+    
+    let envelope = Envelope {
+        attack: 0.005,   // Quick attack (pick)
+        decay: 0.15,
+        sustain: 0.5,
+        release: 0.10,
+    };
+    
+    // Use sawtooth for aggressive character
+    let mut saw_osc = Oscillator::new(Waveform::Saw, frequency);
+    let mut sine_osc = Oscillator::new(Waveform::Sine, frequency);
+    
+    let mut filter = LowPassFilter::new(800.0, 0.5);
+    
+    for i in 0..num_samples {
+        let time = i as f32 / SAMPLE_RATE as f32;
+        let env_amp = envelope.get_amplitude(time, None);
+        
+        // Mix sawtooth and sine for character
+        let mut sample = saw_osc.next_sample() * 0.6 + sine_osc.next_sample() * 0.4;
+        
+        // Distortion/saturation
+        sample = sample.tanh() * 1.3;
+        
+        // Pick attack transient
+        if time < 0.002 {
+            let click = (rand::random::<f32>() * 2.0 - 1.0) * 0.2 * (1.0 - time / 0.002);
+            sample += click;
+        }
+        
+        sample = filter.process(sample);
+        samples.push(sample * env_amp * velocity);
+    }
+    
+    samples
+}
+
+/// Generate a dubstep bassline: wobble bass patterns, sub-bass drops
+pub fn generate_dubstep_bassline(
+    chords: &[Chord],
+    tempo: f32,
+    bars: usize,
+) -> Vec<f32> {
+    let beat_duration = 60.0 / tempo;
+    let bar_duration = beat_duration * 4.0;
+    
+    let mut bassline = Vec::new();
+    
+    for bar_idx in 0..bars {
+        let chord = &chords[bar_idx % chords.len()];
+        let root_note = chord.root;
+        let root_freq = midi_to_freq(root_note);
+        
+        let pattern = generate_dubstep_bass_pattern(root_freq, bar_duration);
+        bassline.extend(pattern);
+    }
+    
+    bassline
+}
+
+/// Generate a dubstep bass pattern: wobble on beats, sub-bass drops
+fn generate_dubstep_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
+    let mut pattern = Vec::new();
+    
+    // Wobble bass on beats 1 and 3
+    let wobble_duration = bar_duration / 4.0;
+    
+    // Beat 1: Wobble bass
+    let wobble1 = generate_wobble_bass(root_freq, wobble_duration, 0.9);
+    pattern.extend(wobble1);
+    
+    // Beat 2: Sub-bass drop
+    let sub1 = generate_sub_bass_drop(root_freq * 0.5, wobble_duration, 1.0);
+    pattern.extend(sub1);
+    
+    // Beat 3: Wobble bass
+    let wobble2 = generate_wobble_bass(root_freq, wobble_duration, 0.9);
+    pattern.extend(wobble2);
+    
+    // Beat 4: Sub-bass drop
+    let sub2 = generate_sub_bass_drop(root_freq * 0.5, wobble_duration, 1.0);
+    pattern.extend(sub2);
+    
+    pattern
+}
+
+/// Generate wobble bass: square wave with LFO on low-pass filter cutoff
+pub fn generate_wobble_bass(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
+    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+    
+    // Square wave for aggressive character
+    let mut square_osc = Oscillator::new(Waveform::Square, frequency);
+    
+    // LFO for wobble effect (modulating filter cutoff)
+    let lfo_rate = 4.0;  // 4 Hz wobble
+    let lfo_depth = 0.5;  // Depth of modulation
+    let mut filter = LowPassFilter::new(2000.0, 0.7);
+    
+    for i in 0..num_samples {
+        let time = i as f32 / SAMPLE_RATE as f32;
+        
+        // LFO modulates filter cutoff
+        let lfo = (2.0 * std::f32::consts::PI * lfo_rate * time).sin();
+        filter.cutoff = 500.0 + lfo * lfo_depth * 1500.0;  // 500-2000 Hz sweep
+        
+        let mut sample = square_osc.next_sample();
+        sample = filter.process(sample);
+        
+        // Envelope
+        let env = if time < duration * 0.1 {
+            time / (duration * 0.1)
+        } else {
+            (-(time - duration * 0.1) * 5.0).exp()
+        };
+        
+        samples.push(sample * env * velocity * 0.8);
+    }
+    
+    samples
+}
+
+/// Generate sub-bass drop: pure sine wave sub-bass
+pub fn generate_sub_bass_drop(frequency: f32, duration: f32, amplitude: f32) -> Vec<f32> {
+    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+    
+    let mut sine_osc = Oscillator::new(Waveform::Sine, frequency);
+    
+    for i in 0..num_samples {
+        let time = i as f32 / SAMPLE_RATE as f32;
+        
+        // Quick attack, sustained, slow release
+        let env = if time < 0.01 {
+            time / 0.01
+        } else if time < duration * 0.8 {
+            1.0
+        } else {
+            (-(time - duration * 0.8) * 2.0).exp()
+        };
+        
+        let sample = sine_osc.next_sample() * env * amplitude;
+        samples.push(sample);
+    }
+    
+    samples
+}
+
+/// Generate a DnB bassline: fast rolling patterns, reese bass
+pub fn generate_dnb_bassline(
+    chords: &[Chord],
+    tempo: f32,
+    bars: usize,
+    bass_drop_cfg: &crate::config::BassDropConfig,
+) -> Vec<f32> {
+    let beat_duration = 60.0 / tempo;
+    let bar_duration = beat_duration * 4.0;
+    
+    let mut bassline = Vec::new();
+    let mut rng = rand::thread_rng();
+    
+    for bar_idx in 0..bars {
+        let chord = &chords[bar_idx % chords.len()];
+        let root_note = chord.root;
+        let root_freq = midi_to_freq(root_note);
+        
+        let mut pattern = generate_dnb_bass_pattern(root_freq, bar_duration);
+        
+        // Add occasional bass drop using config values
+        let should_drop = if bar_idx > 0 && bar_idx % 8 == 0 {
+            rng.gen_range(0.0..1.0) < bass_drop_cfg.dnb_chance_8th_bar
+        } else if bar_idx > 0 && bar_idx % 16 == 0 {
+            rng.gen_range(0.0..1.0) < bass_drop_cfg.dnb_chance_16th_bar
+        } else {
+            false
+        };
+        
+        if should_drop {
+            // Add a sub-bass drop on beat 1
+            let drop_freq = root_freq * 0.5; // One octave down
+            let drop_duration = beat_duration * bass_drop_cfg.dnb_duration_beats;
+            let drop = generate_sub_bass_drop(drop_freq, drop_duration, bass_drop_cfg.dnb_amplitude);
+            
+            for (i, &drop_sample) in drop.iter().enumerate() {
+                if i < pattern.len() {
+                    pattern[i] += drop_sample;
+                }
+            }
+        }
+        
+        bassline.extend(pattern);
+    }
+    
+    bassline
+}
+
+/// Generate a DnB bass pattern: fast 16th note rolls
+fn generate_dnb_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
+    let note_duration = bar_duration / 16.0; // 16th notes
+    
+    let mut pattern = Vec::new();
+    
+    // Fast rolling pattern: reese bass on every 16th note
+    for i in 0..16 {
+        let beat_pos = i as f32;
+        let start_time = beat_pos * note_duration;
+        
+        // Vary velocity for groove
+        let velocity = if i % 4 == 0 {
+            0.9  // Strong on beats
+        } else {
+            0.6  // Softer on off-beats
+        };
+        
+        // Use reese bass
+        let note = generate_rees_bass(root_freq, note_duration * 0.8, velocity);
+        
+        let start_sample = (start_time * SAMPLE_RATE as f32) as usize;
+        if start_sample + note.len() > pattern.len() {
+            pattern.resize(start_sample + note.len(), 0.0);
+        }
+        
+        for (j, &sample) in note.iter().enumerate() {
+            let idx = start_sample + j;
+            if idx < pattern.len() {
+                pattern[idx] += sample;
+            }
+        }
+    }
+    
+    let total_samples = (bar_duration * SAMPLE_RATE as f32) as usize;
+    pattern.resize(total_samples, 0.0);
+    
+    pattern
+}
+
+/// Generate reese bass: detuned saw waves with chorus effect
+pub fn generate_rees_bass(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
+    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+    
+    // Detuned saw waves (chorus effect)
+    let detune1 = frequency * 0.99;  // Slightly flat
+    let detune2 = frequency * 1.01;  // Slightly sharp
+    
+    let mut saw1 = Oscillator::new(Waveform::Saw, detune1);
+    let mut saw2 = Oscillator::new(Waveform::Saw, detune2);
+    let mut saw3 = Oscillator::new(Waveform::Saw, frequency);
+    
+    // Filter sweep
+    let mut filter = LowPassFilter::new(2000.0, 0.6);
+    
+    for i in 0..num_samples {
+        let time = i as f32 / SAMPLE_RATE as f32;
+        
+        // Mix detuned saws for chorus effect
+        let mut sample = saw1.next_sample() * 0.33
+                       + saw2.next_sample() * 0.33
+                       + saw3.next_sample() * 0.34;
+        
+        // Filter sweep (low-pass opens up)
+        filter.cutoff = 500.0 + (time / duration) * 1500.0;
+        sample = filter.process(sample);
+        
+        // Envelope
+        let env = if time < duration * 0.1 {
+            time / (duration * 0.1)
+        } else {
+            (-(time - duration * 0.1) * 8.0).exp()
+        };
+        
+        samples.push(sample * env * velocity * 0.7);
     }
     
     samples

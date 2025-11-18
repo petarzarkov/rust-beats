@@ -8,12 +8,13 @@ use rand::Rng;
 use composition::{
     generate_song_name, generate_genre_tags,
     Key, Tempo, generate_chord_progression,
-    generate_drum_pattern, random_groove_style, DrumHit, GrooveStyle, select_random_drum_kit,
-    Arrangement,
+    generate_drum_pattern, DrumHit, GrooveStyle, select_random_drum_kit,
+    Arrangement, Genre, select_random_genre, get_genre_config, BassStyle,
 };
 use synthesis::{
     generate_kick, generate_snare, generate_hihat, generate_clap,
     generate_bassline, generate_melody, generate_pads,
+    generate_rock_bassline, generate_dubstep_bassline, generate_dnb_bassline,
     SAMPLE_RATE, LofiProcessor,
 };
 use audio::{render_to_wav_with_metadata, encode_to_mp3, SongMetadata, Track, mix_tracks, master_lofi, stereo_to_mono};
@@ -43,78 +44,115 @@ fn main() {
     println!("📝 Song Name: {}", song_name);
     println!("🎸 Genres: {:?}", genre_tags);
 
-    // Generate musical parameters
-    let key = Key::random_funky();
-    let tempo = Tempo::random_funky_range(config.composition.min_tempo, config.composition.max_tempo);
-    let groove_style = random_groove_style();
+    // Select genre and get its configuration
+    let genre = select_random_genre();
+    let genre_config = get_genre_config(genre);
+    
+    // Generate musical parameters based on genre
+    let key = Key::random_funky(); // TODO: Make genre-aware
+    // Clamp tempo to config limits (respect user's min/max preferences)
+    // Ensure valid range: take intersection of genre range and config range
+    let tempo_min = genre_config.tempo_min.max(config.composition.min_tempo);
+    let tempo_max = genre_config.tempo_max.min(config.composition.max_tempo);
+    // Ensure min < max (in case genre range doesn't overlap with config)
+    // If ranges don't overlap or are invalid, use config range as fallback
+    let (tempo_min, tempo_max) = if tempo_min < tempo_max {
+        (tempo_min, tempo_max)
+    } else {
+        // Genre range doesn't overlap with config - use config range
+        // Ensure config range is valid
+        let cfg_min = config.composition.min_tempo;
+        let cfg_max = config.composition.max_tempo;
+        if cfg_min < cfg_max {
+            (cfg_min, cfg_max)
+        } else {
+            // Config is invalid, use a safe default
+            eprintln!("⚠️  Warning: Invalid tempo range in config ({} >= {}), using default 80-120 BPM", cfg_min, cfg_max);
+            (80.0, 120.0)
+        }
+    };
+    let tempo = Tempo::random_funky_range(tempo_min, tempo_max);
+    
+    // Map genre to groove style for drum patterns
+    let groove_style = match genre {
+        Genre::Rock => GrooveStyle::Rock,
+        Genre::Dubstep => GrooveStyle::Dubstep,
+        Genre::DnB => GrooveStyle::DnB,
+        Genre::Jazz => GrooveStyle::Jazz,
+        Genre::Funk => GrooveStyle::Funk,
+        Genre::HipHop => GrooveStyle::HipHop,
+        Genre::ElectroSwing => GrooveStyle::ElectroSwing,
+        Genre::Lofi => GrooveStyle::Lofi,
+    };
     
     println!("🎹 Key: Root MIDI {}, Scale: {:?}", key.root, key.scale_type);
     println!("⏱️  Tempo: {:.1} BPM", tempo.bpm);
+    println!("🎵 Genre: {:?}", genre);
     println!("🥁 Groove: {:?}", groove_style);
     
     // Per-song instrument and style selection for variety
     let mut rng = rand::thread_rng();
     
-    // Select lead instrument (Rhodes 40%, Ukulele 15%, Guitar 15%, etc.)
+    // Select lead instrument using config probabilities
+    let ip = &config.composition.instrument_probabilities;
     let lead_instrument = {
         let roll: f32 = rng.gen_range(0.0..1.0);
-        if roll < 0.40 { 
+        if roll < ip.rhodes { 
             "Rhodes" 
-        } else if roll < 0.55 {
+        } else if roll < ip.rhodes + ip.ukulele {
             "Ukulele"
-        } else if roll < 0.70 {
+        } else if roll < ip.rhodes + ip.ukulele + ip.guitar {
             "Guitar"
-        } else if roll < 0.85 {
+        } else if roll < ip.rhodes + ip.ukulele + ip.guitar + ip.electric {
             "Electric"
         } else {
             "Organ"
         }
     };
     
-    // Select bass type (current 50%, synth 20%, upright 15%, finger 10%, slap 5%)
-    let bass_type = {
-        let roll: f32 = rng.gen_range(0.0..1.0);
-        if roll < 0.50 {
-            "Standard"
-        } else if roll < 0.70 {
-            "Synth"
-        } else if roll < 0.85 {
-            "Upright"
-        } else if roll < 0.95 {
-            "Finger"
-        } else {
-            "Slap"
-        }
+    // Select bass type based on genre config
+    let bass_type = match genre_config.bass_style {
+        BassStyle::Standard => "Standard",
+        BassStyle::Rock => "Rock",
+        BassStyle::Synth => "Synth",
+        BassStyle::Upright => "Upright",
+        BassStyle::Finger => "Finger",
+        BassStyle::Slap => "Slap",
+        BassStyle::Wobble => "Wobble",
+        BassStyle::Reese => "Reese",
     };
     
     // Select drum kit
     let drum_kit = select_random_drum_kit();
     
-    // Percussion additions (30% chance)
-    let add_percussion = rng.gen_range(0.0..1.0) < 0.30;
+    // Percussion additions using config probability
+    let pc = &config.composition.percussion;
+    let add_percussion = rng.gen_range(0.0..1.0) < pc.chance;
     let percussion_type = if add_percussion {
         let roll: f32 = rng.gen_range(0.0..1.0);
-        if roll < 0.33 { "Tambourine" } 
-        else if roll < 0.66 { "Cowbell" }
+        if roll < pc.tambourine { "Tambourine" } 
+        else if roll < pc.tambourine + pc.cowbell { "Cowbell" }
         else { "Bongo" }
     } else {
         "None"
     };
     
-    // Pad intensity (subtle 40%, medium 40%, prominent 20%)
+    // Pad intensity using config probabilities
+    let pad_cfg = &config.composition.pads;
     let pad_intensity = {
         let roll: f32 = rng.gen_range(0.0..1.0);
-        if roll < 0.40 { "Subtle" }
-        else if roll < 0.80 { "Medium" }
+        if roll < pad_cfg.subtle { "Subtle" }
+        else if roll < pad_cfg.subtle + pad_cfg.medium { "Medium" }
         else { "Prominent" }
     };
     
-    // Mixing style
+    // Mixing style using config probabilities
+    let mix_cfg = &config.composition.mixing;
     let mixing_style = {
         let roll: f32 = rng.gen_range(0.0..1.0);
-        if roll < 0.25 { "Clean" }
-        else if roll < 0.50 { "Warm" }
-        else if roll < 0.75 { "Punchy" }
+        if roll < mix_cfg.clean { "Clean" }
+        else if roll < mix_cfg.clean + mix_cfg.warm { "Warm" }
+        else if roll < mix_cfg.clean + mix_cfg.warm + mix_cfg.punchy { "Punchy" }
         else { "Spacious" }
     };
     
@@ -143,13 +181,13 @@ fn main() {
     println!("  ├─ Drums (with dynamics)");
     let drums = render_arranged_drums(&arrangement, groove_style, tempo.bpm);
 
-    // Generate bassline with arrangement awareness
+    // Generate bassline with arrangement awareness and genre-specific routing
     println!("  ├─ Bass (with sections)");
-    let bassline = render_arranged_bass(&arrangement, &chords, tempo.bpm);
+    let bassline = render_arranged_bass(&arrangement, &chords, tempo.bpm, &genre, &config.composition.bass_drops);
 
     // Generate melody with arrangement awareness
     println!("  ├─ Melody (with variation)");
-    let melody = render_arranged_melody(&arrangement, &key, &chords, tempo.bpm);
+    let melody = render_arranged_melody(&arrangement, &key, &chords, tempo.bpm, &config.composition.melody);
     
     // Generate atmospheric pads for appropriate sections
     println!("  ├─ Pads (atmospheric)");
@@ -167,12 +205,13 @@ fn main() {
         _ => (1.2, 1.4, 1.0, 0.9),
     };
     
+    // Increased bass volume significantly (0.60-0.80) and boosted low frequencies for presence
     let (bass_vol, bass_eq_l, bass_eq_m, bass_eq_h) = match mixing_style {
-        "Clean" => (0.40, 1.0, 0.8, 0.5),
-        "Warm" => (0.50, 1.3, 0.75, 0.4),  // Warmer, more bass
-        "Punchy" => (0.42, 1.2, 0.85, 0.5),
-        "Spacious" => (0.35, 0.9, 0.8, 0.6),
-        _ => (0.45, 1.1, 0.8, 0.5),
+        "Clean" => (0.65, 1.4, 0.9, 0.4),   // Increased volume, boosted lows
+        "Warm" => (0.75, 1.6, 0.85, 0.3),   // Much warmer, more bass presence
+        "Punchy" => (0.70, 1.5, 0.95, 0.4), // Punchy with strong lows
+        "Spacious" => (0.60, 1.3, 0.85, 0.5), // Still present but airier
+        _ => (0.68, 1.45, 0.9, 0.4),
     };
     
     let (melody_vol, melody_eq_l, melody_eq_m, melody_eq_h) = match mixing_style {
@@ -327,8 +366,8 @@ fn render_arranged_drums(arrangement: &Arrangement, groove: GrooveStyle, bpm: f3
     all_drums
 }
 
-/// Render bass with arrangement awareness
-fn render_arranged_bass(arrangement: &Arrangement, chords: &[composition::Chord], bpm: f32) -> Vec<f32> {
+/// Render bass with arrangement awareness and genre-specific routing
+fn render_arranged_bass(arrangement: &Arrangement, chords: &[composition::Chord], bpm: f32, genre: &Genre, bass_drop_cfg: &config::BassDropConfig) -> Vec<f32> {
     let mut all_bass = Vec::new();
     let mut bar_idx = 0;
     
@@ -340,7 +379,13 @@ fn render_arranged_bass(arrangement: &Arrangement, chords: &[composition::Chord]
             .collect();
         
         if Arrangement::section_has_heavy_bass(*section) {
-            let bass = generate_bassline(&section_chords, bpm, *bars);
+            // Route to genre-specific bass generator
+            let bass = match genre {
+                Genre::Rock => generate_rock_bassline(&section_chords, bpm, *bars, bass_drop_cfg),
+                Genre::Dubstep => generate_dubstep_bassline(&section_chords, bpm, *bars),
+                Genre::DnB => generate_dnb_bassline(&section_chords, bpm, *bars, bass_drop_cfg),
+                _ => generate_bassline(&section_chords, bpm, *bars, bass_drop_cfg), // Default for other genres
+            };
             all_bass.extend(bass);
         } else {
             // Light bass or no bass - just add silence
@@ -356,7 +401,7 @@ fn render_arranged_bass(arrangement: &Arrangement, chords: &[composition::Chord]
 }
 
 /// Render melody with arrangement awareness
-fn render_arranged_melody(arrangement: &Arrangement, key: &Key, chords: &[composition::Chord], bpm: f32) -> Vec<f32> {
+fn render_arranged_melody(arrangement: &Arrangement, key: &Key, chords: &[composition::Chord], bpm: f32, melody_cfg: &config::MelodyConfig) -> Vec<f32> {
     let mut all_melody = Vec::new();
     let mut bar_idx = 0;
     
@@ -368,7 +413,7 @@ fn render_arranged_melody(arrangement: &Arrangement, key: &Key, chords: &[compos
             .collect();
         
         if Arrangement::section_has_melody(*section) {
-            let melody = generate_melody(key, &section_chords, bpm, *bars);
+            let melody = generate_melody(key, &section_chords, bpm, *bars, melody_cfg);
             all_melody.extend(melody);
         } else {
             // No melody - just add silence

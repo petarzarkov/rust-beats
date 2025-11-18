@@ -9,6 +9,7 @@ pub fn generate_melody(
     chords: &[Chord],
     tempo: f32,
     bars: usize,
+    melody_cfg: &crate::config::MelodyConfig,
 ) -> Vec<f32> {
     let beat_duration = 60.0 / tempo;
     let bar_duration = beat_duration * 4.0;
@@ -21,13 +22,15 @@ pub fn generate_melody(
     for bar_idx in 0..bars {
         let chord = &chords[bar_idx % chords.len()];
         
-        // Only 15% chance of melody in this bar (down from 40% - much sparser!)
-        if rng.gen_range(0..100) < 15 {
+        // Use config for melody occurrence chance
+        let chance_percent = (melody_cfg.occurrence_chance * 100.0) as u32;
+        if rng.gen_range(0..100) < chance_percent {
             let pattern = generate_ear_candy_bar(
                 &scale_notes,
                 chord,
                 bar_duration,
                 &mut rng,
+                melody_cfg,
             );
             melody.extend(pattern);
         } else {
@@ -42,10 +45,11 @@ pub fn generate_melody(
 
 /// Generate ear candy - fun sound effects like bells, beeps, dual notes
 fn generate_ear_candy_bar(
-    scale_notes: &[MidiNote],
+    _scale_notes: &[MidiNote],
     chord: &Chord,
     bar_duration: f32,
     rng: &mut impl Rng,
+    _melody_cfg: &crate::config::MelodyConfig,
 ) -> Vec<f32> {
     let mut bar = vec![0.0; (bar_duration * SAMPLE_RATE as f32) as usize];
     
@@ -196,6 +200,7 @@ fn _generate_connected_melody_phrase(
     bar_duration: f32,
     last_note: MidiNote,
     rng: &mut impl Rng,
+    melody_cfg: &crate::config::MelodyConfig,
 ) -> (Vec<f32>, MidiNote) {
     let mut phrase = vec![0.0; (bar_duration * SAMPLE_RATE as f32) as usize];
     
@@ -244,7 +249,7 @@ fn _generate_connected_melody_phrase(
         let duration_variation = rng.gen_range(0.9..1.1);
         let humanized_duration = duration * duration_variation;
         
-        let note = generate_melody_note(frequency, humanized_duration, velocity);
+        let note = generate_melody_note(frequency, humanized_duration, velocity, melody_cfg);
         
         // Add to phrase with humanized timing
         let start_sample = (humanized_start * SAMPLE_RATE as f32) as usize;
@@ -320,11 +325,11 @@ fn choose_next_melodic_note(
 }
 
 /// Generate a single melody note with humanization and warmth
-fn generate_melody_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
+fn generate_melody_note(frequency: f32, duration: f32, velocity: f32, melody_cfg: &crate::config::MelodyConfig) -> Vec<f32> {
     let mut rng = rand::thread_rng();
     
-    // 60% Rhodes, 40% other warm synth tones for variety
-    let use_rhodes = rng.gen_range(0..100) < 60;
+    // Use config for Rhodes usage percentage
+    let use_rhodes = rng.gen_range(0..100) < melody_cfg.rhodes_usage_percent;
     
     if use_rhodes {
         // Use Rhodes for warm, smooth lofi sound

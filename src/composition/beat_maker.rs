@@ -25,6 +25,8 @@ pub enum GrooveStyle {
     HipHop,
     Rock,
     Lofi,
+    Dubstep,
+    DnB,
 }
 
 /// Drum kit type determines the sonic character of drums
@@ -72,6 +74,8 @@ pub fn generate_drum_pattern(style: GrooveStyle, num_bars: usize) -> DrumPattern
             GrooveStyle::HipHop => generate_hiphop_bar(),
             GrooveStyle::Rock => generate_rock_bar(),
             GrooveStyle::Lofi => generate_lofi_bar(),
+            GrooveStyle::Dubstep => generate_dubstep_bar(),
+            GrooveStyle::DnB => generate_dnb_bar(),
         };
         pattern.extend(bar);
     }
@@ -384,6 +388,93 @@ fn generate_lofi_bar() -> DrumPattern {
         if rng.gen_range(0..100) < 30 {
             bar[12].push(DrumHit::Shaker);
         }
+    }
+    
+    bar
+}
+
+/// Generate a dubstep drum bar with half-time feel
+fn generate_dubstep_bar() -> DrumPattern {
+    let mut rng = rand::thread_rng();
+    let mut bar = vec![vec![DrumHit::Rest]; 16];
+    
+    // Half-time feel: Kick on 1 and 3 (steps 0 and 8)
+    bar[0].push(DrumHit::Kick);
+    bar[8].push(DrumHit::Kick);
+    
+    // Snare on 2 and 4 (steps 4 and 12) - classic dubstep pattern
+    bar[4].push(DrumHit::Snare);
+    bar[12].push(DrumHit::Snare);
+    
+    // Rapid hi-hat rolls (16th notes) - characteristic dubstep texture
+    for i in 0..16 {
+        if rng.gen_range(0..100) < 75 {
+            bar[i].push(DrumHit::HiHatClosed);
+        }
+    }
+    
+    // Occasional snare rolls before drops (steps 14-15)
+    if rng.gen_range(0..100) < 30 {
+        bar[14].push(DrumHit::Snare);
+        bar[15].push(DrumHit::Snare);
+    }
+    
+    // Clap layered with snare for extra punch
+    if rng.gen_range(0..100) < 50 {
+        bar[4].push(DrumHit::Clap);
+        bar[12].push(DrumHit::Clap);
+    }
+    
+    bar
+}
+
+/// Generate a DnB drum bar with fast breakbeat patterns
+fn generate_dnb_bar() -> DrumPattern {
+    let mut rng = rand::thread_rng();
+    let mut bar = vec![vec![DrumHit::Rest]; 16];
+    
+    // Fast breakbeat: kick-snare-kick-snare variations
+    // Kick pattern (varied)
+    bar[0].push(DrumHit::Kick);
+    if rng.gen_range(0..100) < 70 {
+        bar[4].push(DrumHit::Kick);
+    }
+    if rng.gen_range(0..100) < 60 {
+        bar[8].push(DrumHit::Kick);
+    }
+    if rng.gen_range(0..100) < 50 {
+        bar[12].push(DrumHit::Kick);
+    }
+    
+    // Syncopated snare hits (simplified - less busy)
+    bar[4].push(DrumHit::Snare);
+    bar[12].push(DrumHit::Snare);
+    // Reduced syncopation from 40%/30% to 20%/15% for less frantic feel
+    if rng.gen_range(0..100) < 20 {
+        bar[2].push(DrumHit::Snare);  // Syncopated (reduced)
+    }
+    if rng.gen_range(0..100) < 15 {
+        bar[10].push(DrumHit::Snare);  // Syncopated (reduced)
+    }
+    
+    // Sparse hi-hat patterns (reduced from 60% to 30% - much less busy)
+    for i in 0..16 {
+        if rng.gen_range(0..100) < 30 {
+            bar[i].push(DrumHit::HiHatClosed);
+        }
+    }
+    
+    // Shuffle/swing feel on hi-hats (reduced emphasis from 80% to 50%)
+    for i in [1, 3, 5, 7, 9, 11, 13, 15] {
+        if rng.gen_range(0..100) < 50 {
+            bar[i].push(DrumHit::HiHatClosed);
+        }
+    }
+    
+    // Open hat accents
+    if rng.gen_range(0..100) < 40 {
+        let open_pos = *[6, 14].choose(&mut rng).unwrap();
+        bar[open_pos].push(DrumHit::HiHatOpen);
     }
     
     bar

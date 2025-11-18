@@ -18,9 +18,61 @@ software = "Rust Beats - Procedural Music Generator"
 # Song structure: "short" (30-60s for testing) or "standard" (2-3 min full song)
 structure = "standard"
 # Minimum tempo in BPM (upbeat, energetic)
-min_tempo = 35.0
+min_tempo = 80.0
 # Maximum tempo in BPM (upbeat, energetic)
-max_tempo = 65.0
+max_tempo = 140.0
+
+[composition.instrument_probabilities]
+# Probability thresholds for lead instrument selection (must sum to ~1.0)
+rhodes = 0.40
+ukulele = 0.15
+guitar = 0.15
+electric = 0.15
+organ = 0.15
+
+[composition.percussion]
+# Chance of adding percussion to a song (0.0-1.0)
+chance = 0.30
+# Distribution of percussion types (should sum to ~1.0)
+tambourine = 0.33
+cowbell = 0.33
+bongo = 0.34
+
+[composition.pads]
+# Pad intensity distribution (should sum to ~1.0)
+subtle = 0.40
+medium = 0.40
+prominent = 0.20
+
+[composition.mixing]
+# Mixing style distribution (should sum to ~1.0)
+clean = 0.25
+warm = 0.25
+punchy = 0.25
+spacious = 0.25
+
+[composition.bass_drops]
+# Bass drop probabilities (chance per bar interval)
+default_chance_8th_bar = 0.6
+default_chance_12th_bar = 0.4
+rock_chance_8th_bar = 0.5
+rock_chance_12th_bar = 0.3
+dnb_chance_8th_bar = 0.5
+dnb_chance_16th_bar = 0.4
+# Bass drop amplitudes (0.0-1.0)
+amplitude = 0.4
+rock_amplitude = 0.35
+dnb_amplitude = 0.4
+# Bass drop durations (in beats)
+default_duration_beats = 1.5
+rock_duration_beats = 1.5
+dnb_duration_beats = 2.0
+
+[composition.melody]
+# Chance of melody occurring in a bar (0.0-1.0)
+occurrence_chance = 0.15
+# Percentage of melody notes that use Rhodes sound (0-100)
+rhodes_usage_percent = 60
 
 [generation]
 # Output directory for generated songs
