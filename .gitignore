@@ -27,4 +27,8 @@ output/
 !docs/
 
 tmp/
-.DS_Store
+.DS_Store.env
+
+.env
+venv/
+scripts/__pycache__/

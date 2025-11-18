@@ -2,11 +2,13 @@
 
 A procedural music generator written in Rust that creates unique lofi/chill songs with complete synthesis - no samples needed!
 
+**[GitHub Repository](https://github.com/petarzarkov/rust-beats)** | **[Live Website](https://petarzarkov.github.io/rust-beats/)** | **[YouTube Channel](https://www.youtube.com/@RustBeats)**
+
 ## 🎵 Live Demo
 
-**[Listen to daily generated beats →](https://petarzarkov.github.io/rust-beats/)**
+**[Listen to daily generated beats →](https://petarzarkov.github.io/rust-beats/)** | **[Watch on YouTube →](https://www.youtube.com/@RustBeats)**
 
-Every day at midnight UTC, a new unique song is automatically generated and deployed to GitHub Pages. The website features an audio player where you can listen to the latest beat and browse through the previous 7 generated songs.
+Every day at midnight UTC, a new unique song is automatically generated and deployed to GitHub Pages and uploaded to YouTube. The website features an audio player where you can listen to the latest beat and browse through the previous 7 generated songs.
 
 ## Overview
 
@@ -36,6 +38,8 @@ Every day at midnight UTC, a new unique song is automatically generated and depl
 - **Configurable via TOML**: Easy customization of tempo, structure, metadata, author
 - **Automated Daily Generation**: GitHub Actions workflow generates new songs daily
 - **GitHub Pages Deployment**: Live website with audio player and history of the last 7 songs
+- **YouTube Upload**: Automatically uploads videos with dynamic animations to YouTube
+- **Python Scripts**: Video creation and YouTube upload handled by Python scripts with `.env` support
 - **Free for Content Creators**: All music is CC0/CC BY license
 
 ## How It Works
@@ -232,28 +236,78 @@ This project uses GitHub Actions to automatically generate and deploy new beats:
 
 1. Builds the Rust project in release mode
 2. Generates a new song with random parameters (key, tempo, instruments, etc.)
-3. Creates both WAV and MP3 files with the current date (e.g., `song-2025-11-16.wav/.mp3`)
-4. Keeps only the 7 most recent songs (automatically removes older files)
-5. Updates the song list metadata including file sizes and song information
-6. Commits the new files to the repository
-7. Deploys to GitHub Pages
+3. Creates both WAV and MP3 files with the current date (e.g., `petar_zarkov_song_name_2025-11-16.mp3`)
+4. Creates video with dynamic animations (smooth vibration effects) using Python/ffmpeg
+5. Uploads video to YouTube (if video creation succeeds)
+6. Keeps only the 7 most recent songs (automatically removes older files)
+7. Updates the song list metadata including file sizes and song information
+8. Commits the new files to the repository
+9. Deploys to GitHub Pages
 
 ### Viewing the Results
 
-Visit **[petarzarkov.github.io/rust-beats](https://petarzarkov.github.io/rust-beats/)** to:
+- **Website**: Visit **[petarzarkov.github.io/rust-beats](https://petarzarkov.github.io/rust-beats/)** to:
 
-- Listen to the latest generated song
-- Browse and download the previous 7 songs (WAV or MP3)
-- See song names, genres, generation dates, and file sizes
-- Read about the song's key, tempo, and instrumentation
+  - Listen to the latest generated song
+  - Browse and download the previous 7 songs (MP3 format)
+  - See song names, genres, generation dates, and file sizes
+  - Read about the song's key, tempo, and instrumentation
+
+- **YouTube**: Watch videos on **[youtube.com/@RustBeats](https://www.youtube.com/@RustBeats)** with:
+  - Dynamic video animations (smooth vibration effects)
+  - Full song playback
+  - Download links in descriptions
 
 ## License
 
 See [LICENSE](LICENSE) file for details.
 
-### Local dev
+## Local Development
 
-- if you have nodejs
-  - `npx serve docs -p 8000` to serve locally
-- or python
-  - `python3 -m http.server 8000`
+### Testing the Website Locally
+
+```bash
+# Serve the docs directory
+python3 -m http.server 8000 --directory docs
+# Then visit http://localhost:8000
+```
+
+### Testing YouTube Upload
+
+1. **Set up Python environment**:
+
+   ```bash
+   python3 -m venv venv
+   source venv/bin/activate  # On Windows: venv\Scripts\activate
+   pip install -r scripts/requirements.txt
+   ```
+
+2. **Create `.env` file** (copy from `.env.example`):
+
+   ```bash
+   cp .env.example .env
+   # Edit .env and add your YouTube API credentials
+   ```
+
+3. **Generate a video**:
+
+   ```bash
+   python3 scripts/create_video.py
+   ```
+
+4. **Upload to YouTube**:
+   ```bash
+   python3 scripts/upload_youtube.py
+   ```
+
+The script will automatically:
+
+- Load credentials from `.env` file
+- Read metadata from `output/*.json` files
+- Upload the video with proper title and description
+
+### Python Scripts
+
+- **`scripts/create_video.py`**: Creates MP4 video with dynamic animations from MP3 + cover art
+- **`scripts/upload_youtube.py`**: Uploads video to YouTube with metadata from JSON files
+- **`.env`**: Local configuration file (gitignored) for YouTube API credentials
