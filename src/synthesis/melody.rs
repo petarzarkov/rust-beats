@@ -1,7 +1,17 @@
 use super::synthesizer::*;
-use super::instruments::generate_rhodes_note;
+use super::instruments::{generate_rhodes_note, generate_warm_organ, generate_mallet, generate_soft_pluck, generate_acoustic_guitar, generate_ukulele, generate_electric_guitar};
 use crate::composition::music_theory::{Key, Chord, midi_to_freq, MidiNote};
+use crate::composition::{Section, Genre};
 use rand::Rng;
+
+/// Melody style determines the approach to melody generation
+#[derive(Debug, Clone, Copy)]
+pub enum MelodyStyle {
+    Sparse,        // Simple ear candy (current default)
+    Syncopated,    // Offbeat rhythms
+    Connected,     // Step-wise melodic phrases
+    Arpeggio,      // Arpeggiated patterns
+}
 
 /// Generate a melody following the key and chord progression
 pub fn generate_melody(
@@ -11,6 +21,19 @@ pub fn generate_melody(
     bars: usize,
     melody_cfg: &crate::config::MelodyConfig,
 ) -> Vec<f32> {
+    generate_melody_with_style(key, chords, tempo, bars, melody_cfg, None, None)
+}
+
+/// Generate melody with style and section awareness
+pub fn generate_melody_with_style(
+    key: &Key,
+    chords: &[Chord],
+    tempo: f32,
+    bars: usize,
+    melody_cfg: &crate::config::MelodyConfig,
+    section: Option<Section>,
+    genre: Option<Genre>,
+) -> Vec<f32> {
     let beat_duration = 60.0 / tempo;
     let bar_duration = beat_duration * 4.0;
     
@@ -18,29 +41,283 @@ pub fn generate_melody(
     let mut melody = Vec::new();
     let mut rng = rand::thread_rng();
     
-    // Generate sparse, tasteful melody accents (much less busy)
+    // Determine melody style based on section
+    let style = determine_melody_style(section, genre, &mut rng);
+    
+    // Determine instrument based on section/genre
+    let instrument = determine_instrument(section, genre, &mut rng);
+    
+    let mut last_note = scale_notes[scale_notes.len() / 2]; // Start in middle of scale
+    
+    // Generate melody with selected style
     for bar_idx in 0..bars {
         let chord = &chords[bar_idx % chords.len()];
         
         // Use config for melody occurrence chance
         let chance_percent = (melody_cfg.occurrence_chance * 100.0) as u32;
         if rng.gen_range(0..100) < chance_percent {
-            let pattern = generate_ear_candy_bar(
-                &scale_notes,
-                chord,
-                bar_duration,
-                &mut rng,
-                melody_cfg,
-            );
+            let pattern = match style {
+                MelodyStyle::Sparse => {
+                    generate_ear_candy_bar_with_instrument(
+                        &scale_notes,
+                        chord,
+                        bar_duration,
+                        &mut rng,
+                        melody_cfg,
+                        instrument,
+                    )
+                }
+                MelodyStyle::Syncopated => {
+                    let mut bar = vec![0.0; (bar_duration * SAMPLE_RATE as f32) as usize];
+                    let chord_tones = chord.get_notes();
+                    generate_syncopated_rhythm_candy_with_instrument(&mut bar, &chord_tones, bar_duration, &mut rng, instrument);
+                    bar
+                }
+                MelodyStyle::Connected => {
+                    let (phrase, new_last_note) = generate_connected_melody_phrase(
+                        &scale_notes,
+                        chord,
+                        bar_duration,
+                        last_note,
+                        &mut rng,
+                        melody_cfg,
+                    );
+                    last_note = new_last_note;
+                    phrase
+                }
+                MelodyStyle::Arpeggio => {
+                    generate_arpeggio(chord, tempo, bar_duration)
+                }
+            };
             melody.extend(pattern);
         } else {
-            // Rest bar (85% of bars are silent - very sparse)
+            // Rest bar
             let silence_samples = (bar_duration * SAMPLE_RATE as f32) as usize;
             melody.extend(vec![0.0; silence_samples]);
         }
     }
     
     melody
+}
+
+/// Determine melody style based on section and genre
+fn determine_melody_style(section: Option<Section>, genre: Option<Genre>, rng: &mut impl Rng) -> MelodyStyle {
+    match section {
+        Some(Section::Intro) => MelodyStyle::Sparse,  // Keep intro sparse
+        Some(Section::Verse) => {
+            // Verse: mix of sparse and connected
+            if rng.gen_range(0..100) < 60 {
+                MelodyStyle::Sparse
+            } else {
+                MelodyStyle::Connected
+            }
+        }
+        Some(Section::Chorus) => {
+            // Chorus: more variety
+            match rng.gen_range(0..100) {
+                0..=40 => MelodyStyle::Sparse,
+                41..=70 => MelodyStyle::Connected,
+                71..=85 => MelodyStyle::Arpeggio,
+                _ => MelodyStyle::Syncopated,
+            }
+        }
+        Some(Section::Bridge) => {
+            // Bridge: arpeggios and connected phrases
+            if rng.gen_range(0..100) < 50 {
+                MelodyStyle::Arpeggio
+            } else {
+                MelodyStyle::Connected
+            }
+        }
+        Some(Section::Outro) => MelodyStyle::Sparse,  // Keep outro sparse
+        None => MelodyStyle::Sparse,  // Default
+    }
+}
+
+/// Instrument generator type
+#[derive(Clone, Copy)]
+enum InstrumentType {
+    Rhodes,
+    WarmOrgan,
+    Mallet,
+    SoftPluck,
+    AcousticGuitar,
+    Ukulele,
+    ElectricGuitar,
+}
+
+/// Determine instrument generator function based on section/genre
+fn determine_instrument(
+    section: Option<Section>,
+    genre: Option<Genre>,
+    rng: &mut impl Rng,
+) -> InstrumentType {
+    // For pads/atmospheric sections, use warm organ
+    if section == Some(Section::Intro) || section == Some(Section::Bridge) {
+        if rng.gen_range(0..100) < 40 {
+            return InstrumentType::WarmOrgan;
+        }
+    }
+    
+    // Genre-based selection
+    match genre {
+        Some(Genre::Jazz) | Some(Genre::Funk) => {
+            match rng.gen_range(0..100) {
+                0..=50 => InstrumentType::Rhodes,
+                51..=70 => InstrumentType::Mallet,
+                71..=85 => InstrumentType::SoftPluck,
+                _ => InstrumentType::AcousticGuitar,
+            }
+        }
+        Some(Genre::Rock) => {
+            match rng.gen_range(0..100) {
+                0..=40 => InstrumentType::ElectricGuitar,
+                41..=70 => InstrumentType::AcousticGuitar,
+                _ => InstrumentType::Rhodes,
+            }
+        }
+        _ => {
+            // Default: variety of instruments
+            match rng.gen_range(0..100) {
+                0..=50 => InstrumentType::Rhodes,
+                51..=70 => InstrumentType::Ukulele,
+                71..=85 => InstrumentType::AcousticGuitar,
+                _ => InstrumentType::SoftPluck,
+            }
+        }
+    }
+}
+
+/// Generate note with selected instrument
+fn generate_note_with_instrument(
+    instrument: InstrumentType,
+    frequency: f32,
+    duration: f32,
+    velocity: f32,
+) -> Vec<f32> {
+    match instrument {
+        InstrumentType::Rhodes => generate_rhodes_note(frequency, duration, velocity),
+        InstrumentType::WarmOrgan => generate_warm_organ(frequency, duration, velocity),
+        InstrumentType::Mallet => generate_mallet(frequency, duration, velocity),
+        InstrumentType::SoftPluck => generate_soft_pluck(frequency, duration, velocity),
+        InstrumentType::AcousticGuitar => generate_acoustic_guitar(frequency, duration, velocity),
+        InstrumentType::Ukulele => generate_ukulele(frequency, duration, velocity),
+        InstrumentType::ElectricGuitar => generate_electric_guitar(frequency, duration, velocity, 0.3), // Default distortion
+    }
+}
+
+/// Generate ear candy bar with instrument selection
+fn generate_ear_candy_bar_with_instrument(
+    _scale_notes: &[MidiNote],
+    chord: &Chord,
+    bar_duration: f32,
+    rng: &mut impl Rng,
+    _melody_cfg: &crate::config::MelodyConfig,
+    instrument: InstrumentType,
+) -> Vec<f32> {
+    let mut bar = vec![0.0; (bar_duration * SAMPLE_RATE as f32) as usize];
+    
+    let chord_tones = chord.get_notes();
+    
+    // Choose ear candy type
+    let candy_type = rng.gen_range(0..100);
+    
+    if candy_type < 50 {
+        generate_on_beat_hits_candy_with_instrument(&mut bar, &chord_tones, bar_duration, rng, instrument);
+    } else if candy_type < 75 {
+        generate_chord_movement_candy_with_instrument(&mut bar, &chord_tones, bar_duration, rng, instrument);
+    } else {
+        generate_ghost_note_fills_candy_with_instrument(&mut bar, &chord_tones, bar_duration, rng, instrument);
+    }
+    
+    bar
+}
+
+/// On-beat hits with instrument selection
+fn generate_on_beat_hits_candy_with_instrument(
+    bar: &mut [f32],
+    chord_tones: &[MidiNote],
+    bar_duration: f32,
+    rng: &mut impl Rng,
+    instrument: InstrumentType,
+) {
+    let beat_duration = bar_duration / 4.0;
+    let beats_to_hit = vec![0, 1, 2, 3];
+    let num_hits = rng.gen_range(1..=2);
+    
+    for i in 0..num_hits {
+        let beat = beats_to_hit[i * 2];
+        let time = beat as f32 * beat_duration;
+        let note = chord_tones[rng.gen_range(0..chord_tones.len())] + 12;
+        let freq = midi_to_freq(note);
+        
+        let hit = generate_note_with_instrument(instrument, freq, 0.4, 0.6);
+        
+        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        for (j, &sample) in hit.iter().enumerate() {
+            let idx = start_sample + j;
+            if idx < bar.len() {
+                bar[idx] += sample * 0.35;
+            }
+        }
+    }
+}
+
+/// Chord movement with instrument selection
+fn generate_chord_movement_candy_with_instrument(
+    bar: &mut [f32],
+    chord_tones: &[MidiNote],
+    bar_duration: f32,
+    rng: &mut impl Rng,
+    instrument: InstrumentType,
+) {
+    let beat_duration = bar_duration / 4.0;
+    let num_chords = rng.gen_range(1..=2);
+    
+    for i in 0..num_chords {
+        let time = (i as f32 * 2.0) * beat_duration;
+        let note_idx = i % chord_tones.len();
+        let note = chord_tones[note_idx] + 12;
+        let freq = midi_to_freq(note);
+        
+        let hit = generate_note_with_instrument(instrument, freq, 0.5, 0.55);
+        
+        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        for (j, &sample) in hit.iter().enumerate() {
+            let idx = start_sample + j;
+            if idx < bar.len() {
+                bar[idx] += sample * 0.4;
+            }
+        }
+    }
+}
+
+/// Ghost note fills with instrument selection
+fn generate_ghost_note_fills_candy_with_instrument(
+    bar: &mut [f32],
+    chord_tones: &[MidiNote],
+    bar_duration: f32,
+    rng: &mut impl Rng,
+    instrument: InstrumentType,
+) {
+    let beat_duration = bar_duration / 4.0;
+    let fill_times = vec![3.25, 3.5, 3.75];
+    
+    for &beat_offset in &fill_times {
+        let time = beat_offset * beat_duration;
+        let note = chord_tones[rng.gen_range(0..chord_tones.len())] + 12;
+        let freq = midi_to_freq(note);
+        
+        let ghost = generate_note_with_instrument(instrument, freq, 0.08, 0.4);
+        
+        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        for (i, &sample) in ghost.iter().enumerate() {
+            let idx = start_sample + i;
+            if idx < bar.len() {
+                bar[idx] += sample * 0.3;
+            }
+        }
+    }
 }
 
 /// Generate ear candy - fun sound effects like bells, beeps, dual notes
@@ -105,11 +382,22 @@ fn generate_on_beat_hits_candy(
 }
 
 /// Syncopated rhythm - offbeat accents
-fn generate_syncopated_rhythm_candy(
+pub fn generate_syncopated_rhythm_candy(
     bar: &mut [f32],
     chord_tones: &[MidiNote],
     bar_duration: f32,
     rng: &mut impl Rng,
+) {
+    generate_syncopated_rhythm_candy_with_instrument(bar, chord_tones, bar_duration, rng, InstrumentType::Rhodes);
+}
+
+/// Syncopated rhythm with instrument selection
+fn generate_syncopated_rhythm_candy_with_instrument(
+    bar: &mut [f32],
+    chord_tones: &[MidiNote],
+    bar_duration: f32,
+    rng: &mut impl Rng,
+    instrument: InstrumentType,
 ) {
     let beat_duration = bar_duration / 4.0;
     // Syncopated pattern: offbeats and "and" of beats
@@ -122,7 +410,7 @@ fn generate_syncopated_rhythm_candy(
             let freq = midi_to_freq(note);
             
             // Quick staccato
-            let hit = generate_rhodes_note(freq, 0.12, 0.6);
+            let hit = generate_note_with_instrument(instrument, freq, 0.12, 0.6);
             
             let start_sample = (time * SAMPLE_RATE as f32) as usize;
             for (i, &sample) in hit.iter().enumerate() {
@@ -193,8 +481,8 @@ fn generate_ghost_note_fills_candy(
     }
 }
 
-/// OLD FUNCTIONS - kept for reference but not used
-fn _generate_connected_melody_phrase(
+/// Generate connected melodic phrases with step-wise motion
+pub fn generate_connected_melody_phrase(
     scale_notes: &[MidiNote],
     chord: &Chord,
     bar_duration: f32,
@@ -265,7 +553,7 @@ fn _generate_connected_melody_phrase(
 }
 
 /// Choose the next note based on melodic motion (step-wise preferred)
-fn choose_next_melodic_note(
+pub fn choose_next_melodic_note(
     current_note: MidiNote,
     scale_notes: &[MidiNote],
     chord_tones: &[MidiNote],
@@ -325,7 +613,7 @@ fn choose_next_melodic_note(
 }
 
 /// Generate a single melody note with humanization and warmth
-fn generate_melody_note(frequency: f32, duration: f32, velocity: f32, melody_cfg: &crate::config::MelodyConfig) -> Vec<f32> {
+pub fn generate_melody_note(frequency: f32, duration: f32, velocity: f32, melody_cfg: &crate::config::MelodyConfig) -> Vec<f32> {
     let mut rng = rand::thread_rng();
     
     // Use config for Rhodes usage percentage
@@ -441,7 +729,7 @@ pub fn generate_arpeggio(
 }
 
 /// Generate a single arpeggio note
-fn generate_arp_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
+pub fn generate_arp_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
     let num_samples = (duration * SAMPLE_RATE as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     

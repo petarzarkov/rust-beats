@@ -72,8 +72,8 @@ fn generate_pad_chord(chord: &Chord, duration: f32) -> Vec<f32> {
     // Low-pass filter for warmth (lower cutoff for darker sound)
     let mut filter = LowPassFilter::new(600.0, 0.25);
     
-    // Slow LFO for movement
-    let mut lfo = LFO::new(0.25, 0.06); // Very slow, gentle modulation
+    // Disable LFO modulation entirely to prevent scratching/alien sounds
+    // Static filter only - no movement
     
     for i in 0..num_samples {
         let time = i as f32 / SAMPLE_RATE as f32;
@@ -85,9 +85,8 @@ fn generate_pad_chord(chord: &Chord, duration: f32) -> Vec<f32> {
             sample += osc.next_sample() * *amp;
         }
         
-        // Apply slow filter modulation (less modulation for stability)
-        let lfo_val = lfo.next_value();
-        filter.cutoff = 500.0 + lfo_val * 300.0;
+        // Static filter - no modulation to prevent scratching
+        filter.cutoff = 600.0;  // Fixed cutoff, no LFO
         sample = filter.process(sample);
         
         // Very gentle overall amplitude (pads should be subtle and warm)

@@ -110,7 +110,7 @@ fn generate_funk_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
 }
 
 /// Generate a single bass note
-fn generate_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
+pub fn generate_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
     let num_samples = (duration * SAMPLE_RATE as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     

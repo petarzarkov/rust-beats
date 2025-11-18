@@ -71,6 +71,16 @@ impl ScaleType {
 }
 
 impl Key {
+    /// Create a key from a specific scale type
+    pub fn from_scale(scale_type: ScaleType) -> Self {
+        let mut rng = rand::thread_rng();
+        let roots = vec![36, 38, 40, 41, 43, 45, 46]; // C, D, E, F, G, A, Bb
+        Key {
+            root: roots[rng.gen_range(0..roots.len())],
+            scale_type,
+        }
+    }
+    
     /// Create a random key suitable for funk/jazz
     pub fn random_funky() -> Self {
         let mut rng = rand::thread_rng();
@@ -165,38 +175,102 @@ impl Chord {
 
 /// Generate a chord progression suitable for funk/jazz
 pub fn generate_chord_progression(key: &Key, length: usize) -> Vec<Chord> {
+    generate_chord_progression_with_types(key, length, None)
+}
+
+/// Generate a chord progression with preferred chord types
+pub fn generate_chord_progression_with_types(key: &Key, length: usize, preferred_types: Option<&[ChordType]>) -> Vec<Chord> {
     let mut rng = rand::thread_rng();
     let scale_notes = key.get_scale_notes();
     
-    // Weighted towards happier, uplifting progressions
+    // Helper to select chord type, preferring preferred types if available
+    let select_chord_type = |rng: &mut rand::rngs::ThreadRng, _degree: usize, default: ChordType| -> ChordType {
+        if let Some(preferred) = preferred_types {
+            if !preferred.is_empty() {
+                // 70% chance to use preferred type, 30% chance for default
+                if rng.gen_range(0..100) < 70 {
+                    preferred[rng.gen_range(0..preferred.len())]
+                } else {
+                    default
+                }
+            } else {
+                default
+            }
+        } else {
+            default
+        }
+    };
+    
+    // Weighted towards happier, uplifting progressions, now with extended chords
     let choice = rng.gen_range(0..100);
     let pattern = if choice < 20 {
-        // I-V-vi-IV (most popular happy progression!)
-        vec![(0, ChordType::Major9), (4, ChordType::Dominant9), (5, ChordType::Minor7), (3, ChordType::Major9)]
+        // I-V-vi-IV (most popular happy progression!) - use extended chords
+        vec![
+            (0, select_chord_type(&mut rng, 0, ChordType::Major11)),
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant13)),
+            (5, select_chord_type(&mut rng, 5, ChordType::Minor11)),
+            (3, select_chord_type(&mut rng, 3, ChordType::Major9))
+        ]
     } else if choice < 35 {
         // I-IV-V (classic happy progression)
-        vec![(0, ChordType::Major7), (3, ChordType::Major7), (4, ChordType::Dominant7)]
+        vec![
+            (0, select_chord_type(&mut rng, 0, ChordType::Major7)),
+            (3, select_chord_type(&mut rng, 3, ChordType::Major9)),
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant7))
+        ]
     } else if choice < 50 {
         // I-vi-IV-V (upbeat pop progression)
-        vec![(0, ChordType::Major9), (5, ChordType::Minor7), (3, ChordType::Major7), (4, ChordType::Dominant9)]
+        vec![
+            (0, select_chord_type(&mut rng, 0, ChordType::Major9)),
+            (5, select_chord_type(&mut rng, 5, ChordType::Minor11)),
+            (3, select_chord_type(&mut rng, 3, ChordType::Major7)),
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant9))
+        ]
     } else if choice < 60 {
         // I-V-IV (simple, bright)
-        vec![(0, ChordType::Major7), (4, ChordType::Dominant7), (3, ChordType::Major7)]
+        vec![
+            (0, select_chord_type(&mut rng, 0, ChordType::Major7)),
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant13)),
+            (3, select_chord_type(&mut rng, 3, ChordType::Major7))
+        ]
     } else if choice < 70 {
-        // ii-V-I (uplifting jazz resolution)
-        vec![(1, ChordType::Minor9), (4, ChordType::Dominant13), (0, ChordType::Major9)]
+        // ii-V-I (uplifting jazz resolution) - use half-diminished
+        vec![
+            (1, select_chord_type(&mut rng, 1, ChordType::HalfDiminished7)),
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant13)),
+            (0, select_chord_type(&mut rng, 0, ChordType::Major9))
+        ]
     } else if choice < 78 {
         // sus4 to Major (dreamy, hopeful)
-        vec![(0, ChordType::Sus4), (0, ChordType::Major9), (3, ChordType::Major9)]
+        vec![
+            (0, ChordType::Sus4),
+            (0, select_chord_type(&mut rng, 0, ChordType::Major13)),
+            (3, select_chord_type(&mut rng, 3, ChordType::Major9))
+        ]
     } else if choice < 85 {
         // I-III-IV-V (bright and jazzy)
-        vec![(0, ChordType::Major7), (2, ChordType::Major7), (3, ChordType::Major7), (4, ChordType::Dominant7)]
+        vec![
+            (0, select_chord_type(&mut rng, 0, ChordType::Major7)),
+            (2, select_chord_type(&mut rng, 2, ChordType::MinorMajor7)),
+            (3, select_chord_type(&mut rng, 3, ChordType::Major7)),
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant7))
+        ]
     } else if choice < 92 {
         // I-vi-ii-V (smooth jazz standard)
-        vec![(0, ChordType::Major9), (5, ChordType::Minor7), (1, ChordType::Minor7), (4, ChordType::Dominant9)]
+        vec![
+            (0, select_chord_type(&mut rng, 0, ChordType::Major9)),
+            (5, select_chord_type(&mut rng, 5, ChordType::Minor11)),
+            (1, select_chord_type(&mut rng, 1, ChordType::Minor7)),
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant9))
+        ]
     } else {
         // vi-IV-I-V (slightly melancholic but resolves happy)
-        vec![(5, ChordType::Minor7), (3, ChordType::Major9), (0, ChordType::Major9), (4, ChordType::Dominant9)]
+        vec![
+            (5, select_chord_type(&mut rng, 5, ChordType::Minor11)),
+            (3, select_chord_type(&mut rng, 3, ChordType::Major9)),
+            (0, select_chord_type(&mut rng, 0, ChordType::Major13)),
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant9))
+        ]
     };
     let mut progression = Vec::new();
     
