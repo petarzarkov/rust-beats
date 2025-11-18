@@ -20,6 +20,55 @@ use synthesis::{
 use audio::{render_to_wav_with_metadata, encode_to_mp3, SongMetadata, Track, mix_tracks, master_lofi, stereo_to_mono};
 use config::Config;
 
+/// Check if a year is a leap year
+fn is_leap_year(year: u32) -> bool {
+    (year % 4 == 0 && year % 100 != 0) || (year % 400 == 0)
+}
+
+/// Sanitize a string for use in filenames
+/// Removes or replaces invalid filesystem characters
+fn sanitize_filename(s: &str) -> String {
+    let mut result = String::new();
+    let mut last_was_underscore = false;
+    
+    for c in s.chars() {
+        let mapped = match c {
+            ' ' | '_' | '\'' | '"' | ',' | ';' | ':' | '!' | '?' => {
+                if !last_was_underscore {
+                    last_was_underscore = true;
+                    '_'
+                } else {
+                    continue; // Skip consecutive underscores
+                }
+            }
+            c if c.is_alphanumeric() => {
+                last_was_underscore = false;
+                c
+            }
+            '-' | '.' => {
+                last_was_underscore = false;
+                c
+            }
+            _ => {
+                if !last_was_underscore {
+                    last_was_underscore = true;
+                    '_'
+                } else {
+                    continue; // Skip consecutive underscores
+                }
+            }
+        };
+        result.push(mapped);
+    }
+    
+    result
+        .trim_matches('_') // Remove leading/trailing underscores
+        .to_lowercase()
+        .chars()
+        .take(50) // Limit length
+        .collect()
+}
+
 fn main() {
     // Load configuration
     let config = Config::load_default().unwrap_or_else(|e| {
@@ -287,15 +336,53 @@ fn main() {
     println!("  └─ Finalizing\n");
 
     // Get current date (YYYY-MM-DD format)
-    let now = std::time::SystemTime::now();
-    let duration_since_epoch = now.duration_since(std::time::UNIX_EPOCH).unwrap();
-    let secs = duration_since_epoch.as_secs();
-    let days = secs / 86400;
-    let years = 1970 + days / 365;
-    let remaining_days = days % 365;
-    let month = (remaining_days / 30) + 1;
-    let day = (remaining_days % 30) + 1;
-    let date = format!("{:04}-{:02}-{:02}", years, month.min(12), day.min(31));
+    // Use environment variable if set (for testing with specific dates), otherwise use current date
+    let date = std::env::var("SONG_DATE")
+        .unwrap_or_else(|_| {
+            // Calculate current date properly
+            use std::time::{SystemTime, UNIX_EPOCH};
+            let now = SystemTime::now();
+            let duration = now.duration_since(UNIX_EPOCH).unwrap();
+            let secs = duration.as_secs();
+            
+            // Convert seconds to days since epoch
+            let days = secs / 86400;
+            
+            // Calculate year (accounting for leap years)
+            let mut year = 1970;
+            let mut remaining_days = days;
+            
+            loop {
+                let days_in_year = if is_leap_year(year) { 366 } else { 365 };
+                if remaining_days < days_in_year {
+                    break;
+                }
+                remaining_days -= days_in_year;
+                year += 1;
+            }
+            
+            // Calculate month and day
+            let days_in_months = if is_leap_year(year) {
+                [31, 29, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            } else {
+                [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+            };
+            
+            let mut month = 1;
+            let mut day = remaining_days as u32;
+            
+            for &days_in_month in &days_in_months {
+                if day < days_in_month {
+                    break;
+                }
+                day -= days_in_month;
+                month += 1;
+            }
+            
+            day += 1; // Days are 1-indexed
+            
+            format!("{:04}-{:02}-{:02}", year, month, day)
+        });
     
     // Create metadata
     let metadata = SongMetadata {
@@ -306,8 +393,14 @@ fn main() {
         date: date.clone(),
     };
 
+    // Generate filename: {date}_{author}_{song_name}
+    // Sanitize author and song name for filesystem safety
+    let sanitized_author = sanitize_filename(&config.metadata.artist);
+    let sanitized_song_name = sanitize_filename(&song_name);
+    let filename_base = format!("{}_{}_{}", date, sanitized_author, sanitized_song_name);
+    
     // Save the song
-    let final_song_path = format!("{}/final_song.wav", output_dir);
+    let final_song_path = format!("{}/{}.wav", output_dir, filename_base);
     match render_to_wav_with_metadata(&final_mix, &final_song_path, &metadata) {
         Ok(_) => {
             println!("✅ Successfully created: {}", final_song_path);
@@ -320,7 +413,7 @@ fn main() {
     }
 
     // Generate MP3 file for smaller file size
-    let mp3_path = format!("{}/final_song.mp3", output_dir);
+    let mp3_path = format!("{}/{}.mp3", output_dir, filename_base);
     match encode_to_mp3(&final_mix, &mp3_path, &song_name, &config.metadata.artist) {
         Ok(_) => {
             println!("✅ Successfully created MP3: {}", mp3_path);
@@ -332,7 +425,7 @@ fn main() {
 
     // Save metadata for the workflow
     if config.generation.write_metadata_json {
-        let metadata_path = format!("{}/song_metadata.json", output_dir);
+        let metadata_path = format!("{}/{}.json", output_dir, filename_base);
         let metadata_json = serde_json::json!({
             "name": song_name,
             "artist": config.metadata.artist,

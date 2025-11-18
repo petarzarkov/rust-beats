@@ -26,4 +26,5 @@ output/
 # Allow docs/ for GitHub Pages
 !docs/
 
+tmp/
 .DS_Store
