@@ -18,7 +18,7 @@ use synthesis::{
     generate_rock_bassline, generate_dubstep_bassline, generate_dnb_bassline,
     SAMPLE_RATE, LofiProcessor,
 };
-use audio::{render_to_wav_with_metadata, encode_to_mp3, SongMetadata, Track, mix_tracks, master_lofi, stereo_to_mono};
+use audio::{render_to_wav_with_metadata, encode_to_mp3, SongMetadata, Track, mix_tracks, master_lofi, stereo_to_mono, normalize_loudness};
 use config::Config;
 
 /// Check if a year is a leap year
@@ -374,6 +374,11 @@ fn main() {
         _ => LofiProcessor::subtle(),  // Subtle for other genres (already has no wow/flutter)
     };
     lofi_processor.process(&mut final_mix);
+    
+    // Normalize loudness based on RMS measurement
+    println!("  ├─ Loudness normalization");
+    let final_rms = normalize_loudness(&mut final_mix, 0.18, 0.12);
+    println!("     RMS: {:.3} (target: 0.18, min: 0.12)", final_rms);
     
     println!("  └─ Finalizing\n");
 
