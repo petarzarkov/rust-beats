@@ -1,9 +1,7 @@
 /// MP3 encoding for file size optimization
 use std::fs::File;
 use std::io::Write;
-
-pub const SAMPLE_RATE: u32 = 44100;
-const MP3_BITRATE: u32 = 192; // kbps - good balance of quality and size
+use crate::synthesis::SAMPLE_RATE;
 
 /// Encode float32 samples to MP3 file
 /// Reduces file size by ~85% (10-20MB WAV → 1-3MB MP3)
@@ -23,7 +21,7 @@ pub fn encode_to_mp3(
     let mut encoder = mp3lame_encoder::Builder::new()
         .expect("Failed to create encoder builder");
     encoder.set_num_channels(1).expect("Failed to set channels");
-    encoder.set_sample_rate(SAMPLE_RATE).expect("Failed to set sample rate");
+    encoder.set_sample_rate(SAMPLE_RATE()).expect("Failed to set sample rate");
     encoder.set_brate(mp3lame_encoder::Birtate::Kbps192).expect("Failed to set bitrate");
     encoder.set_quality(mp3lame_encoder::Quality::Best).expect("Failed to set quality");
     

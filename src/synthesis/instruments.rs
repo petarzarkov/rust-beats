@@ -3,7 +3,7 @@ use super::synthesizer::*;
 
 /// Rhodes Electric Piano - warm, bell-like tone
 pub fn generate_rhodes_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Rhodes envelope: medium attack, long sustain, gentle release
@@ -33,7 +33,7 @@ pub fn generate_rhodes_note(frequency: f32, duration: f32, velocity: f32) -> Vec
     let mut filter = LowPassFilter::new(3200.0, 0.45);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         // Apply vibrato
@@ -66,7 +66,7 @@ pub fn generate_rhodes_note(frequency: f32, duration: f32, velocity: f32) -> Vec
 
 /// Warm organ-like pad (for backing)
 pub fn generate_warm_organ(frequency: f32, duration: f32, amplitude: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Very slow envelope
@@ -92,7 +92,7 @@ pub fn generate_warm_organ(frequency: f32, duration: f32, amplitude: f32) -> Vec
     let mut filter = LowPassFilter::new(2500.0, 0.3);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         let vib = vibrato.next_value();
@@ -119,7 +119,7 @@ pub fn generate_warm_organ(frequency: f32, duration: f32, amplitude: f32) -> Vec
 
 /// Soft mallet sound (like vibraphone or marimba)
 pub fn generate_mallet(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Quick attack, long decay
@@ -144,7 +144,7 @@ pub fn generate_mallet(frequency: f32, duration: f32, velocity: f32) -> Vec<f32>
     let mut filter = LowPassFilter::new(4000.0, 0.5);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         let trem = 1.0 + tremolo.next_value();
@@ -163,7 +163,7 @@ pub fn generate_mallet(frequency: f32, duration: f32, velocity: f32) -> Vec<f32>
 
 /// Soft acoustic-like guitar pluck
 pub fn generate_soft_pluck(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Very fast attack, exponential decay
@@ -188,7 +188,7 @@ pub fn generate_soft_pluck(frequency: f32, duration: f32, velocity: f32) -> Vec<
     let mut filter = LowPassFilter::new(3000.0, 0.6);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         let mut sample = osc_fund.next_sample() * 0.5
@@ -209,7 +209,7 @@ pub fn generate_soft_pluck(frequency: f32, duration: f32, velocity: f32) -> Vec<
 
 /// Acoustic guitar - plucked string with body resonance
 pub fn generate_acoustic_guitar(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Fast attack, exponential decay
@@ -232,7 +232,7 @@ pub fn generate_acoustic_guitar(freq: f32, duration: f32, velocity: f32) -> Vec<
     let mut filter = LowPassFilter::new(2500.0, 0.6);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         let mut sample = fund.next_sample() * 0.5
@@ -252,7 +252,7 @@ pub fn generate_acoustic_guitar(freq: f32, duration: f32, velocity: f32) -> Vec<
 
 /// Ukulele - higher pitched, softer pluck
 pub fn generate_ukulele(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Very fast attack, quick decay
@@ -274,7 +274,7 @@ pub fn generate_ukulele(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
     let mut filter = LowPassFilter::new(3500.0, 0.4);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         let mut sample = fund.next_sample() * 0.45
@@ -291,7 +291,7 @@ pub fn generate_ukulele(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
 
 /// Electric guitar - square wave with slight distortion
 pub fn generate_electric_guitar(freq: f32, duration: f32, velocity: f32, distortion: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     let envelope = Envelope {
@@ -310,7 +310,7 @@ pub fn generate_electric_guitar(freq: f32, duration: f32, velocity: f32, distort
     let mut filter = LowPassFilter::new(2800.0, 0.7);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         let mut sample = sq1.next_sample() * 0.6

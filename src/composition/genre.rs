@@ -147,21 +147,21 @@ impl Genre {
     }
 }
 
-/// Select a random genre with weighted distribution
-/// Can favor lofi but allows variety
+/// Select a random genre with equal probability
+/// Each genre has a 12.5% (1/8) chance of being selected
 pub fn select_random_genre() -> Genre {
     let mut rng = rand::thread_rng();
-    let roll = rng.gen_range(0..100);
+    let roll = rng.gen_range(0..8);
     
     match roll {
-        0..=35 => Genre::Lofi,          // 35% - Still favor lofi
-        36..=50 => Genre::Rock,          // 15% - Rock
-        51..=65 => Genre::Dubstep,       // 15% - Dubstep
-        66..=80 => Genre::DnB,           // 15% - DnB
-        81..=87 => Genre::Jazz,          // 7% - Jazz
-        88..=93 => Genre::Funk,          // 6% - Funk
-        94..=97 => Genre::HipHop,        // 4% - HipHop
-        _ => Genre::ElectroSwing,        // 3% - ElectroSwing
+        0 => Genre::Lofi,
+        1 => Genre::Rock,
+        2 => Genre::Dubstep,
+        3 => Genre::DnB,
+        4 => Genre::Jazz,
+        5 => Genre::Funk,
+        6 => Genre::HipHop,
+        _ => Genre::ElectroSwing,
     }
 }
 

@@ -7,12 +7,12 @@ pub fn add_vinyl_crackle(samples: &mut [f32], intensity: f32) {
     let mut rng = rand::thread_rng();
     
     for sample in samples.iter_mut() {
-        // Random crackle (continuous low-level noise)
-        let crackle = (rng.gen_range(0.0..1.0) - 0.5) * 0.003 * intensity;
+        // Random crackle (continuous low-level noise) - reduced base level
+        let crackle = (rng.gen_range(0.0..1.0) - 0.5) * 0.002 * intensity;
         
-        // Random pops (occasional louder clicks)
-        let pop = if rng.gen_range(0.0..1.0) < 0.0001 * intensity {
-            (rng.gen_range(0.0..1.0) - 0.5) * 0.05
+        // Random pops (occasional louder clicks) - reduced amplitude and frequency
+        let pop = if rng.gen_range(0.0..1.0) < 0.00005 * intensity {
+            (rng.gen_range(0.0..1.0) - 0.5) * 0.02  // Reduced from 0.05 to 0.02
         } else {
             0.0
         };
@@ -43,7 +43,7 @@ pub fn apply_bit_crusher(samples: &mut [f32], target_bits: u8) {
 
 /// Sample rate reducer - downsample for retro digital sound
 pub fn apply_sample_rate_reduction(samples: &mut [f32], target_rate: u32) {
-    let reduction_factor = (SAMPLE_RATE / target_rate) as usize;
+    let reduction_factor = (SAMPLE_RATE() / target_rate) as usize;
     
     if reduction_factor <= 1 {
         return;
@@ -91,7 +91,7 @@ impl TapeWowFlutter {
 /// This is a simplified version - adds subtle pitch variation
 pub fn apply_wow_flutter(samples: &mut [f32], intensity: f32) {
     let mut wow_flutter = TapeWowFlutter::new();
-    let sample_rate_f = SAMPLE_RATE as f32;
+    let sample_rate_f = SAMPLE_RATE() as f32;
     
     // Create a copy for interpolation
     let original = samples.to_vec();
@@ -139,7 +139,7 @@ impl LofiProcessor {
             vinyl_intensity: 0.05,      // Barely any crackle
             tape_drive: 0.08,           // Minimal saturation
             bit_depth: 16,              // No bit crushing
-            downsample_rate: 44100,     // No downsampling
+            downsample_rate: SAMPLE_RATE(),     // No downsampling
             wow_flutter_intensity: 0.0, // NO pitch wobble!
             vintage_cutoff: 12000.0,    // Gentle high roll-off only
         }
@@ -148,7 +148,7 @@ impl LofiProcessor {
     /// Preset for medium lofi character
     pub fn medium() -> Self {
         LofiProcessor {
-            vinyl_intensity: 0.6,
+            vinyl_intensity: 0.3,  // Reduced from 0.6 to 0.3
             tape_drive: 0.4,
             bit_depth: 12,
             downsample_rate: 22050,
@@ -160,7 +160,7 @@ impl LofiProcessor {
     /// Preset for heavy lofi character
     pub fn heavy() -> Self {
         LofiProcessor {
-            vinyl_intensity: 1.0,
+            vinyl_intensity: 0.5,  // Reduced from 1.0 to 0.5
             tape_drive: 0.7,
             bit_depth: 10,
             downsample_rate: 16000,
@@ -182,7 +182,7 @@ impl LofiProcessor {
         }
         
         // 3. Sample rate reduction (retro digital)
-        if self.downsample_rate < SAMPLE_RATE {
+        if self.downsample_rate < SAMPLE_RATE() {
             apply_sample_rate_reduction(samples, self.downsample_rate);
         }
         

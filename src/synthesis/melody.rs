@@ -68,7 +68,7 @@ pub fn generate_melody_with_style(
                     )
                 }
                 MelodyStyle::Syncopated => {
-                    let mut bar = vec![0.0; (bar_duration * SAMPLE_RATE as f32) as usize];
+                    let mut bar = vec![0.0; (bar_duration * SAMPLE_RATE() as f32) as usize];
                     let chord_tones = chord.get_notes();
                     generate_syncopated_rhythm_candy_with_instrument(&mut bar, &chord_tones, bar_duration, &mut rng, instrument);
                     bar
@@ -92,7 +92,7 @@ pub fn generate_melody_with_style(
             melody.extend(pattern);
         } else {
             // Rest bar
-            let silence_samples = (bar_duration * SAMPLE_RATE as f32) as usize;
+            let silence_samples = (bar_duration * SAMPLE_RATE() as f32) as usize;
             melody.extend(vec![0.0; silence_samples]);
         }
     }
@@ -215,7 +215,7 @@ fn generate_ear_candy_bar_with_instrument(
     _melody_cfg: &crate::config::MelodyConfig,
     instrument: InstrumentType,
 ) -> Vec<f32> {
-    let mut bar = vec![0.0; (bar_duration * SAMPLE_RATE as f32) as usize];
+    let mut bar = vec![0.0; (bar_duration * SAMPLE_RATE() as f32) as usize];
     
     let chord_tones = chord.get_notes();
     
@@ -253,7 +253,7 @@ fn generate_on_beat_hits_candy_with_instrument(
         
         let hit = generate_note_with_instrument(instrument, freq, 0.4, 0.6);
         
-        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        let start_sample = (time * SAMPLE_RATE() as f32) as usize;
         for (j, &sample) in hit.iter().enumerate() {
             let idx = start_sample + j;
             if idx < bar.len() {
@@ -282,7 +282,7 @@ fn generate_chord_movement_candy_with_instrument(
         
         let hit = generate_note_with_instrument(instrument, freq, 0.5, 0.55);
         
-        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        let start_sample = (time * SAMPLE_RATE() as f32) as usize;
         for (j, &sample) in hit.iter().enumerate() {
             let idx = start_sample + j;
             if idx < bar.len() {
@@ -310,7 +310,7 @@ fn generate_ghost_note_fills_candy_with_instrument(
         
         let ghost = generate_note_with_instrument(instrument, freq, 0.08, 0.4);
         
-        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        let start_sample = (time * SAMPLE_RATE() as f32) as usize;
         for (i, &sample) in ghost.iter().enumerate() {
             let idx = start_sample + i;
             if idx < bar.len() {
@@ -328,7 +328,7 @@ fn generate_ear_candy_bar(
     rng: &mut impl Rng,
     _melody_cfg: &crate::config::MelodyConfig,
 ) -> Vec<f32> {
-    let mut bar = vec![0.0; (bar_duration * SAMPLE_RATE as f32) as usize];
+    let mut bar = vec![0.0; (bar_duration * SAMPLE_RATE() as f32) as usize];
     
     let chord_tones = chord.get_notes();
     
@@ -371,7 +371,7 @@ fn generate_on_beat_hits_candy(
         // Longer, softer hit (less staccato)
         let hit = generate_rhodes_note(freq, 0.4, 0.6);  // Increased duration, reduced velocity
         
-        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        let start_sample = (time * SAMPLE_RATE() as f32) as usize;
         for (j, &sample) in hit.iter().enumerate() {
             let idx = start_sample + j;
             if idx < bar.len() {
@@ -412,7 +412,7 @@ fn generate_syncopated_rhythm_candy_with_instrument(
             // Quick staccato
             let hit = generate_note_with_instrument(instrument, freq, 0.12, 0.6);
             
-            let start_sample = (time * SAMPLE_RATE as f32) as usize;
+            let start_sample = (time * SAMPLE_RATE() as f32) as usize;
             for (i, &sample) in hit.iter().enumerate() {
                 let idx = start_sample + i;
                 if idx < bar.len() {
@@ -442,7 +442,7 @@ fn generate_chord_movement_candy(
         // Longer, softer hit (more atmospheric)
         let hit = generate_rhodes_note(freq, 0.5, 0.55);  // Longer duration, softer velocity
         
-        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        let start_sample = (time * SAMPLE_RATE() as f32) as usize;
         for (j, &sample) in hit.iter().enumerate() {
             let idx = start_sample + j;
             if idx < bar.len() {
@@ -471,7 +471,7 @@ fn generate_ghost_note_fills_candy(
         // Very quiet and short (ghost notes)
         let ghost = generate_rhodes_note(freq, 0.08, 0.4);
         
-        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        let start_sample = (time * SAMPLE_RATE() as f32) as usize;
         for (i, &sample) in ghost.iter().enumerate() {
             let idx = start_sample + i;
             if idx < bar.len() {
@@ -490,7 +490,7 @@ pub fn generate_connected_melody_phrase(
     rng: &mut impl Rng,
     melody_cfg: &crate::config::MelodyConfig,
 ) -> (Vec<f32>, MidiNote) {
-    let mut phrase = vec![0.0; (bar_duration * SAMPLE_RATE as f32) as usize];
+    let mut phrase = vec![0.0; (bar_duration * SAMPLE_RATE() as f32) as usize];
     
     // Get chord tones for this chord (emphasize these)
     let chord_tones = chord.get_notes();
@@ -540,7 +540,7 @@ pub fn generate_connected_melody_phrase(
         let note = generate_melody_note(frequency, humanized_duration, velocity, melody_cfg);
         
         // Add to phrase with humanized timing
-        let start_sample = (humanized_start * SAMPLE_RATE as f32) as usize;
+        let start_sample = (humanized_start * SAMPLE_RATE() as f32) as usize;
         for (i, &sample) in note.iter().enumerate() {
             let idx = start_sample + i;
             if idx < phrase.len() {
@@ -625,7 +625,7 @@ pub fn generate_melody_note(frequency: f32, duration: f32, velocity: f32, melody
     }
     
     // Fallback to warm synth with humanization
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Soft envelope
@@ -654,7 +654,7 @@ pub fn generate_melody_note(frequency: f32, duration: f32, velocity: f32, melody
     let pitch_drift_amount = rng.gen_range(0.0..0.02);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         // Pitch drift (slides into pitch at start)
@@ -701,7 +701,7 @@ pub fn generate_arpeggio(
     let sixteenth_duration = beat_duration / 4.0;
     
     let chord_notes = chord.get_notes();
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut arpeggio = vec![0.0; num_samples];
     
     let mut note_idx = 0;
@@ -713,7 +713,7 @@ pub fn generate_arpeggio(
         
         let note = generate_arp_note(frequency, sixteenth_duration * 0.8, 0.2);
         
-        let start_sample = (time * SAMPLE_RATE as f32) as usize;
+        let start_sample = (time * SAMPLE_RATE() as f32) as usize;
         for (i, &sample) in note.iter().enumerate() {
             let idx = start_sample + i;
             if idx < arpeggio.len() {
@@ -730,7 +730,7 @@ pub fn generate_arpeggio(
 
 /// Generate a single arpeggio note
 pub fn generate_arp_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     
     let envelope = Envelope {
@@ -744,7 +744,7 @@ pub fn generate_arp_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f3
     let mut square_osc = Oscillator::new(Waveform::Square, frequency);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         let sample = square_osc.next_sample() * env_amp * velocity;

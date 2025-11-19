@@ -1,8 +1,6 @@
 /// Audio mixing and mastering utilities
 use crate::synthesis::synthesizer::LowPassFilter;
 
-const SAMPLE_RATE: u32 = 44100;
-
 /// Represents a track with audio samples and mixing parameters
 #[derive(Clone)]
 pub struct Track {

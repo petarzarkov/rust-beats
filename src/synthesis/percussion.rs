@@ -4,7 +4,7 @@ use rand::Rng;
 /// Tambourine - jingle rattle sound
 pub fn generate_tambourine(velocity: f32) -> Vec<f32> {
     let duration = 0.15;
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     let mut rng = rand::thread_rng();
@@ -18,7 +18,7 @@ pub fn generate_tambourine(velocity: f32) -> Vec<f32> {
     let mut filter = LowPassFilter::new(8000.0, 0.3);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env = (-time * 12.0).exp();
         
         // Mix multiple metallic tones
@@ -41,7 +41,7 @@ pub fn generate_tambourine(velocity: f32) -> Vec<f32> {
 /// Cowbell - metallic tone
 pub fn generate_cowbell(velocity: f32) -> Vec<f32> {
     let duration = 0.25;
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Inharmonic partials for metallic bell sound
@@ -51,7 +51,7 @@ pub fn generate_cowbell(velocity: f32) -> Vec<f32> {
     let mut filter = LowPassFilter::new(3500.0, 0.5);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env = (-time * 8.0).exp();
         
         let mut sample = osc1.next_sample() * 0.5
@@ -67,7 +67,7 @@ pub fn generate_cowbell(velocity: f32) -> Vec<f32> {
 /// Bongo - hand drum sound
 pub fn generate_bongo(pitch_high: bool, velocity: f32) -> Vec<f32> {
     let duration = 0.20;
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     let base_freq = if pitch_high { 400.0 } else { 250.0 };
@@ -76,7 +76,7 @@ pub fn generate_bongo(pitch_high: bool, velocity: f32) -> Vec<f32> {
     let mut rng = rand::thread_rng();
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env = (-time * 14.0).exp();
         
         // Pitch envelope - recreate oscillator for pitch bend
@@ -102,7 +102,7 @@ pub fn generate_bongo(pitch_high: bool, velocity: f32) -> Vec<f32> {
 /// Woodblock - sharp click
 pub fn generate_woodblock(velocity: f32) -> Vec<f32> {
     let duration = 0.08;
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     let mut osc = Oscillator::new(Waveform::Sine, 1200.0);
@@ -110,7 +110,7 @@ pub fn generate_woodblock(velocity: f32) -> Vec<f32> {
     let mut rng = rand::thread_rng();
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env = (-time * 35.0).exp();
         
         let mut sample = osc.next_sample() * 0.3;
@@ -132,7 +132,7 @@ pub fn generate_woodblock(velocity: f32) -> Vec<f32> {
 /// Triangle - bell tone
 pub fn generate_triangle_perc(velocity: f32) -> Vec<f32> {
     let duration = 1.5;
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // High pitched bell-like overtones
@@ -141,7 +141,7 @@ pub fn generate_triangle_perc(velocity: f32) -> Vec<f32> {
     let mut osc3 = Oscillator::new(Waveform::Sine, 4100.0);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         // Very slow decay for ringing triangle
         let env = (-time * 1.5).exp();
         

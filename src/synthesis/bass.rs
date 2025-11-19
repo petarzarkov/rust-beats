@@ -89,7 +89,7 @@ fn generate_funk_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
         );
         
         // Add to pattern at the right position
-        let start_sample = (start_time * SAMPLE_RATE as f32) as usize;
+        let start_sample = (start_time * SAMPLE_RATE() as f32) as usize;
         if start_sample + note.len() > pattern.len() {
             pattern.resize(start_sample + note.len(), 0.0);
         }
@@ -103,7 +103,7 @@ fn generate_funk_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
     }
     
     // Fill to full bar duration
-    let total_samples = (bar_duration * SAMPLE_RATE as f32) as usize;
+    let total_samples = (bar_duration * SAMPLE_RATE() as f32) as usize;
     pattern.resize(total_samples, 0.0);
     
     pattern
@@ -111,7 +111,7 @@ fn generate_funk_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
 
 /// Generate a single bass note
 pub fn generate_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     
     // Bass envelope: VERY soft attack, gentle sustain (not aggressive)
@@ -134,7 +134,7 @@ pub fn generate_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f
     let mut filter = LowPassFilter::new(400.0, 0.3); // VERY low, static cutoff for pure warm bass
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         // Mix multiple sine layers for warm, round bass
@@ -154,13 +154,13 @@ pub fn generate_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f
 
 /// Generate a sub-bass drone
 pub fn generate_sub_bass(frequency: f32, duration: f32, amplitude: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     
     let mut sine_osc = Oscillator::new(Waveform::Sine, frequency * 0.5); // Octave down
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         
         // Subtle envelope
         let env = 1.0 - (time / duration).powf(2.0) * 0.3;
@@ -174,7 +174,7 @@ pub fn generate_sub_bass(frequency: f32, duration: f32, amplitude: f32) -> Vec<f
 
 /// Synth bass - analog-style with sawtooth/square waves
 pub fn generate_synth_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     let envelope = Envelope {
@@ -192,7 +192,7 @@ pub fn generate_synth_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<
     let mut filter = LowPassFilter::new(800.0, 0.5);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, None);
         
         // Mix sawtooth layers with sub
@@ -212,7 +212,7 @@ pub fn generate_synth_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<
 
 /// Upright bass - woody, pizzicato tone
 pub fn generate_upright_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Short attack, medium decay for plucked upright sound
@@ -231,7 +231,7 @@ pub fn generate_upright_bass_note(freq: f32, duration: f32, velocity: f32) -> Ve
     let mut filter = LowPassFilter::new(500.0, 0.3);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, None);
         
         let mut sample = fund.next_sample() * 0.6
@@ -247,7 +247,7 @@ pub fn generate_upright_bass_note(freq: f32, duration: f32, velocity: f32) -> Ve
 
 /// Finger bass - smooth, rounded attack
 pub fn generate_finger_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Softer attack than current bass
@@ -266,7 +266,7 @@ pub fn generate_finger_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec
     let mut filter = LowPassFilter::new(450.0, 0.25);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, None);
         
         let mut sample = fund.next_sample() * 0.5
@@ -282,7 +282,7 @@ pub fn generate_finger_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec
 
 /// Slap bass - percussive, funky attack
 pub fn generate_slap_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Very fast attack with sharp transient
@@ -304,7 +304,7 @@ pub fn generate_slap_bass_note(freq: f32, duration: f32, velocity: f32) -> Vec<f
     let mut filter = LowPassFilter::new(1800.0, 0.6);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, None);
         
         let mut sample = tri.next_sample() * 0.45
@@ -400,7 +400,7 @@ fn generate_rock_bass_pattern(root_freq: f32, fifth_freq: f32, bar_duration: f32
         
         let note = generate_rock_bass_note(freq, duration, velocity);
         
-        let start_sample = (start_time * SAMPLE_RATE as f32) as usize;
+        let start_sample = (start_time * SAMPLE_RATE() as f32) as usize;
         if start_sample + note.len() > pattern.len() {
             pattern.resize(start_sample + note.len(), 0.0);
         }
@@ -413,7 +413,7 @@ fn generate_rock_bass_pattern(root_freq: f32, fifth_freq: f32, bar_duration: f32
         }
     }
     
-    let total_samples = (bar_duration * SAMPLE_RATE as f32) as usize;
+    let total_samples = (bar_duration * SAMPLE_RATE() as f32) as usize;
     pattern.resize(total_samples, 0.0);
     
     pattern
@@ -421,7 +421,7 @@ fn generate_rock_bass_pattern(root_freq: f32, fifth_freq: f32, bar_duration: f32
 
 /// Generate a rock bass note: distorted, punchy, with pick attack
 pub fn generate_rock_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     
     let envelope = Envelope {
@@ -438,7 +438,7 @@ pub fn generate_rock_bass_note(frequency: f32, duration: f32, velocity: f32) -> 
     let mut filter = LowPassFilter::new(800.0, 0.5);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, None);
         
         // Mix sawtooth and sine for character
@@ -511,7 +511,7 @@ fn generate_dubstep_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> 
 
 /// Generate wobble bass: square wave with LFO on low-pass filter cutoff
 pub fn generate_wobble_bass(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     
     // Square wave for aggressive character
@@ -523,7 +523,7 @@ pub fn generate_wobble_bass(frequency: f32, duration: f32, velocity: f32) -> Vec
     let mut filter = LowPassFilter::new(2000.0, 0.7);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         
         // LFO modulates filter cutoff
         let lfo = (2.0 * std::f32::consts::PI * lfo_rate * time).sin();
@@ -547,13 +547,13 @@ pub fn generate_wobble_bass(frequency: f32, duration: f32, velocity: f32) -> Vec
 
 /// Generate sub-bass drop: pure sine wave sub-bass
 pub fn generate_sub_bass_drop(frequency: f32, duration: f32, amplitude: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     
     let mut sine_osc = Oscillator::new(Waveform::Sine, frequency);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         
         // Quick attack, sustained, slow release
         let env = if time < 0.01 {
@@ -640,7 +640,7 @@ fn generate_dnb_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
         // Use reese bass
         let note = generate_rees_bass(root_freq, note_duration * 0.8, velocity);
         
-        let start_sample = (start_time * SAMPLE_RATE as f32) as usize;
+        let start_sample = (start_time * SAMPLE_RATE() as f32) as usize;
         if start_sample + note.len() > pattern.len() {
             pattern.resize(start_sample + note.len(), 0.0);
         }
@@ -653,7 +653,7 @@ fn generate_dnb_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
         }
     }
     
-    let total_samples = (bar_duration * SAMPLE_RATE as f32) as usize;
+    let total_samples = (bar_duration * SAMPLE_RATE() as f32) as usize;
     pattern.resize(total_samples, 0.0);
     
     pattern
@@ -661,7 +661,7 @@ fn generate_dnb_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> {
 
 /// Generate reese bass: detuned saw waves with chorus effect
 pub fn generate_rees_bass(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     
     // Detuned saw waves (chorus effect)
@@ -676,7 +676,7 @@ pub fn generate_rees_bass(frequency: f32, duration: f32, velocity: f32) -> Vec<f
     let mut filter = LowPassFilter::new(2000.0, 0.6);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         
         // Mix detuned saws for chorus effect
         let mut sample = saw1.next_sample() * 0.33

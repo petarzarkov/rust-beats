@@ -1,6 +1,17 @@
 use std::f32::consts::PI;
+use std::sync::OnceLock;
 
-pub const SAMPLE_RATE: u32 = 44100;
+static SAMPLE_RATE_STORAGE: OnceLock<u32> = OnceLock::new();
+
+/// Initialize the sample rate from config (must be called before any synthesis)
+pub fn init_sample_rate(sample_rate: u32) {
+    SAMPLE_RATE_STORAGE.set(sample_rate).expect("Sample rate already initialized");
+}
+
+/// Get the current sample rate
+pub fn SAMPLE_RATE() -> u32 {
+    *SAMPLE_RATE_STORAGE.get().unwrap_or(&44100) // Fallback to 44100 if not initialized
+}
 
 /// Oscillator waveform types
 #[derive(Debug, Clone, Copy)]
@@ -104,7 +115,7 @@ impl Oscillator {
             waveform,
             frequency,
             phase: 0.0,
-            sample_rate: SAMPLE_RATE,
+            sample_rate: SAMPLE_RATE(),
         }
     }
     
@@ -197,12 +208,12 @@ pub fn generate_note(
     envelope: &Envelope,
     amplitude: f32,
 ) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut oscillator = Oscillator::new(waveform, frequency);
     let mut samples = Vec::with_capacity(num_samples);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(duration * 0.8));
         let sample = oscillator.next_sample() * env_amp * amplitude;
         samples.push(sample);

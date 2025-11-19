@@ -1,7 +1,6 @@
 use hound;
 use std::io::Write;
-
-pub const SAMPLE_RATE: u32 = 44100;
+use crate::synthesis::SAMPLE_RATE;
 
 /// Song metadata for WAV file
 #[derive(Debug, Clone)]
@@ -34,7 +33,7 @@ pub fn render_to_wav_with_metadata(
     // First write the basic WAV file
     let spec = hound::WavSpec {
         channels: 1,
-        sample_rate: SAMPLE_RATE,
+        sample_rate: SAMPLE_RATE(),
         bits_per_sample: 16,
         sample_format: hound::SampleFormat::Int,
     };

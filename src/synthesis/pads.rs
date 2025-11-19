@@ -23,7 +23,7 @@ pub fn generate_pads(
             pads.extend(pad_section);
         } else {
             // Silence
-            let silence_samples = (bar_duration * SAMPLE_RATE as f32) as usize;
+            let silence_samples = (bar_duration * SAMPLE_RATE() as f32) as usize;
             pads.extend(vec![0.0; silence_samples]);
         }
     }
@@ -33,7 +33,7 @@ pub fn generate_pads(
 
 /// Generate a sustained pad chord
 fn generate_pad_chord(chord: &Chord, duration: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     let chord_notes = chord.get_notes();
@@ -76,7 +76,7 @@ fn generate_pad_chord(chord: &Chord, duration: f32) -> Vec<f32> {
     // Static filter only - no movement
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         // Sum all oscillators
@@ -98,7 +98,7 @@ fn generate_pad_chord(chord: &Chord, duration: f32) -> Vec<f32> {
 
 /// Generate a drone/sustained note (for intros/outros)
 pub fn generate_drone(frequency: f32, duration: f32, amplitude: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = vec![0.0; num_samples];
     
     // Very slow envelope
@@ -120,7 +120,7 @@ pub fn generate_drone(frequency: f32, duration: f32, amplitude: f32) -> Vec<f32>
     let mut filter = LowPassFilter::new(600.0, 0.4);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
         
         let mut sample = osc1.next_sample() * 0.4

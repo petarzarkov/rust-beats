@@ -1,18 +1,17 @@
 /// Audio effects and transitions for production polish
 use super::synthesizer::*;
-use rand::Rng;
 
 /// Generate a white noise sweep (riser/downlifter)
 /// start_freq and end_freq define the filter sweep range
 pub fn generate_white_noise_sweep(duration: f32, start_freq: f32, end_freq: f32) -> Vec<f32> {
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     
     let mut noise_osc = Oscillator::new(Waveform::Noise, 0.0);
     let mut filter = LowPassFilter::new(start_freq, 0.7);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         let progress = time / duration;
         
         // Exponential sweep for more natural sound
@@ -27,7 +26,7 @@ pub fn generate_white_noise_sweep(duration: f32, start_freq: f32, end_freq: f32)
         let mut sample = noise_osc.next_sample();
         sample = filter.process(sample);
         
-        samples.push(sample * amp_env * 0.6);
+        samples.push(sample * amp_env * 0.4);  // Reduced from 0.6 to 0.4
     }
     
     samples
@@ -46,7 +45,7 @@ pub fn generate_downlifter(duration: f32) -> Vec<f32> {
 /// Generate a crash cymbal / impact sound
 pub fn generate_crash(decay: f32) -> Vec<f32> {
     let duration = decay;
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     
     let mut noise_osc = Oscillator::new(Waveform::Noise, 0.0);
@@ -56,7 +55,7 @@ pub fn generate_crash(decay: f32) -> Vec<f32> {
     let mut filter_mid = LowPassFilter::new(6000.0, 0.5);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         
         // Exponential decay envelope
         let amp_env = (-time * (3.0 / decay)).exp();
@@ -76,7 +75,7 @@ pub fn generate_crash(decay: f32) -> Vec<f32> {
         
         let sample = (high + mid) * amp_env * attack;
         
-        samples.push(sample * 0.7);
+        samples.push(sample * 0.5);  // Reduced from 0.7 to 0.5
     }
     
     samples
@@ -85,7 +84,7 @@ pub fn generate_crash(decay: f32) -> Vec<f32> {
 /// Generate a short impact hit (for transitions)
 pub fn generate_impact() -> Vec<f32> {
     let duration = 0.3;
-    let num_samples = (duration * SAMPLE_RATE as f32) as usize;
+    let num_samples = (duration * SAMPLE_RATE() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     
     let mut noise_osc = Oscillator::new(Waveform::Noise, 0.0);
@@ -93,7 +92,7 @@ pub fn generate_impact() -> Vec<f32> {
     let mut filter = LowPassFilter::new(4000.0, 0.8);
     
     for i in 0..num_samples {
-        let time = i as f32 / SAMPLE_RATE as f32;
+        let time = i as f32 / SAMPLE_RATE() as f32;
         
         // Very fast attack, quick decay
         let amp_env = (-time * 15.0).exp();
@@ -104,7 +103,7 @@ pub fn generate_impact() -> Vec<f32> {
         
         let sample = filter.process(sub + noise) * amp_env;
         
-        samples.push(sample * 0.8);
+        samples.push(sample * 0.6);  // Reduced from 0.8 to 0.6
     }
     
     samples
