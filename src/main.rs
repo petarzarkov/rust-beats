@@ -17,6 +17,7 @@ use synthesis::{
     generate_pads,
     generate_rock_bassline, generate_dubstep_bassline, generate_dnb_bassline,
     SAMPLE_RATE, LofiProcessor,
+    generate_riser, generate_downlifter, generate_crash, generate_impact,
 };
 use audio::{render_to_wav_with_metadata, encode_to_mp3, SongMetadata, Track, mix_tracks, master_lofi, stereo_to_mono, normalize_loudness};
 use config::Config;
@@ -246,13 +247,19 @@ fn main() {
     println!("  ├─ Bass (with sections)");
     let bassline = render_arranged_bass(&arrangement, &chords, tempo.bpm, &genre, &config.composition.bass_drops, &genre_config);
 
-    // Generate melody with arrangement awareness
-    println!("  ├─ Melody (with variation)");
-    let melody = render_arranged_melody(&arrangement, &key, &chords, tempo.bpm, &config.composition.melody, &genre);
+    // Generate melody with arrangement awareness (double tracking for stereo width)
+    println!("  ├─ Melody (with variation, double-tracked)");
+    let melody_l = render_arranged_melody(&arrangement, &key, &chords, tempo.bpm, &config.composition.melody, &genre);
+    let melody_r = render_arranged_melody(&arrangement, &key, &chords, tempo.bpm, &config.composition.melody, &genre);
     
-    // Generate atmospheric pads for appropriate sections
-    println!("  ├─ Pads (atmospheric)");
-    let pads = generate_pads_with_arrangement(&arrangement, &chords, tempo.bpm, num_bars);
+    // Generate atmospheric pads for appropriate sections (double tracking for stereo width)
+    println!("  ├─ Pads (atmospheric, double-tracked)");
+    let pads_l = generate_pads_with_arrangement(&arrangement, &chords, tempo.bpm, num_bars);
+    let pads_r = generate_pads_with_arrangement(&arrangement, &chords, tempo.bpm, num_bars);
+    
+    // Generate transition effects (risers, crashes, impacts)
+    println!("  ├─ Transition FX (risers & crashes)");
+    let fx_track = render_fx_track(&arrangement, tempo.bpm);
 
     // Professional multi-track mixing with style variations
     println!("  ├─ Multi-track mixing ({})", mixing_style);
@@ -305,26 +312,26 @@ fn main() {
             .with_pan(0.0)
             .with_eq(bass_eq_l, bass_eq_m, bass_eq_h),
         
-        // Melody (stereo doubled)
-        Track::new(melody.clone())
+        // Melody (stereo doubled, double-tracked for authentic width)
+        Track::new(melody_l)
             .with_volume(melody_vol)
-            .with_pan(-0.15)
+            .with_pan(-0.20)  // Slightly wider
             .with_eq(melody_eq_l, melody_eq_m, melody_eq_h),
         
-        Track::new(melody)
+        Track::new(melody_r)
             .with_volume(melody_vol)
-            .with_pan(0.15)
+            .with_pan(0.20)   // Slightly wider
             .with_eq(melody_eq_l, melody_eq_m, melody_eq_h),
         
-        // Pads (stereo wide)
-        Track::new(pads.clone())
+        // Pads (stereo wide, double-tracked for authentic width)
+        Track::new(pads_l)
             .with_volume(pad_vol)
-            .with_pan(-0.5)
+            .with_pan(-0.6)  // Wider stereo image
             .with_eq(0.8, 0.9, 0.8),
         
-        Track::new(pads)
+        Track::new(pads_r)
             .with_volume(pad_vol)
-            .with_pan(0.5)
+            .with_pan(0.6)   // Wider stereo image
             .with_eq(0.8, 0.9, 0.8),
     ];
     
@@ -337,6 +344,14 @@ fn main() {
                 .with_eq(0.9, 1.0, 1.1)
         );
     }
+    
+    // Add transition FX track
+    tracks.push(
+        Track::new(fx_track)
+            .with_volume(0.35)  // Moderate volume for FX
+            .with_pan(0.0)      // Center
+            .with_eq(0.7, 1.0, 1.2) // Emphasize highs for sweeps
+    );
     
     let mut stereo_mix = mix_tracks(tracks);
     
@@ -375,10 +390,10 @@ fn main() {
     };
     lofi_processor.process(&mut final_mix);
     
-    // Normalize loudness based on RMS measurement
+    // Normalize loudness based on RMS measurement (more aggressive)
     println!("  ├─ Loudness normalization");
-    let final_rms = normalize_loudness(&mut final_mix, 0.18, 0.12);
-    println!("     RMS: {:.3} (target: 0.18, min: 0.12)", final_rms);
+    let final_rms = normalize_loudness(&mut final_mix, 0.25, 0.18);
+    println!("     RMS: {:.3} (target: 0.25, min: 0.18)", final_rms);
     
     println!("  └─ Finalizing\n");
 
@@ -539,8 +554,8 @@ fn render_arranged_drums(arrangement: &Arrangement, base_groove: GrooveStyle, bp
         // Generate pattern with complexity awareness
         let pattern = generate_drum_pattern_with_complexity(groove, *bars, complexity, is_transition, needs_buildup, needs_breakdown);
         
-        // Render with kit-specific sounds
-        let drums = render_drum_pattern_with_kit(&pattern, bpm, intensity, drum_kit);
+        // Render with kit-specific sounds and swing
+        let drums = render_drum_pattern_with_kit(&pattern, bpm, intensity, drum_kit, genre);
         all_drums.extend(drums);
         
         bar_idx += bars;
@@ -628,25 +643,45 @@ fn generate_drum_pattern_with_complexity(
     pattern
 }
 
-/// Render drum pattern with kit-specific sounds
+/// Render drum pattern with kit-specific sounds and swing
 fn render_drum_pattern_with_kit(
     pattern: &[Vec<composition::beat_maker::DrumHit>],
     bpm: f32,
     intensity: f32,
     drum_kit: DrumKit,
+    genre: &Genre,
 ) -> Vec<f32> {
     use composition::beat_maker::DrumHit;
     use synthesis::drums::{generate_rock_kick, generate_dubstep_kick, generate_dnb_snare, generate_rock_snare};
     
     let beat_duration = 60.0 / bpm;
     let sixteenth_duration = beat_duration / 4.0;
+    
+    // Genre-specific swing amount (applied to off-beats)
+    let swing_amount = match genre {
+        Genre::Lofi => 0.30,      // Heavy swing for laid-back feel
+        Genre::Jazz => 0.35,      // Even more swing for jazz
+        Genre::HipHop => 0.25,    // Medium swing
+        Genre::Funk => 0.20,      // Subtle funk groove
+        Genre::ElectroSwing => 0.28, // Swing for electro-swing
+        Genre::DnB => 0.10,       // Slight swing for variation
+        _ => 0.05,                // Minimal swing for rock/dubstep
+    };
+    
     let total_duration = pattern.len() as f32 * sixteenth_duration;
     let total_samples = (total_duration * SAMPLE_RATE as f32) as usize;
     
     let mut output = vec![0.0; total_samples];
     
     for (step_idx, hits) in pattern.iter().enumerate() {
-        let step_time = step_idx as f32 * sixteenth_duration;
+        // Apply swing: delay every second 16th note (odd indices)
+        let swing_offset = if step_idx % 2 == 1 {
+            sixteenth_duration * swing_amount
+        } else {
+            0.0
+        };
+        
+        let step_time = step_idx as f32 * sixteenth_duration + swing_offset;
         let start_sample = (step_time * SAMPLE_RATE as f32) as usize;
         
         for hit in hits {
@@ -993,6 +1028,80 @@ fn render_drum_pattern_with_intensity(pattern: &[Vec<DrumHit>], bpm: f32, intens
     }
     
     output
+}
+
+/// Render transition FX track (risers, crashes, downlifters)
+fn render_fx_track(arrangement: &Arrangement, bpm: f32) -> Vec<f32> {
+    let bar_duration = 60.0 / bpm * 4.0;
+    let total_samples = (bar_duration * arrangement.total_bars as f32 * SAMPLE_RATE as f32) as usize;
+    let mut fx_track = vec![0.0; total_samples];
+    
+    let mut current_bar = 0;
+    
+    for (section_idx, (section, bars)) in arrangement.sections.iter().enumerate() {
+        let section_start_sample = (current_bar as f32 * bar_duration * SAMPLE_RATE as f32) as usize;
+        let section_end_sample = ((current_bar + bars) as f32 * bar_duration * SAMPLE_RATE as f32) as usize;
+        
+        // Check if we need a buildup to this section
+        if section_idx > 0 {
+            let prev_section = arrangement.sections[section_idx - 1].0;
+            
+            if Arrangement::needs_buildup(prev_section, *section) {
+                // Add riser before section starts (2 bars)
+                let riser_duration = bar_duration * 2.0;
+                let riser = generate_riser(riser_duration);
+                let riser_start = section_start_sample.saturating_sub(riser.len());
+                
+                for (i, &sample) in riser.iter().enumerate() {
+                    let idx = riser_start + i;
+                    if idx < fx_track.len() {
+                        fx_track[idx] += sample;
+                    }
+                }
+            }
+            
+            if Arrangement::needs_breakdown(prev_section, *section) {
+                // Add downlifter at start of section (1 bar)
+                let downlifter_duration = bar_duration;
+                let downlifter = generate_downlifter(downlifter_duration);
+                
+                for (i, &sample) in downlifter.iter().enumerate() {
+                    let idx = section_start_sample + i;
+                    if idx < fx_track.len() {
+                        fx_track[idx] += sample;
+                    }
+                }
+            }
+        }
+        
+        // Add crash at the start of important sections (Chorus, Bridge)
+        if matches!(*section, composition::Section::Chorus | composition::Section::Bridge) {
+            let crash = generate_crash(2.0);
+            
+            for (i, &sample) in crash.iter().enumerate() {
+                let idx = section_start_sample + i;
+                if idx < fx_track.len() {
+                    fx_track[idx] += sample * 0.7; // Slightly quieter
+                }
+            }
+        }
+        
+        // Add impact at very start of Chorus for emphasis
+        if *section == composition::Section::Chorus {
+            let impact = generate_impact();
+            
+            for (i, &sample) in impact.iter().enumerate() {
+                let idx = section_start_sample + i;
+                if idx < fx_track.len() {
+                    fx_track[idx] += sample * 0.8;
+                }
+            }
+        }
+        
+        current_bar += bars;
+    }
+    
+    fx_track
 }
 
 /// Add percussion track if enabled

@@ -326,18 +326,18 @@ pub fn calculate_rms(samples: &[f32]) -> f32 {
 }
 
 /// Normalize loudness based on RMS measurement
-/// If RMS is below min_rms, boost to target_rms
+/// Always normalizes to target_rms for consistent loudness
 /// Returns the final RMS value achieved
-pub fn normalize_loudness(samples: &mut [f32], target_rms: f32, min_rms: f32) -> f32 {
+pub fn normalize_loudness(samples: &mut [f32], target_rms: f32, _min_rms: f32) -> f32 {
     let current_rms = calculate_rms(samples);
     
-    // If RMS is below minimum threshold, boost to target
-    if current_rms < min_rms && current_rms > 0.0001 {
-        let gain_boost = (target_rms / current_rms).min(3.0); // Cap at 3.0x to prevent distortion
+    // Always boost to target if below, or reduce if above (for consistency)
+    if current_rms > 0.0001 && (current_rms - target_rms).abs() > 0.01 {
+        let gain_adjustment = (target_rms / current_rms).clamp(0.5, 5.0); // Allow 0.5x to 5.0x adjustment
         
-        // Apply gain boost
+        // Apply gain adjustment
         for sample in samples.iter_mut() {
-            *sample *= gain_boost;
+            *sample *= gain_adjustment;
         }
         
         // Re-apply limiter to prevent clipping
@@ -349,7 +349,7 @@ pub fn normalize_loudness(samples: &mut [f32], target_rms: f32, min_rms: f32) ->
         // Return the actual RMS achieved (may be slightly less than target due to limiting)
         calculate_rms(samples)
     } else {
-        // Already loud enough, return current RMS
+        // Already at target, return current RMS
         current_rms
     }
 }
