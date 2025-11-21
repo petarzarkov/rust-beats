@@ -139,10 +139,11 @@ pub fn generate_mallet(frequency: f32, duration: f32, velocity: f32) -> Vec<f32>
     let mut osc3 = Oscillator::new(Waveform::Sine, frequency * 5.40);
     let mut osc4 = Oscillator::new(Waveform::Sine, frequency * 8.93);
 
-    // Tremolo (amplitude modulation)
-    let mut tremolo = LFO::new(5.8, 0.15);
+    // Tremolo (amplitude modulation) - reduced depth
+    let mut tremolo = LFO::new(5.8, 0.08); // Reduced from 0.15 to 0.08
 
-    let mut filter = LowPassFilter::new(4000.0, 0.5);
+    // Lower filter cutoff to remove harsh high frequencies
+    let mut filter = LowPassFilter::new(2500.0, 0.4); // Reduced from 4000Hz to 2500Hz
 
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
@@ -150,13 +151,15 @@ pub fn generate_mallet(frequency: f32, duration: f32, velocity: f32) -> Vec<f32>
 
         let trem = 1.0 + tremolo.next_value();
 
-        let mut sample = osc1.next_sample() * 0.6
-            + osc2.next_sample() * 0.25
-            + osc3.next_sample() * 0.1
-            + osc4.next_sample() * 0.05;
+        // Reduce high harmonics more to soften the sound
+        let mut sample = osc1.next_sample() * 0.7  // Increased fundamental
+            + osc2.next_sample() * 0.2  // Reduced from 0.25
+            + osc3.next_sample() * 0.06 // Reduced from 0.1
+            + osc4.next_sample() * 0.02; // Reduced from 0.05
 
         sample = filter.process(sample);
-        samples[i] = sample * env_amp * velocity * trem * 0.5;
+        // Further reduce overall amplitude
+        samples[i] = sample * env_amp * velocity * trem * 0.35; // Reduced from 0.5 to 0.35
     }
 
     samples

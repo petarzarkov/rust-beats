@@ -970,7 +970,7 @@ pub fn generate_arpeggio(chord: &Chord, tempo: f32, duration: f32) -> Vec<f32> {
     arpeggio
 }
 
-/// Generate a single arpeggio note
+/// Generate a single arpeggio note (softened to avoid harsh square wave)
 pub fn generate_arp_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
@@ -983,13 +983,20 @@ pub fn generate_arp_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f3
     };
 
     let note_off_time = duration * 0.9;
-    let mut square_osc = Oscillator::new(Waveform::Square, frequency);
+    // Use triangle wave instead of square for softer sound
+    let mut osc = Oscillator::new(Waveform::Triangle, frequency);
+    
+    // Add low-pass filter to remove harsh frequencies
+    let mut filter = LowPassFilter::new(3000.0, 0.3);
 
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
         let env_amp = envelope.get_amplitude(time, Some(note_off_time));
 
-        let sample = square_osc.next_sample() * env_amp * velocity;
+        let mut sample = osc.next_sample();
+        sample = filter.process(sample);
+        // Reduce amplitude to make it less prominent
+        sample = sample * env_amp * velocity * 0.6;
         samples.push(sample);
     }
 

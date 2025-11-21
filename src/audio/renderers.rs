@@ -17,14 +17,16 @@ use crate::synthesis::percussion::{
     generate_bongo, generate_cowbell, generate_tambourine, generate_triangle_perc,
     generate_woodblock,
 };
+use crate::synthesis::drums::{DrumSoundParams, generate_kick_with_params, generate_snare_with_params, generate_hihat_with_params};
 use crate::synthesis::{
     generate_clap, generate_crash, generate_dnb_bassline, generate_downlifter, generate_drone,
-    generate_dubstep_bassline, generate_hihat, generate_impact, generate_kick, generate_pads,
-    generate_riser, generate_rock_bassline, generate_snare, get_sample_rate,
+    generate_dubstep_bassline, generate_impact, generate_pads,
+    generate_riser, generate_rock_bassline, get_sample_rate,
 };
 use rand::{seq::SliceRandom, Rng};
 
 pub type DrumPattern = Vec<Vec<DrumHit>>;
+
 
 /// Render drums with arrangement awareness
 pub fn render_arranged_drums(
@@ -38,6 +40,9 @@ pub fn render_arranged_drums(
     let mut all_drums = Vec::new();
     let mut bar_idx = 0;
     let mut rng = rand::thread_rng();
+    
+    // Generate per-song drum sound parameters for consistent variation
+    let drum_params = DrumSoundParams::generate();
 
     for (section_idx, (section, bars)) in arrangement.sections.iter().enumerate() {
         let complexity = Arrangement::get_drum_complexity(*section);
@@ -110,7 +115,7 @@ pub fn render_arranged_drums(
         }
 
         // Render with kit-specific sounds and swing
-        let drums = render_drum_pattern_with_kit(&pattern, bpm, intensity, section_kit, genre);
+        let drums = render_drum_pattern_with_kit(&pattern, bpm, intensity, section_kit, genre, &drum_params);
         all_drums.extend(drums);
 
         bar_idx += bars;
@@ -201,6 +206,7 @@ pub fn render_drum_pattern_with_kit(
     intensity: f32,
     drum_kit: DrumKit,
     genre: &Genre,
+    drum_params: &DrumSoundParams,
 ) -> Vec<f32> {
     let beat_duration = 60.0 / bpm;
     let sixteenth_duration = beat_duration / 4.0;
@@ -245,20 +251,24 @@ pub fn render_drum_pattern_with_kit(
                     // Use dubstep kick for electronic kits
                     generate_dubstep_kick(0.8 * intensity)
                 }
-                (DrumHit::Kick, _) => generate_kick(0.8 * intensity),
+                (DrumHit::Kick, _) => generate_kick_with_params(0.8 * intensity, Some(drum_params)),
 
                 (DrumHit::Snare, DrumKit::Rock) => generate_rock_snare(0.7 * intensity),
                 (DrumHit::Snare, DrumKit::Electronic808) | (DrumHit::Snare, DrumKit::HipHop) => {
                     // Use DnB snare for electronic kits
                     generate_dnb_snare(0.7 * intensity)
                 }
-                (DrumHit::Snare, _) => generate_snare(0.7 * intensity),
+                (DrumHit::Snare, _) => generate_snare_with_params(0.7 * intensity, Some(drum_params)),
 
-                (DrumHit::HiHatClosed, _) => generate_hihat(0.4 * intensity, false),
-                (DrumHit::HiHatOpen, _) => generate_hihat(0.5 * intensity, true),
+                (DrumHit::HiHatClosed, _) => generate_hihat_with_params(0.4 * intensity, false, Some(drum_params)),
+                (DrumHit::HiHatOpen, _) => generate_hihat_with_params(0.5 * intensity, true, Some(drum_params)),
                 (DrumHit::Clap, _) => generate_clap(0.6 * intensity),
                 (DrumHit::Conga, _) => crate::synthesis::generate_conga(200.0, 0.5 * intensity),
                 (DrumHit::Shaker, _) => crate::synthesis::generate_shaker(0.3 * intensity),
+                (DrumHit::Crash, _) => crate::synthesis::drums::generate_crash(0.7 * intensity),
+                (DrumHit::RimShot, _) => crate::synthesis::drums::generate_rimshot(0.5 * intensity),
+                (DrumHit::Tom, _) => crate::synthesis::drums::generate_tom(0.6 * intensity),
+                (DrumHit::Ride, _) => crate::synthesis::drums::generate_ride(0.45 * intensity),
                 (DrumHit::Rest, _) => continue,
             };
 
@@ -514,6 +524,7 @@ pub fn render_fx_track(arrangement: &Arrangement, bpm: f32) -> Vec<f32> {
     let mut fx_track = vec![0.0; total_samples];
 
     let mut current_bar = 0;
+    let mut rng = rand::thread_rng();
 
     for (section_idx, (section, bars)) in arrangement.sections.iter().enumerate() {
         let section_start_sample =
@@ -551,29 +562,35 @@ pub fn render_fx_track(arrangement: &Arrangement, bpm: f32) -> Vec<f32> {
             }
         }
 
-        // Add crash at the start of important sections (Chorus, Bridge)
+        // Add crash at the start of important sections (Chorus, Bridge) - much rarer now
         if matches!(
             *section,
             crate::composition::Section::Chorus | crate::composition::Section::Bridge
         ) {
-            let crash = generate_crash(2.0);
+            // Only 25% chance to add crash (was 100%)
+            if rng.gen_range(0..100) < 25 {
+                let crash = generate_crash(2.0);
 
-            for (i, &sample) in crash.iter().enumerate() {
-                let idx = section_start_sample + i;
-                if idx < fx_track.len() {
-                    fx_track[idx] += sample * 0.5; // Reduced from 0.7 to 0.5
+                for (i, &sample) in crash.iter().enumerate() {
+                    let idx = section_start_sample + i;
+                    if idx < fx_track.len() {
+                        fx_track[idx] += sample * 0.25; // Reduced from 0.5 to 0.25
+                    }
                 }
             }
         }
 
-        // Add impact at very start of Chorus for emphasis
+        // Add impact at very start of Chorus for emphasis - also rarer
         if *section == crate::composition::Section::Chorus {
-            let impact = generate_impact();
+            // Only 30% chance to add impact
+            if rng.gen_range(0..100) < 30 {
+                let impact = generate_impact();
 
-            for (i, &sample) in impact.iter().enumerate() {
-                let idx = section_start_sample + i;
-                if idx < fx_track.len() {
-                    fx_track[idx] += sample * 0.6; // Reduced from 0.8 to 0.6
+                for (i, &sample) in impact.iter().enumerate() {
+                    let idx = section_start_sample + i;
+                    if idx < fx_track.len() {
+                        fx_track[idx] += sample * 0.4; // Reduced from 0.6 to 0.4
+                    }
                 }
             }
         }
@@ -637,11 +654,11 @@ pub fn add_percussion_track(
                         let hit_sample = (hit_time * get_sample_rate() as f32) as usize;
 
                         let hit = match percussion_type {
-                            "Tambourine" => generate_tambourine(0.4),
-                            "Cowbell" => generate_cowbell(0.5),
-                            "Bongo" => generate_bongo(rng.gen_range(0..100) < 50, 0.4),
-                            "Woodblock" => generate_woodblock(0.4),
-                            _ => generate_triangle_perc(0.3),
+                            "Tambourine" => generate_tambourine(0.25),
+                            "Cowbell" => generate_cowbell(0.3),
+                            "Bongo" => generate_bongo(rng.gen_range(0..100) < 50, 0.25),
+                            "Woodblock" => generate_woodblock(0.25),
+                            _ => generate_triangle_perc(0.2),
                         };
 
                         for (i, &sample) in hit.iter().enumerate() {
@@ -659,10 +676,10 @@ pub fn add_percussion_track(
                         let hit_time = subdivision * beat_duration;
                         let hit_sample = (hit_time * get_sample_rate() as f32) as usize;
                         let hit = match genre {
-                            Genre::Funk | Genre::Jazz => generate_tambourine(0.35),
-                            Genre::Dubstep | Genre::DnB => generate_triangle_perc(0.25),
-                            Genre::HipHop => generate_woodblock(0.4),
-                            _ => generate_cowbell(0.3),
+                            Genre::Funk | Genre::Jazz => generate_tambourine(0.22),
+                            Genre::Dubstep | Genre::DnB => generate_triangle_perc(0.15),
+                            Genre::HipHop => generate_woodblock(0.25),
+                            _ => generate_cowbell(0.2),
                         };
 
                         for (i, &sample) in hit.iter().enumerate() {

@@ -151,20 +151,30 @@ pub fn generate_bass_note(frequency: f32, duration: f32, velocity: f32) -> Vec<f
     samples
 }
 
-/// Generate a sub-bass drone
+/// Generate a sub-bass drone with subtle saturation
 pub fn generate_sub_bass(frequency: f32, duration: f32, amplitude: f32) -> Vec<f32> {
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
 
-    let mut sine_osc = Oscillator::new(Waveform::Sine, frequency * 0.5); // Octave down
+    // Use fundamental and sub-octave for richer sub-bass
+    let mut sine_osc = Oscillator::new(Waveform::Sine, frequency);
+    let mut sub_octave_osc = Oscillator::new(Waveform::Sine, frequency * 0.5); // Octave down
 
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
 
+        // Mix fundamental and sub-octave
+        let fundamental = sine_osc.next_sample();
+        let sub_octave = sub_octave_osc.next_sample();
+        let mut sample = fundamental * 0.6 + sub_octave * 0.6;
+        
+        // Subtle saturation for warmth (keep it clean)
+        sample = (sample * 1.2).tanh() * 0.95;
+
         // Subtle envelope
         let env = 1.0 - (time / duration).powf(2.0) * 0.3;
 
-        let sample = sine_osc.next_sample() * env * amplitude;
+        sample = sample * env * amplitude;
         samples.push(sample);
     }
 
@@ -614,46 +624,75 @@ fn generate_dubstep_bass_pattern(root_freq: f32, bar_duration: f32) -> Vec<f32> 
     pattern
 }
 
-/// Generate growl bass (formant-like filter + FM)
+/// Generate growl bass (formant-like filter + proper FM phase modulation)
 fn generate_growl_bass(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
 
-    // FM Synthesis for metallic texture
-    let mut carrier = Oscillator::new(Waveform::Saw, frequency);
-    let mut modulator = Oscillator::new(Waveform::Sine, frequency * 2.0);
+    // FM Synthesis with proper phase modulation
+    // Carrier oscillator (will be phase-modulated)
+    let mut carrier_phase = 0.0;
+    let mut modulator = Oscillator::new(Waveform::Sine, frequency * 2.5); // Modulator frequency
     
-    // Formant-ish filter (Bandpass moving)
-    let mut filter = LowPassFilter::new(1000.0, 0.8); // High resonance
+    // Use resonant filter for formant-like character
+    // Temporarily use LowPassFilter until ResonantFilter is fully debugged
+    let mut filter = LowPassFilter::new(1000.0, 0.85);
+
+    let sample_rate = get_sample_rate() as f32;
+    let two_pi = 2.0 * std::f32::consts::PI;
 
     for i in 0..num_samples {
-        let time = i as f32 / get_sample_rate() as f32;
+        let time = i as f32 / sample_rate;
         let norm_time = time / duration; // 0.0 to 1.0
 
-        // Modulator envelope (opens up)
-        let mod_idx = 5.0 * (1.0 + (norm_time * std::f32::consts::PI).sin());
-        let fm_val = modulator.next_sample() * mod_idx * frequency;
+        // Modulator envelope - increases modulation index over time for aggressive growl
+        let mod_idx = 8.0 + 4.0 * (norm_time * two_pi).sin(); // 4.0 to 12.0 modulation index
         
-        carrier.frequency = frequency + fm_val;
-        let mut sample = carrier.next_sample();
+        // Get modulator signal
+        let mod_signal = modulator.next_sample();
+        
+        // Proper FM: modulate phase, not frequency
+        // Phase modulation: phase += mod_signal * mod_index
+        let phase_mod = mod_signal * mod_idx;
+        let modulated_phase = carrier_phase + phase_mod;
+        
+        // Generate carrier with phase modulation (sawtooth waveform)
+        let saw_phase = modulated_phase.fract();
+        let mut sample = 2.0 * saw_phase - 1.0; // Sawtooth from phase
+        
+        // Add harmonics for richer growl
+        let harmonic2 = (modulated_phase * 2.0 * two_pi).sin() * 0.3;
+        let harmonic3 = (modulated_phase * 3.0 * two_pi).sin() * 0.15;
+        sample += harmonic2 + harmonic3;
 
-        // "Talking" filter sweep
-        // Sweeps 300Hz -> 2500Hz -> 300Hz
-        let cutoff_env = (norm_time * std::f32::consts::PI).sin(); 
-        filter.cutoff = 300.0 + cutoff_env * 2200.0;
-        filter.resonance = 0.7 + cutoff_env * 0.2; // More resonance at peak
+        // Advance carrier phase
+        carrier_phase += frequency / sample_rate;
+        carrier_phase = carrier_phase.fract();
+
+        // Formant filter sweep - creates "talking" effect
+        // Multiple formant peaks: 300Hz, 800Hz, 2000Hz
+        let formant1_env = (norm_time * two_pi * 0.5).sin();
+        let formant2_env = (norm_time * two_pi * 0.7 + 0.3).sin();
+        
+        // Sweep between formant frequencies
+        let cutoff_base = 300.0 + formant1_env * 700.0; // 300-1000Hz
+        let cutoff_peak = 1500.0 + formant2_env * 1000.0; // 1500-2500Hz
+        filter.cutoff = cutoff_base + (cutoff_peak - cutoff_base) * 0.6;
         
         sample = filter.process(sample);
         
-        // Distortion
-        sample = (sample * 2.0).tanh() * 0.8;
+        // Heavy distortion after filtering for aggressive character
+        sample = (sample * 3.0).tanh();
+        
+        // Additional saturation for warmth
+        sample = (sample * 1.5).tanh() * 0.9;
 
         samples.push(sample * velocity);
     }
     samples
 }
 
-/// Generate tape stop bass (pitch drop)
+/// Generate tape stop bass (pitch drop) with proper sub-bass
 fn generate_tape_stop_bass(frequency: f32, duration: f32, velocity: f32) -> Vec<f32> {
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
@@ -671,7 +710,12 @@ fn generate_tape_stop_bass(frequency: f32, duration: f32, velocity: f32) -> Vec<
         osc.frequency = current_freq;
         sub.frequency = current_freq * 0.5;
 
-        let sample = osc.next_sample() * 0.6 + sub.next_sample() * 0.8;
+        // Mix square and sub, with subtle saturation on sub
+        let square = osc.next_sample();
+        let sub_raw = sub.next_sample();
+        let sub_saturated = (sub_raw * 1.2).tanh() * 0.9;
+        let sample = square * 0.5 + sub_saturated * 0.7;
+        
         samples.push(sample * velocity);
     }
     samples
@@ -682,58 +726,79 @@ pub fn generate_wobble_bass(frequency: f32, duration: f32, velocity: f32, lfo_ra
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
 
-    // Square wave for aggressive character
+    // Layer multiple oscillators for rich harmonics
     let mut square_osc = Oscillator::new(Waveform::Square, frequency);
-    let mut sub_osc = Oscillator::new(Waveform::Sine, frequency * 0.5); // Added sub layer
+    let mut saw_osc = Oscillator::new(Waveform::Saw, frequency);
+    let mut sub_osc = Oscillator::new(Waveform::Sine, frequency * 0.5); // Sub octave
 
-    // LFO for wobble effect (modulating filter cutoff)
-    let lfo_depth = 0.85; // Increased depth
-    let mut filter = LowPassFilter::new(2000.0, 0.75);
+    // Use resonant filter for proper dubstep character
+    // Temporarily use LowPassFilter with high resonance until ResonantFilter is fully debugged
+    let mut filter = LowPassFilter::new(2000.0, 0.9); // High resonance for peak
+
+    // LFO oscillator for wobble (use triangle for sharper transitions)
+    let mut lfo_osc = Oscillator::new(Waveform::Triangle, lfo_rate_hz);
 
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
 
-        // LFO modulates filter cutoff
-        // Use sine wave for LFO, but maybe can be triangle for sharper wobble
-        let lfo = (2.0 * std::f32::consts::PI * lfo_rate_hz * time).sin();
+        // Get LFO value (-1 to 1) and convert to 0-1 range
+        let lfo_raw = lfo_osc.next_sample();
+        let lfo = (lfo_raw + 1.0) * 0.5; // Normalize to 0-1
         
-        // 200Hz to 3500Hz sweep - wider range
-        filter.cutoff = 300.0 + (lfo * 0.5 + 0.5) * lfo_depth * 3200.0; 
+        // Dramatic cutoff sweep: 200Hz to 8000Hz
+        let cutoff_min = 200.0;
+        let cutoff_max = 8000.0;
+        filter.cutoff = cutoff_min + lfo * (cutoff_max - cutoff_min);
 
-        let mut sample = square_osc.next_sample();
+        // Mix square and sawtooth for aggressive character
+        let mut sample = square_osc.next_sample() * 0.6 + saw_osc.next_sample() * 0.4;
         
-        // Distortion before filter for grit
-        sample = (sample * 1.5).tanh();
+        // Heavy distortion before filter for grit and aggression
+        sample = (sample * 3.5).tanh();
         
+        // Apply resonant filter (creates the characteristic wobble peak)
         sample = filter.process(sample);
         
-        // Add clean sub
-        sample += sub_osc.next_sample() * 0.7;
+        // Add clean sub-bass (not filtered, stays pure)
+        let sub = sub_osc.next_sample();
+        // Subtle saturation on sub for warmth
+        let sub_saturated = (sub * 1.2).tanh() * 0.85;
+        sample += sub_saturated * 0.8;
 
-        // Envelope
-        let env = if time < 0.01 {
-            time / 0.01
-        } else if time > duration - 0.05 {
-             (duration - time) / 0.05
+        // Sharper envelope for punch
+        let env = if time < 0.005 {
+            time / 0.005 // Faster attack
+        } else if time > duration - 0.02 {
+            (duration - time) / 0.02 // Faster release
         } else {
             1.0
         };
 
-        samples.push(sample * env * velocity * 0.8);
+        samples.push(sample * env * velocity);
     }
 
     samples
 }
 
-/// Generate sub-bass drop: pure sine wave sub-bass
+/// Generate sub-bass drop: pure sine wave sub-bass with subtle saturation
 pub fn generate_sub_bass_drop(frequency: f32, duration: f32, amplitude: f32) -> Vec<f32> {
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
 
+    // Use fundamental and sub-octave for richer sub-bass
     let mut sine_osc = Oscillator::new(Waveform::Sine, frequency);
+    let mut sub_octave_osc = Oscillator::new(Waveform::Sine, frequency * 0.5);
 
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
+
+        // Mix fundamental and sub-octave
+        let fundamental = sine_osc.next_sample();
+        let sub_octave = sub_octave_osc.next_sample();
+        let mut sample = fundamental * 0.7 + sub_octave * 0.5;
+        
+        // Subtle saturation for warmth (not too much to keep it clean)
+        sample = (sample * 1.3).tanh() * 0.95;
 
         // Quick attack, sustained, slow release
         let env = if time < 0.01 {
@@ -744,7 +809,7 @@ pub fn generate_sub_bass_drop(frequency: f32, duration: f32, amplitude: f32) -> 
             (-(time - duration * 0.8) * 2.0).exp()
         };
 
-        let sample = sine_osc.next_sample() * env * amplitude;
+        sample = sample * env * amplitude;
         samples.push(sample);
     }
 

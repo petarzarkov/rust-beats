@@ -20,7 +20,8 @@ structure = "standard"
 # Minimum tempo in BPM (upbeat, energetic)
 min_tempo = 80.0
 # Maximum tempo in BPM (upbeat, energetic)
-max_tempo = 140.0
+# Increased to 180 to allow DnB (160-180 BPM) and higher dubstep tempos
+max_tempo = 180.0
 
 [composition.instrument_probabilities]
 # Probability thresholds for lead instrument selection (must sum to ~1.0)
@@ -31,12 +32,14 @@ electric = 0.15
 organ = 0.15
 
 [composition.percussion]
-# Chance of adding percussion to a song (0.0-1.0)
-chance = 0.30
+# Chance of adding percussion to a song (0.0-1.0) - INCREASED for more variety!
+chance = 0.65
 # Distribution of percussion types (should sum to ~1.0)
-tambourine = 0.33
-cowbell = 0.33
-bongo = 0.34
+tambourine = 0.25
+cowbell = 0.25
+bongo = 0.25
+clap = 0.15
+shaker = 0.10
 
 [composition.pads]
 # Pad intensity distribution (should sum to ~1.0)
@@ -69,8 +72,8 @@ rock_duration_beats = 1.5
 dnb_duration_beats = 2.0
 
 [composition.melody]
-# Chance of melody occurring in a bar (0.0-1.0)
-occurrence_chance = 0.15
+# Chance of melody occurring in a bar (0.0-1.0) - INCREASED for more melodic variety!
+occurrence_chance = 0.35
 # Percentage of melody notes that use Rhodes sound (0-100)
 rhodes_usage_percent = 30
 

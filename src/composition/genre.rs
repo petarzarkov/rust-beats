@@ -26,6 +26,7 @@ pub struct GenreConfig {
     pub bass_style: BassStyle,
     pub melody_density: MelodyDensity,
     pub arrangement_style: ArrangementStyle,
+    pub energy_profile: EnergyProfile,
 }
 
 /// Bass style preference for a genre
@@ -59,6 +60,15 @@ pub enum ArrangementStyle {
     Groove,      // Funk, Jazz - extended sections
 }
 
+/// Energy profile determines the overall intensity and vibe of a genre
+#[derive(Debug, Clone, Copy)]
+pub enum EnergyProfile {
+    Chill,      // Lofi - relaxed, low intensity
+    Medium,     // Jazz, Funk - moderate energy with dynamics
+    Energetic,  // Rock - high energy, driving
+    Aggressive, // Dubstep, DnB - very high intensity
+}
+
 impl Genre {
     /// Get the configuration for this genre
     pub fn config(&self) -> GenreConfig {
@@ -82,6 +92,7 @@ impl Genre {
                 bass_style: BassStyle::Standard,
                 melody_density: MelodyDensity::Moderate,
                 arrangement_style: ArrangementStyle::Groove,
+                energy_profile: EnergyProfile::Chill,
             },
             Genre::Rock => GenreConfig {
                 tempo_min: 100.0,
@@ -97,6 +108,7 @@ impl Genre {
                 bass_style: BassStyle::Rock,
                 melody_density: MelodyDensity::Sparse,
                 arrangement_style: ArrangementStyle::VerseChorus,
+                energy_profile: EnergyProfile::Energetic,
             },
             Genre::Dubstep => GenreConfig {
                 tempo_min: 140.0,
@@ -111,6 +123,7 @@ impl Genre {
                 bass_style: BassStyle::Wobble,
                 melody_density: MelodyDensity::Glitchy,
                 arrangement_style: ArrangementStyle::BuildDrop,
+                energy_profile: EnergyProfile::Aggressive,
             },
             Genre::DnB => GenreConfig {
                 tempo_min: 160.0,
@@ -125,6 +138,7 @@ impl Genre {
                 bass_style: BassStyle::Reese,
                 melody_density: MelodyDensity::Dense,
                 arrangement_style: ArrangementStyle::Consistent,
+                energy_profile: EnergyProfile::Aggressive,
             },
             Genre::Jazz => GenreConfig {
                 tempo_min: 90.0,
@@ -146,6 +160,7 @@ impl Genre {
                 bass_style: BassStyle::Upright,
                 melody_density: MelodyDensity::Moderate,
                 arrangement_style: ArrangementStyle::Groove,
+                energy_profile: EnergyProfile::Medium,
             },
             Genre::Funk => GenreConfig {
                 tempo_min: 100.0,
@@ -160,6 +175,7 @@ impl Genre {
                 bass_style: BassStyle::Finger,
                 melody_density: MelodyDensity::Moderate,
                 arrangement_style: ArrangementStyle::Groove,
+                energy_profile: EnergyProfile::Medium,
             },
             Genre::HipHop => GenreConfig {
                 tempo_min: 80.0,
@@ -174,6 +190,7 @@ impl Genre {
                 bass_style: BassStyle::Synth,
                 melody_density: MelodyDensity::Moderate,
                 arrangement_style: ArrangementStyle::VerseChorus,
+                energy_profile: EnergyProfile::Medium,
             },
             Genre::ElectroSwing => GenreConfig {
                 tempo_min: 120.0,
@@ -188,6 +205,7 @@ impl Genre {
                 bass_style: BassStyle::Upright,
                 melody_density: MelodyDensity::Moderate,
                 arrangement_style: ArrangementStyle::Groove,
+                energy_profile: EnergyProfile::Energetic,
             },
         }
     }

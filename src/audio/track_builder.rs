@@ -75,7 +75,7 @@ pub fn build_tracks(
     if let Some(perc_track) = percussion {
         tracks.push(
             Track::new(perc_track)
-                .with_volume(0.25)
+                .with_volume(0.15)
                 .with_pan(0.0)
                 .with_eq(0.9, 1.0, 1.1),
         );

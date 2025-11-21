@@ -191,10 +191,16 @@ impl SongGenerator {
         let arrangement = if config.composition.structure == "short" {
             Arrangement::generate_short()
         } else {
+            // Dubstep and DnB should be shorter (60-90 seconds) for better impact
+            // Other genres use standard 3 minutes (180 seconds)
+            let target_duration = match genre {
+                Genre::Dubstep | Genre::DnB => rng.gen_range(60.0..90.0), // 1-1.5 minutes
+                _ => 180.0 // Standard 3 minutes for other genres
+            };
             Arrangement::generate_for_duration(
                 genre_config.arrangement_style,
                 tempo.bpm,
-                180.0 // Target 3 minutes (180 seconds)
+                target_duration
             )
         };
 

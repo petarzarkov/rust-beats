@@ -42,7 +42,7 @@ pub fn generate_downlifter(duration: f32) -> Vec<f32> {
     generate_white_noise_sweep(duration, 8000.0, 200.0)
 }
 
-/// Generate a crash cymbal / impact sound
+/// Generate a crash cymbal / impact sound (gentler version)
 pub fn generate_crash(decay: f32) -> Vec<f32> {
     let duration = decay;
     let num_samples = (duration * get_sample_rate() as f32) as usize;
@@ -50,32 +50,34 @@ pub fn generate_crash(decay: f32) -> Vec<f32> {
 
     let mut noise_osc = Oscillator::new(Waveform::Noise, 0.0);
 
-    // Multiple filtered noise layers for rich crash sound
-    let mut filter_high = LowPassFilter::new(12000.0, 0.4);
-    let mut filter_mid = LowPassFilter::new(6000.0, 0.5);
+    // Lower filter cutoffs to reduce harsh high frequencies
+    let mut filter_high = LowPassFilter::new(8000.0, 0.3); // Reduced from 12000Hz to 8000Hz
+    let mut filter_mid = LowPassFilter::new(4000.0, 0.4);  // Reduced from 6000Hz to 4000Hz
+    let mut filter_low = LowPassFilter::new(2000.0, 0.3);  // Added low-pass for warmth
 
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
 
-        // Exponential decay envelope
-        let amp_env = (-time * (3.0 / decay)).exp();
+        // Gentler, longer decay envelope
+        let amp_env = (-time * (2.0 / decay)).exp(); // Slower decay (2.0 instead of 3.0)
 
-        // Quick attack transient
-        let attack = if time < 0.01 {
-            1.0 + (1.0 - time / 0.01) * 2.0
+        // Softer attack transient
+        let attack = if time < 0.015 {
+            1.0 + (1.0 - time / 0.015) * 1.2 // Reduced from 2.0 to 1.2, longer attack
         } else {
             1.0
         };
 
         let noise = noise_osc.next_sample();
 
-        // Layer multiple filtered versions
-        let high = filter_high.process(noise) * 0.6;
-        let mid = filter_mid.process(noise) * 0.4;
+        // Layer multiple filtered versions with more emphasis on mid/low
+        let high = filter_high.process(noise) * 0.3; // Reduced from 0.6
+        let mid = filter_mid.process(noise) * 0.5;  // Increased from 0.4
+        let low = filter_low.process(noise) * 0.2;  // Added low layer
 
-        let sample = (high + mid) * amp_env * attack;
+        let sample = (high + mid + low) * amp_env * attack;
 
-        samples.push(sample * 0.5); // Reduced from 0.7 to 0.5
+        samples.push(sample * 0.3); // Further reduced from 0.5 to 0.3
     }
 
     samples

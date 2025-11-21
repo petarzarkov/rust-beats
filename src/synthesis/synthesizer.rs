@@ -176,6 +176,90 @@ impl LowPassFilter {
     }
 }
 
+/// Resonant 2-pole filter for dubstep wobble bass
+/// Uses a simple biquad-style filter with resonance
+pub struct ResonantFilter {
+    pub cutoff: f32,
+    pub resonance: f32, // 0.0 to 1.0, higher = more peak/boost
+    sample_rate: f32,
+    // Two-pole filter state
+    x1: f32, // Previous input
+    x2: f32, // Input two samples ago
+    y1: f32, // Previous output
+    y2: f32, // Output two samples ago
+}
+
+impl ResonantFilter {
+    pub fn new(cutoff: f32, resonance: f32) -> Self {
+        ResonantFilter {
+            cutoff,
+            resonance: resonance.clamp(0.0, 0.99),
+            sample_rate: get_sample_rate() as f32,
+            x1: 0.0,
+            x2: 0.0,
+            y1: 0.0,
+            y2: 0.0,
+        }
+    }
+
+    /// Apply resonant filter to a sample
+    /// Returns filtered output with resonance peak
+    /// Uses a simple 2-pole biquad filter
+    pub fn process(&mut self, input: f32) -> f32 {
+        let sample_rate = self.sample_rate;
+        let cutoff = self.cutoff.clamp(20.0, sample_rate * 0.45);
+        let resonance = self.resonance.clamp(0.0, 0.99);
+        
+        // Calculate filter coefficients for 2-pole low-pass with resonance
+        let w = 2.0 * PI * cutoff / sample_rate;
+        let cos_w = w.cos();
+        let sin_w = w.sin();
+        
+        // Q factor from resonance
+        let q = 0.5 + resonance * 4.5; // Q from 0.5 to 5.0
+        let alpha = sin_w / (2.0 * q);
+        
+        // Biquad coefficients
+        let b0 = (1.0 - cos_w) / 2.0;
+        let b1 = 1.0 - cos_w;
+        let b2 = (1.0 - cos_w) / 2.0;
+        let a0 = 1.0 + alpha;
+        let a1 = -2.0 * cos_w;
+        let a2 = 1.0 - alpha;
+        
+        // Normalize coefficients
+        let b0_norm = b0 / a0;
+        let b1_norm = b1 / a0;
+        let b2_norm = b2 / a0;
+        let a1_norm = a1 / a0;
+        let a2_norm = a2 / a0;
+        
+        // Apply filter
+        let output = b0_norm * input 
+                   + b1_norm * self.x1 
+                   + b2_norm * self.x2
+                   - a1_norm * self.y1
+                   - a2_norm * self.y2;
+        
+        // Update state
+        self.x2 = self.x1;
+        self.x1 = input;
+        self.y2 = self.y1;
+        self.y1 = output;
+        
+        // Apply resonance boost
+        let resonance_boost = 1.0 + resonance * 1.5;
+        output * resonance_boost
+    }
+
+    /// Apply filter to buffer
+    pub fn process_buffer(&mut self, buffer: &mut [f32]) {
+        for sample in buffer.iter_mut() {
+            *sample = self.process(*sample);
+        }
+    }
+}
+
 /// LFO (Low Frequency Oscillator) for modulation
 pub struct LFO {
     oscillator: Oscillator,

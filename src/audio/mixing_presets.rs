@@ -29,29 +29,29 @@ pub fn get_mixing_preset(
     match preset {
         MixingPreset::Clean => (
             // Drums
-            1.1, 1.2, 1.0, 1.0, // Bass
-            0.65, 1.4, 0.9, 0.4, // Melody
+            1.1, 1.2, 1.0, 1.0, // Bass (reduced by 0.10)
+            0.55, 1.4, 0.9, 0.4, // Melody
             0.40, 0.85, 1.1, 1.05, // Pads
             0.35,
         ),
         MixingPreset::Warm => (
             // Drums
-            1.0, 1.5, 0.9, 0.7, // Bass
-            0.75, 1.6, 0.85, 0.3, // Melody
+            1.0, 1.5, 0.9, 0.7, // Bass (reduced by 0.10)
+            0.65, 1.6, 0.85, 0.3, // Melody
             0.36, 0.95, 1.0, 0.9, // Pads
             0.40,
         ),
         MixingPreset::Punchy => (
             // Drums
-            1.3, 1.4, 1.1, 0.9, // Bass
-            0.70, 1.5, 0.95, 0.4, // Melody
+            1.3, 1.4, 1.1, 0.9, // Bass (reduced by 0.10)
+            0.60, 1.5, 0.95, 0.4, // Melody
             0.40, 0.9, 1.15, 1.0, // Pads
             0.45,
         ),
         MixingPreset::Spacious => (
             // Drums
-            1.0, 1.1, 0.95, 1.1, // Bass
-            0.60, 1.3, 0.85, 0.5, // Melody
+            1.0, 1.1, 0.95, 1.1, // Bass (reduced by 0.10)
+            0.50, 1.3, 0.85, 0.5, // Melody
             0.35, 0.8, 1.0, 1.15, // Pads
             0.50,
         ),

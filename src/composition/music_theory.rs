@@ -17,11 +17,17 @@ pub enum ScaleType {
     Minor,
     Dorian,
     Mixolydian,
-    Phrygian, // Dark, Spanish flavor
-    Lydian,   // Dreamy, jazzy
+    Phrygian,         // Dark, Spanish flavor
+    Lydian,           // Dreamy, jazzy
     MinorPentatonic,
     MajorPentatonic,
     Blues,
+    HarmonicMinor,    // Dramatic, classical
+    MelodicMinor,     // Jazz, sophisticated
+    PhrygianDominant, // Exotic, Middle Eastern
+    WholeTone,        // Dreamy, surreal
+    Diminished,       // Tense, jazzy
+    Locrian,          // Very dark, unstable
 }
 
 /// Represents a chord
@@ -51,6 +57,14 @@ pub enum ChordType {
     Dominant13,
     HalfDiminished7, // m7b5
     MinorMajor7,
+    // Additional chord varieties for more harmonic richness
+    Sus2,
+    Augmented,
+    Add9,
+    Sixth,          // Major 6
+    Minor6,         // Minor 6
+    Dominant7Sharp9,// Hendrix chord
+    Dominant7Flat9, // Altered dominant
 }
 
 impl ScaleType {
@@ -66,6 +80,12 @@ impl ScaleType {
             ScaleType::MinorPentatonic => vec![0, 3, 5, 7, 10],
             ScaleType::MajorPentatonic => vec![0, 2, 4, 7, 9],
             ScaleType::Blues => vec![0, 3, 5, 6, 7, 10],
+            ScaleType::HarmonicMinor => vec![0, 2, 3, 5, 7, 8, 11],
+            ScaleType::MelodicMinor => vec![0, 2, 3, 5, 7, 9, 11],
+            ScaleType::PhrygianDominant => vec![0, 1, 4, 5, 7, 8, 10],
+            ScaleType::WholeTone => vec![0, 2, 4, 6, 8, 10],
+            ScaleType::Diminished => vec![0, 2, 3, 5, 6, 8, 9, 11],
+            ScaleType::Locrian => vec![0, 1, 3, 5, 6, 8, 10],
         }
     }
 }
@@ -165,6 +185,14 @@ impl Chord {
             ChordType::Dominant13 => vec![0, 4, 7, 10, 14, 21],
             ChordType::HalfDiminished7 => vec![0, 3, 6, 10], // m7b5
             ChordType::MinorMajor7 => vec![0, 3, 7, 11],
+            // Additional chord varieties
+            ChordType::Sus2 => vec![0, 2, 7],
+            ChordType::Augmented => vec![0, 4, 8],
+            ChordType::Add9 => vec![0, 4, 7, 14],
+            ChordType::Sixth => vec![0, 4, 7, 9],
+            ChordType::Minor6 => vec![0, 3, 7, 9],
+            ChordType::Dominant7Sharp9 => vec![0, 4, 7, 10, 15],
+            ChordType::Dominant7Flat9 => vec![0, 4, 7, 10, 13],
         };
 
         intervals
