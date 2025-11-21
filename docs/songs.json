@@ -1,51 +1,16 @@
 [
-  {
-    "filename": "2025-11-21_petar_zarkov_wild_celebration_express.wav",
-    "date": "2025-11-21",
-    "size": 22099032,
-    "name": "Wild Celebration Express",
-    "genre": ["Lofi", "Beats"]
-  },
-  {
-    "filename": "2025-11-20_petar_zarkov_ultimate_party_journey.wav",
-    "date": "2025-11-20",
-    "size": 15617846,
-    "name": "Ultimate Party Journey",
-    "genre": ["Rock", "Alternative"]
-  },
-  {
-    "filename": "2025-11-19_petar_zarkov_diamond_echoes_charm.wav",
-    "date": "2025-11-19",
-    "size": 16056344,
-    "name": "Diamond Echoes Charm",
-    "genre": ["Electro Swing", "Vintage"]
-  },
-  {
-    "filename": "2025-11-18_petar_zarkov_avenue_space_sensation.wav",
-    "date": "2025-11-18",
-    "size": 25273758,
-    "name": "Avenue Space Sensation",
-    "genre": ["Lofi", "Study"]
-  },
-  {
-    "filename": "2025-11-17_petar_zarkov_cosmic_ocean_supreme.wav",
-    "date": "2025-11-17",
-    "size": 29467704,
-    "name": "Cosmic Ocean Supreme",
-    "genre": ["Dubstep", "Wobble", "Instrumental"]
-  },
-  {
-    "filename": "2025-11-16_petar_zarkov_electric_echoes_journey.wav",
-    "date": "2025-11-16",
-    "size": 16772320,
-    "name": "Electric Echoes Journey",
-    "genre": ["Funk", "Soul", "Dance"]
-  },
-  {
-    "filename": "2025-11-15_petar_zarkov_smooth_cats_special.wav",
-    "date": "2025-11-15",
-    "size": 16029586,
-    "name": "Smooth Cats Special",
-    "genre": ["Rock", "Energy"]
-  }
+  {"filename": "2025-11-21_petar_zarkov_crazy_riff_sensation.mp3", "date": "2025-11-21", "size": 5552795, "name": "Crazy Riff Sensation", "genre": ["Rock","Guitar"]}
+,
+  {"filename": "2025-11-20_petar_zarkov_velvet_notes_express.mp3", "date": "2025-11-20", "size": 4023692, "name": "Velvet Notes Express", "genre": ["Hip Hop","Rap"]}
+,
+  {"filename": "2025-11-19_petar_zarkov_blues_whisper.mp3", "date": "2025-11-19", "size": 5190425, "name": "Blues Whisper", "genre": ["Drum & Bass","Electronic"]}
+,
+  {"filename": "2025-11-18_petar_zarkov_wicked_sugar_charm.mp3", "date": "2025-11-18", "size": 5033690, "name": "Wicked Sugar Charm", "genre": ["Lofi","Sleep","Chill","Instrumental"]}
+,
+  {"filename": "2025-11-17_petar_zarkov_sugar_fiesta.mp3", "date": "2025-11-17", "size": 3942817, "name": "Sugar Fiesta", "genre": ["Funk","Rhythm"]}
+,
+  {"filename": "2025-11-16_petar_zarkov_blue_strut_fever.mp3", "date": "2025-11-16", "size": 4433710, "name": "Blue Strut Fever", "genre": ["Electro Swing","Vintage","Swing","Instrumental"]}
+,
+  {"filename": "2025-11-15_petar_zarkov_fiesta_shuffle.mp3", "date": "2025-11-15", "size": 4150333, "name": "Fiesta Shuffle", "genre": ["Rock","Indie"]}
+
 ]
