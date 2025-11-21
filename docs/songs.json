@@ -1,3 +1,85 @@
 [
-
+  {
+    "filename": "2025-11-15_petar_zarkov_swingin_cool_breeze.mp3",
+    "date": "2025-11-15",
+    "size": 0,
+    "name": "Swingin' Cool Breeze",
+    "genre": [
+      "Jazz",
+      "Fusion"
+    ]
+  },
+  {
+    "filename": "2025-11-21_petar_zarkov_jumpin_planet_express.mp3",
+    "date": "2025-11-21",
+    "size": 4124629,
+    "name": "Jumpin' Planet Express",
+    "genre": [
+      "Hip Hop",
+      "Beats"
+    ]
+  },
+  {
+    "filename": "2025-11-20_petar_zarkov_fiesta_session.mp3",
+    "date": "2025-11-20",
+    "size": 4535274,
+    "name": "Fiesta Session",
+    "genre": [
+      "Rock",
+      "Guitar",
+      "Instrumental"
+    ]
+  },
+  {
+    "filename": "2025-11-19_petar_zarkov_sweet_slide_delight.mp3",
+    "date": "2025-11-19",
+    "size": 5473801,
+    "name": "Sweet Slide Delight",
+    "genre": [
+      "Lofi",
+      "Nostalgic"
+    ]
+  },
+  {
+    "filename": "2025-11-18_petar_zarkov_jazzy_bop_experience.mp3",
+    "date": "2025-11-18",
+    "size": 6762787,
+    "name": "Jazzy Bop Experience",
+    "genre": [
+      "Lofi",
+      "Study",
+      "Beats"
+    ]
+  },
+  {
+    "filename": "2025-11-17_petar_zarkov_hot_glide_experience.mp3",
+    "date": "2025-11-17",
+    "size": 5189171,
+    "name": "Hot Glide Experience",
+    "genre": [
+      "Lofi",
+      "Nostalgic",
+      "Chill"
+    ]
+  },
+  {
+    "filename": "2025-11-16_petar_zarkov_silver_slick_universe.mp3",
+    "date": "2025-11-16",
+    "size": 4551574,
+    "name": "Silver Slick Universe",
+    "genre": [
+      "Rock",
+      "Alternative"
+    ]
+  },
+  {
+    "filename": "2025-11-15_petar_zarkov_swingin_cool_breeze.mp3",
+    "date": "2025-11-15",
+    "size": 4658154,
+    "name": "Swingin' Cool Breeze",
+    "genre": [
+      "Jazz",
+      "Fusion"
+    ]
+  }
 ]
