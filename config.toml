@@ -80,5 +80,5 @@ output_dir = "output"
 # Whether to write metadata JSON alongside WAV files
 write_metadata_json = true
 # Whether to encode MP3 files (set to false to skip MP3 encoding for faster generation)
-encode_mp3 = false
+encode_mp3 = true
 
