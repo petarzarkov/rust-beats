@@ -1,16 +1,84 @@
 [
-  {"filename": "2025-11-21_petar_zarkov_velvet_festival_journey.mp3", "date": "2025-11-21", "size": 4711444, "name": "Velvet Festival Journey", "genre": ["Funk","Dance","Instrumental"]}
-,
-  {"filename": "2025-11-20_petar_zarkov_starlight_streets_express.mp3", "date": "2025-11-20", "size": 5984756, "name": "Starlight Streets Express", "genre": ["Hip Hop","Rap"]}
-,
-  {"filename": "2025-11-19_petar_zarkov_universe_tales.mp3", "date": "2025-11-19", "size": 4495777, "name": "Universe Tales", "genre": ["Dubstep","Wobble"]}
-,
-  {"filename": "2025-11-18_petar_zarkov_electric_lick_charm.mp3", "date": "2025-11-18", "size": 4977892, "name": "Electric Lick Charm", "genre": ["Funk","Classic"]}
-,
-  {"filename": "2025-11-17_petar_zarkov_sunset_motion_connection.mp3", "date": "2025-11-17", "size": 3978552, "name": "Sunset Motion Connection", "genre": ["Electro Swing","Swing"]}
-,
-  {"filename": "2025-11-16_petar_zarkov_dreamy_stories_supreme.mp3", "date": "2025-11-16", "size": 4328384, "name": "Dreamy Stories Supreme", "genre": ["Funk","Rhythm","Instrumental"]}
-,
-  {"filename": "2025-11-15_petar_zarkov_sassy_cosmic_vibes.mp3", "date": "2025-11-15", "size": 4371016, "name": "Sassy Cosmic Vibes", "genre": ["Electro Swing","Dance"]}
-
+  {
+    "filename": "2025-11-21_petar_zarkov_platinum_diamond_vibes.mp3",
+    "date": "2025-11-21",
+    "size": 5082591,
+    "name": "Platinum Diamond Vibes",
+    "genre": [
+      "Jazz",
+      "Lounge"
+    ]
+  },
+  {
+    "filename": "2025-11-21_petar_zarkov_velvet_festival_journey.mp3",
+    "date": "2025-11-21",
+    "size": 4711444,
+    "name": "Velvet Festival Journey",
+    "genre": [
+      "Funk",
+      "Dance",
+      "Instrumental"
+    ]
+  },
+  {
+    "filename": "2025-11-20_petar_zarkov_starlight_streets_express.mp3",
+    "date": "2025-11-20",
+    "size": 5984756,
+    "name": "Starlight Streets Express",
+    "genre": [
+      "Hip Hop",
+      "Rap"
+    ]
+  },
+  {
+    "filename": "2025-11-19_petar_zarkov_universe_tales.mp3",
+    "date": "2025-11-19",
+    "size": 4495777,
+    "name": "Universe Tales",
+    "genre": [
+      "Dubstep",
+      "Wobble"
+    ]
+  },
+  {
+    "filename": "2025-11-18_petar_zarkov_electric_lick_charm.mp3",
+    "date": "2025-11-18",
+    "size": 4977892,
+    "name": "Electric Lick Charm",
+    "genre": [
+      "Funk",
+      "Classic"
+    ]
+  },
+  {
+    "filename": "2025-11-17_petar_zarkov_sunset_motion_connection.mp3",
+    "date": "2025-11-17",
+    "size": 3978552,
+    "name": "Sunset Motion Connection",
+    "genre": [
+      "Electro Swing",
+      "Swing"
+    ]
+  },
+  {
+    "filename": "2025-11-16_petar_zarkov_dreamy_stories_supreme.mp3",
+    "date": "2025-11-16",
+    "size": 4328384,
+    "name": "Dreamy Stories Supreme",
+    "genre": [
+      "Funk",
+      "Rhythm",
+      "Instrumental"
+    ]
+  },
+  {
+    "filename": "2025-11-15_petar_zarkov_sassy_cosmic_vibes.mp3",
+    "date": "2025-11-15",
+    "size": 4371016,
+    "name": "Sassy Cosmic Vibes",
+    "genre": [
+      "Electro Swing",
+      "Dance"
+    ]
+  }
 ]
