@@ -1,16 +1,51 @@
 [
-  {"filename": "2025-11-21_petar_zarkov_midnight_sun_connection.mp3", "date": "2025-11-21", "size": 3588596, "name": "Midnight Sun Connection", "genre": ["Chill"]}
-,
-  {"filename": "2025-11-20_petar_zarkov_blue_funk_adventure.mp3", "date": "2025-11-20", "size": 5885073, "name": "Blue Funk Adventure", "genre": ["Jazz","Nostalgic"]}
-,
-  {"filename": "2025-11-19_petar_zarkov_dreamy_lights_connection.mp3", "date": "2025-11-19", "size": 5194186, "name": "Dreamy Lights Connection", "genre": ["Downtempo","Smooth"]}
-,
-  {"filename": "2025-11-19_petar_zarkov_dreamy_dance_sensation.mp3", "date": "2025-11-19", "size": 3515871, "name": "Dreamy Dance Sensation", "genre": ["Ambient","Relaxing","Instrumental"]}
-,
-  {"filename": "2025-11-19_petar_zarkov_downtown_solo_experience.mp3", "date": "2025-11-19", "size": 3833729, "name": "Downtown Solo Experience", "genre": ["Ambient","Cozy"]}
-,
-  {"filename": "2025-11-18_petar_zarkov_swingin_glide.mp3", "date": "2025-11-18", "size": 6006699, "name": "Swingin' Glide", "genre": ["Downtempo","Smooth"]}
-,
-  {"filename": "2025-11-17_petar_zarkov_wicked_echoes_experience.mp3", "date": "2025-11-17", "size": 4100805, "name": "Wicked Echoes Experience", "genre": ["Jazz","Mellow"]}
-
+  {
+    "filename": "2025-11-21_petar_zarkov_wild_celebration_express.wav",
+    "date": "2025-11-21",
+    "size": 22099032,
+    "name": "Wild Celebration Express",
+    "genre": ["Lofi", "Beats"]
+  },
+  {
+    "filename": "2025-11-20_petar_zarkov_ultimate_party_journey.wav",
+    "date": "2025-11-20",
+    "size": 15617846,
+    "name": "Ultimate Party Journey",
+    "genre": ["Rock", "Alternative"]
+  },
+  {
+    "filename": "2025-11-19_petar_zarkov_diamond_echoes_charm.wav",
+    "date": "2025-11-19",
+    "size": 16056344,
+    "name": "Diamond Echoes Charm",
+    "genre": ["Electro Swing", "Vintage"]
+  },
+  {
+    "filename": "2025-11-18_petar_zarkov_avenue_space_sensation.wav",
+    "date": "2025-11-18",
+    "size": 25273758,
+    "name": "Avenue Space Sensation",
+    "genre": ["Lofi", "Study"]
+  },
+  {
+    "filename": "2025-11-17_petar_zarkov_cosmic_ocean_supreme.wav",
+    "date": "2025-11-17",
+    "size": 29467704,
+    "name": "Cosmic Ocean Supreme",
+    "genre": ["Dubstep", "Wobble", "Instrumental"]
+  },
+  {
+    "filename": "2025-11-16_petar_zarkov_electric_echoes_journey.wav",
+    "date": "2025-11-16",
+    "size": 16772320,
+    "name": "Electric Echoes Journey",
+    "genre": ["Funk", "Soul", "Dance"]
+  },
+  {
+    "filename": "2025-11-15_petar_zarkov_smooth_cats_special.wav",
+    "date": "2025-11-15",
+    "size": 16029586,
+    "name": "Smooth Cats Special",
+    "genre": ["Rock", "Energy"]
+  }
 ]

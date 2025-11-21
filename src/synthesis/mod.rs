@@ -1,18 +1,19 @@
-pub mod synthesizer;
-pub mod drums;
 pub mod bass;
+pub mod drums;
+pub mod fx;
+pub mod instruments;
+pub mod lofi_effects;
 pub mod melody;
 pub mod pads;
-pub mod lofi_effects;
-pub mod instruments;
 pub mod percussion;
-pub mod fx;
+pub mod synthesizer;
 
-pub use synthesizer::{SAMPLE_RATE, init_sample_rate};
-pub use drums::{generate_kick, generate_snare, generate_hihat, generate_clap, generate_conga, generate_shaker};
-pub use bass::{generate_bassline, generate_rock_bassline, generate_dubstep_bassline, generate_dnb_bassline};
-pub use melody::{generate_melody};
-pub use pads::{generate_pads};
-pub use lofi_effects::{LofiProcessor};
-pub use fx::{generate_riser, generate_downlifter, generate_crash, generate_impact};
-
+pub use bass::{generate_dnb_bassline, generate_dubstep_bassline, generate_rock_bassline};
+pub use drums::{
+    generate_clap, generate_conga, generate_hihat, generate_kick, generate_shaker, generate_snare,
+};
+pub use fx::{generate_crash, generate_downlifter, generate_impact, generate_riser};
+pub use lofi_effects::LofiProcessor;
+pub use melody::InstrumentType;
+pub use pads::{generate_drone, generate_pads};
+pub use synthesizer::{get_sample_rate, init_sample_rate};

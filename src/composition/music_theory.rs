@@ -17,8 +17,8 @@ pub enum ScaleType {
     Minor,
     Dorian,
     Mixolydian,
-    Phrygian,       // Dark, Spanish flavor
-    Lydian,         // Dreamy, jazzy
+    Phrygian, // Dark, Spanish flavor
+    Lydian,   // Dreamy, jazzy
     MinorPentatonic,
     MajorPentatonic,
     Blues,
@@ -49,7 +49,7 @@ pub enum ChordType {
     Minor11,
     Major13,
     Dominant13,
-    HalfDiminished7,  // m7b5
+    HalfDiminished7, // m7b5
     MinorMajor7,
 }
 
@@ -80,11 +80,11 @@ impl Key {
             scale_type,
         }
     }
-    
+
     /// Create a random key suitable for funk/jazz
     pub fn random_funky() -> Self {
         let mut rng = rand::thread_rng();
-        
+
         // Funky keys often use flats and tend toward minor/dorian
         let roots = vec![
             36, // C
@@ -95,42 +95,43 @@ impl Key {
             45, // A
             46, // Bb
         ];
-        
+
         // Weighted towards happier scales
         let scale_choice = rng.gen_range(0..100);
         let scale_type = if scale_choice < 30 {
-            ScaleType::Major  // 30% - Bright, happy!
+            ScaleType::Major // 30% - Bright, happy!
         } else if scale_choice < 50 {
-            ScaleType::MajorPentatonic  // 20% - Simple, cheerful
+            ScaleType::MajorPentatonic // 20% - Simple, cheerful
         } else if scale_choice < 70 {
-            ScaleType::Lydian  // 20% - Dreamy, uplifting
+            ScaleType::Lydian // 20% - Dreamy, uplifting
         } else if scale_choice < 85 {
-            ScaleType::Mixolydian  // 15% - Funky, bright
+            ScaleType::Mixolydian // 15% - Funky, bright
         } else if scale_choice < 93 {
-            ScaleType::Dorian  // 8% - Jazzy (not dark)
+            ScaleType::Dorian // 8% - Jazzy (not dark)
         } else {
-            ScaleType::Minor  // 7% - Occasional moodiness
+            ScaleType::Minor // 7% - Occasional moodiness
         };
-        
+
         Key {
             root: roots[rng.gen_range(0..roots.len())],
             scale_type,
         }
     }
-    
+
     /// Get all notes in this key within an octave
     pub fn get_scale_notes(&self) -> Vec<MidiNote> {
-        self.scale_type.intervals()
+        self.scale_type
+            .intervals()
             .iter()
             .map(|&interval| self.root + interval)
             .collect()
     }
-    
+
     /// Get scale notes across multiple octaves
     pub fn get_scale_notes_range(&self, octaves: u8) -> Vec<MidiNote> {
         let mut notes = Vec::new();
         let intervals = self.scale_type.intervals();
-        
+
         for octave in 0..octaves {
             for &interval in &intervals {
                 let note = self.root + (octave * 12) + interval;
@@ -162,11 +163,12 @@ impl Chord {
             ChordType::Minor11 => vec![0, 3, 7, 10, 14, 17],
             ChordType::Major13 => vec![0, 4, 7, 11, 14, 21],
             ChordType::Dominant13 => vec![0, 4, 7, 10, 14, 21],
-            ChordType::HalfDiminished7 => vec![0, 3, 6, 10],  // m7b5
+            ChordType::HalfDiminished7 => vec![0, 3, 6, 10], // m7b5
             ChordType::MinorMajor7 => vec![0, 3, 7, 11],
         };
-        
-        intervals.iter()
+
+        intervals
+            .iter()
             .map(|&interval| self.root + interval)
             .filter(|&note| note < 128)
             .collect()
@@ -179,28 +181,33 @@ pub fn generate_chord_progression(key: &Key, length: usize) -> Vec<Chord> {
 }
 
 /// Generate a chord progression with preferred chord types
-pub fn generate_chord_progression_with_types(key: &Key, length: usize, preferred_types: Option<&[ChordType]>) -> Vec<Chord> {
+pub fn generate_chord_progression_with_types(
+    key: &Key,
+    length: usize,
+    preferred_types: Option<&[ChordType]>,
+) -> Vec<Chord> {
     let mut rng = rand::thread_rng();
     let scale_notes = key.get_scale_notes();
-    
+
     // Helper to select chord type, preferring preferred types if available
-    let select_chord_type = |rng: &mut rand::rngs::ThreadRng, _degree: usize, default: ChordType| -> ChordType {
-        if let Some(preferred) = preferred_types {
-            if !preferred.is_empty() {
-                // 70% chance to use preferred type, 30% chance for default
-                if rng.gen_range(0..100) < 70 {
-                    preferred[rng.gen_range(0..preferred.len())]
+    let select_chord_type =
+        |rng: &mut rand::rngs::ThreadRng, _degree: usize, default: ChordType| -> ChordType {
+            if let Some(preferred) = preferred_types {
+                if !preferred.is_empty() {
+                    // 70% chance to use preferred type, 30% chance for default
+                    if rng.gen_range(0..100) < 70 {
+                        preferred[rng.gen_range(0..preferred.len())]
+                    } else {
+                        default
+                    }
                 } else {
                     default
                 }
             } else {
                 default
             }
-        } else {
-            default
-        }
-    };
-    
+        };
+
     // Weighted towards happier, uplifting progressions, now with extended chords
     let choice = rng.gen_range(0..100);
     let pattern = if choice < 20 {
@@ -209,14 +216,14 @@ pub fn generate_chord_progression_with_types(key: &Key, length: usize, preferred
             (0, select_chord_type(&mut rng, 0, ChordType::Major11)),
             (4, select_chord_type(&mut rng, 4, ChordType::Dominant13)),
             (5, select_chord_type(&mut rng, 5, ChordType::Minor11)),
-            (3, select_chord_type(&mut rng, 3, ChordType::Major9))
+            (3, select_chord_type(&mut rng, 3, ChordType::Major9)),
         ]
     } else if choice < 35 {
         // I-IV-V (classic happy progression)
         vec![
             (0, select_chord_type(&mut rng, 0, ChordType::Major7)),
             (3, select_chord_type(&mut rng, 3, ChordType::Major9)),
-            (4, select_chord_type(&mut rng, 4, ChordType::Dominant7))
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant7)),
         ]
     } else if choice < 50 {
         // I-vi-IV-V (upbeat pop progression)
@@ -224,28 +231,31 @@ pub fn generate_chord_progression_with_types(key: &Key, length: usize, preferred
             (0, select_chord_type(&mut rng, 0, ChordType::Major9)),
             (5, select_chord_type(&mut rng, 5, ChordType::Minor11)),
             (3, select_chord_type(&mut rng, 3, ChordType::Major7)),
-            (4, select_chord_type(&mut rng, 4, ChordType::Dominant9))
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant9)),
         ]
     } else if choice < 60 {
         // I-V-IV (simple, bright)
         vec![
             (0, select_chord_type(&mut rng, 0, ChordType::Major7)),
             (4, select_chord_type(&mut rng, 4, ChordType::Dominant13)),
-            (3, select_chord_type(&mut rng, 3, ChordType::Major7))
+            (3, select_chord_type(&mut rng, 3, ChordType::Major7)),
         ]
     } else if choice < 70 {
         // ii-V-I (uplifting jazz resolution) - use half-diminished
         vec![
-            (1, select_chord_type(&mut rng, 1, ChordType::HalfDiminished7)),
+            (
+                1,
+                select_chord_type(&mut rng, 1, ChordType::HalfDiminished7),
+            ),
             (4, select_chord_type(&mut rng, 4, ChordType::Dominant13)),
-            (0, select_chord_type(&mut rng, 0, ChordType::Major9))
+            (0, select_chord_type(&mut rng, 0, ChordType::Major9)),
         ]
     } else if choice < 78 {
         // sus4 to Major (dreamy, hopeful)
         vec![
             (0, ChordType::Sus4),
             (0, select_chord_type(&mut rng, 0, ChordType::Major13)),
-            (3, select_chord_type(&mut rng, 3, ChordType::Major9))
+            (3, select_chord_type(&mut rng, 3, ChordType::Major9)),
         ]
     } else if choice < 85 {
         // I-III-IV-V (bright and jazzy)
@@ -253,7 +263,7 @@ pub fn generate_chord_progression_with_types(key: &Key, length: usize, preferred
             (0, select_chord_type(&mut rng, 0, ChordType::Major7)),
             (2, select_chord_type(&mut rng, 2, ChordType::MinorMajor7)),
             (3, select_chord_type(&mut rng, 3, ChordType::Major7)),
-            (4, select_chord_type(&mut rng, 4, ChordType::Dominant7))
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant7)),
         ]
     } else if choice < 92 {
         // I-vi-ii-V (smooth jazz standard)
@@ -261,7 +271,7 @@ pub fn generate_chord_progression_with_types(key: &Key, length: usize, preferred
             (0, select_chord_type(&mut rng, 0, ChordType::Major9)),
             (5, select_chord_type(&mut rng, 5, ChordType::Minor11)),
             (1, select_chord_type(&mut rng, 1, ChordType::Minor7)),
-            (4, select_chord_type(&mut rng, 4, ChordType::Dominant9))
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant9)),
         ]
     } else {
         // vi-IV-I-V (slightly melancholic but resolves happy)
@@ -269,21 +279,18 @@ pub fn generate_chord_progression_with_types(key: &Key, length: usize, preferred
             (5, select_chord_type(&mut rng, 5, ChordType::Minor11)),
             (3, select_chord_type(&mut rng, 3, ChordType::Major9)),
             (0, select_chord_type(&mut rng, 0, ChordType::Major13)),
-            (4, select_chord_type(&mut rng, 4, ChordType::Dominant9))
+            (4, select_chord_type(&mut rng, 4, ChordType::Dominant9)),
         ]
     };
     let mut progression = Vec::new();
-    
+
     // Repeat pattern to fill the length
     for i in 0..length {
         let (scale_degree, chord_type) = pattern[i % pattern.len()];
         let root = scale_notes[scale_degree % scale_notes.len()];
-        progression.push(Chord {
-            root,
-            chord_type,
-        });
+        progression.push(Chord { root, chord_type });
     }
-    
+
     progression
 }
 
@@ -300,10 +307,11 @@ pub struct Tempo {
 
 impl Tempo {
     /// Generate a random tempo suitable for funk/jazz (90-130 BPM)
+    #[allow(dead_code)]
     pub fn random_funky() -> Self {
         Self::random_funky_range(90.0, 130.0)
     }
-    
+
     /// Generate a random tempo within a specific range
     pub fn random_funky_range(min_bpm: f32, max_bpm: f32) -> Self {
         let mut rng = rand::thread_rng();
@@ -311,12 +319,12 @@ impl Tempo {
             bpm: rng.gen_range(min_bpm..max_bpm),
         }
     }
-    
+
     /// Get the duration of one beat in seconds
     pub fn beat_duration(&self) -> f32 {
         60.0 / self.bpm
     }
-    
+
     /// Get the duration of one bar (4 beats) in seconds
     pub fn bar_duration(&self) -> f32 {
         self.beat_duration() * 4.0
@@ -326,7 +334,7 @@ impl Tempo {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_key_generation() {
         let key = Key::random_funky();
@@ -334,7 +342,7 @@ mod tests {
         assert!(!notes.is_empty());
         println!("Key root: {}, notes: {:?}", key.root, notes);
     }
-    
+
     #[test]
     fn test_chord_progression() {
         let key = Key::random_funky();
@@ -345,11 +353,10 @@ mod tests {
             println!("Chord notes: {:?}", notes);
         }
     }
-    
+
     #[test]
     fn test_midi_to_freq() {
         assert!((midi_to_freq(69) - 440.0).abs() < 0.01);
         assert!((midi_to_freq(60) - 261.63).abs() < 0.01);
     }
 }
-

@@ -100,6 +100,8 @@ pub struct MelodyConfig {
 pub struct GenerationConfig {
     pub output_dir: String,
     pub write_metadata_json: bool,
+    #[serde(default = "default_encode_mp3")]
+    pub encode_mp3: bool,
 }
 
 fn default_instrument_probabilities() -> InstrumentProbabilities {
@@ -162,6 +164,10 @@ fn default_melody_config() -> MelodyConfig {
     }
 }
 
+fn default_encode_mp3() -> bool {
+    true
+}
+
 impl Config {
     /// Load configuration from a TOML file
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
@@ -169,12 +175,12 @@ impl Config {
         let config: Config = toml::from_str(&contents)?;
         Ok(config)
     }
-    
+
     /// Load configuration from default location (config.toml in project root)
     pub fn load_default() -> Result<Self, Box<dyn std::error::Error>> {
         Self::load("config.toml")
     }
-    
+
     /// Create a default configuration
     pub fn default() -> Self {
         Config {
@@ -201,6 +207,7 @@ impl Config {
             generation: GenerationConfig {
                 output_dir: "output".to_string(),
                 write_metadata_json: true,
+                encode_mp3: true,
             },
         }
     }
@@ -209,7 +216,7 @@ impl Config {
 #[cfg(test)]
 mod tests {
     use super::*;
-    
+
     #[test]
     fn test_default_config() {
         let config = Config::default();
@@ -217,4 +224,3 @@ mod tests {
         assert_eq!(config.metadata.artist, "Petar Zarkov");
     }
 }
-

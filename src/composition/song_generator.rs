@@ -1,18 +1,17 @@
-/// Song generation orchestrator
-use crate::composition::{
-    Arrangement, Genre, Key, Tempo, generate_chord_progression,
-    GrooveStyle, select_random_drum_kit, select_random_genre, get_genre_config,
+use crate::audio::{
+    add_percussion_track, apply_arrangement_dynamics, build_tracks, encode_to_mp3,
+    generate_pads_with_arrangement, master_lofi, mix_tracks, normalize_loudness, preset_from_str,
+    render_arranged_bass, render_arranged_drums, render_arranged_melody_with_instrument,
+    render_fx_track, render_to_wav_with_metadata, stereo_to_mono, SongMetadata,
 };
 use crate::composition::beat_maker::DrumKit;
-use crate::audio::{
-    render_arranged_drums, render_arranged_bass, render_arranged_melody,
-    generate_pads_with_arrangement, render_fx_track, add_percussion_track,
-    apply_arrangement_dynamics, master_lofi, stereo_to_mono, normalize_loudness,
-    build_tracks, mix_tracks, MixingPreset, preset_from_str,
-    render_to_wav_with_metadata, encode_to_mp3, SongMetadata,
+/// Song generation orchestrator
+use crate::composition::{
+    generate_chord_progression, get_genre_config, select_preferred_drum_kit, select_random_genre,
+    Arrangement, Genre, GrooveStyle, Key, Tempo,
 };
-use crate::synthesis::{SAMPLE_RATE, LofiProcessor};
 use crate::config::Config;
+use crate::synthesis::{get_sample_rate, InstrumentType, LofiProcessor};
 use rand::Rng;
 use std::fs;
 
@@ -45,23 +44,26 @@ impl SongGenerator {
     /// Create a new song generator with random parameters
     pub fn new(config: Config) -> Self {
         let mut rng = rand::thread_rng();
-        
+
         // Generate song identity
         let song_name = crate::composition::generate_song_name();
-        let genre_tags = crate::composition::generate_genre_tags();
-        
+
         // Select genre and get its configuration
         let genre = select_random_genre();
         let genre_config = get_genre_config(genre);
-        
+
+        // Generate genre tags based on actual genre
+        let genre_tags = crate::composition::generate_genre_tags(genre);
+
         // Generate musical parameters based on genre
         let key = if !genre_config.preferred_scales.is_empty() {
-            let scale = genre_config.preferred_scales[rng.gen_range(0..genre_config.preferred_scales.len())];
+            let scale = genre_config.preferred_scales
+                [rng.gen_range(0..genre_config.preferred_scales.len())];
             Key::from_scale(scale)
         } else {
             Key::random_funky()
         };
-        
+
         // Clamp tempo to config limits
         let tempo_min = genre_config.tempo_min.max(config.composition.min_tempo);
         let tempo_max = genre_config.tempo_max.min(config.composition.max_tempo);
@@ -78,7 +80,7 @@ impl SongGenerator {
             }
         };
         let tempo = Tempo::random_funky_range(tempo_min, tempo_max);
-        
+
         // Map genre to groove style
         let groove_style = match genre {
             Genre::Rock => GrooveStyle::Rock,
@@ -90,24 +92,42 @@ impl SongGenerator {
             Genre::ElectroSwing => GrooveStyle::ElectroSwing,
             Genre::Lofi => GrooveStyle::Lofi,
         };
-        
-        // Select instruments
-        let ip = &config.composition.instrument_probabilities;
-        let lead_instrument = {
-            let roll: f32 = rng.gen_range(0.0..1.0);
-            if roll < ip.rhodes { 
-                "Rhodes" 
-            } else if roll < ip.rhodes + ip.ukulele {
-                "Ukulele"
-            } else if roll < ip.rhodes + ip.ukulele + ip.guitar {
-                "Guitar"
-            } else if roll < ip.rhodes + ip.ukulele + ip.guitar + ip.electric {
-                "Electric"
-            } else {
-                "Organ"
+
+        // Select instruments based on genre
+        let lead_instrument = match genre {
+            Genre::Lofi => match rng.gen_range(0..100) {
+                0..=60 => "Rhodes",
+                61..=90 => "SoftPluck",
+                _ => "WarmOrgan"
+            },
+            Genre::Jazz | Genre::Funk => match rng.gen_range(0..100) {
+                0..=40 => "Rhodes",
+                41..=70 => "Piano", // Mapped to Rhodes usually but implies style
+                71..=90 => "Guitar",
+                _ => "Organ"
+            },
+            Genre::Rock => match rng.gen_range(0..100) {
+                0..=70 => "Electric Guitar",
+                71..=90 => "Acoustic Guitar",
+                _ => "Organ"
+            },
+            Genre::DnB | Genre::Dubstep => match rng.gen_range(0..100) {
+                0..=50 => "Synth",
+                51..=80 => "Electric",
+                _ => "Pluck"
+            },
+            Genre::ElectroSwing => match rng.gen_range(0..100) {
+                0..=40 => "Clarinet", // Simulated via filtered Square/Saw
+                41..=70 => "Organ",
+                _ => "Piano"
+            },
+            Genre::HipHop => match rng.gen_range(0..100) {
+                0..=50 => "Rhodes",
+                51..=80 => "Synth",
+                _ => "Piano"
             }
         };
-        
+
         let bass_type = match genre_config.bass_style {
             crate::composition::genre::BassStyle::Standard => "Standard",
             crate::composition::genre::BassStyle::Rock => "Rock",
@@ -118,61 +138,79 @@ impl SongGenerator {
             crate::composition::genre::BassStyle::Wobble => "Wobble",
             crate::composition::genre::BassStyle::Reese => "Reese",
         };
-        
-        let drum_kit = select_random_drum_kit();
-        
+
+        let drum_kit = select_preferred_drum_kit(&genre_config.drum_kit_preference);
+
         // Percussion
         let pc = &config.composition.percussion;
         let add_percussion = rng.gen_range(0.0..1.0) < pc.chance;
         let percussion_type = if add_percussion {
             let roll: f32 = rng.gen_range(0.0..1.0);
-            if roll < pc.tambourine { "Tambourine" } 
-            else if roll < pc.tambourine + pc.cowbell { "Cowbell" }
-            else if roll < pc.tambourine + pc.cowbell + pc.bongo { "Bongo" }
-            else { "Woodblock" }
+            if roll < pc.tambourine {
+                "Tambourine"
+            } else if roll < pc.tambourine + pc.cowbell {
+                "Cowbell"
+            } else if roll < pc.tambourine + pc.cowbell + pc.bongo {
+                "Bongo"
+            } else {
+                "Woodblock"
+            }
         } else {
             "None"
         };
-        
+
         // Pad intensity
         let pad_cfg = &config.composition.pads;
         let pad_intensity = {
             let roll: f32 = rng.gen_range(0.0..1.0);
-            if roll < pad_cfg.subtle { "Subtle" }
-            else if roll < pad_cfg.subtle + pad_cfg.medium { "Medium" }
-            else { "Prominent" }
+            if roll < pad_cfg.subtle {
+                "Subtle"
+            } else if roll < pad_cfg.subtle + pad_cfg.medium {
+                "Medium"
+            } else {
+                "Prominent"
+            }
         };
-        
+
         // Mixing style
         let mix_cfg = &config.composition.mixing;
         let mixing_style = {
             let roll: f32 = rng.gen_range(0.0..1.0);
-            if roll < mix_cfg.clean { "Clean" }
-            else if roll < mix_cfg.clean + mix_cfg.warm { "Warm" }
-            else if roll < mix_cfg.clean + mix_cfg.warm + mix_cfg.punchy { "Punchy" }
-            else { "Spacious" }
+            if roll < mix_cfg.clean {
+                "Clean"
+            } else if roll < mix_cfg.clean + mix_cfg.warm {
+                "Warm"
+            } else if roll < mix_cfg.clean + mix_cfg.warm + mix_cfg.punchy {
+                "Punchy"
+            } else {
+                "Spacious"
+            }
         };
-        
+
         // Generate arrangement
         let arrangement = if config.composition.structure == "short" {
             Arrangement::generate_short()
         } else {
-            Arrangement::generate_standard()
+            Arrangement::generate_for_duration(
+                genre_config.arrangement_style,
+                tempo.bpm,
+                180.0 // Target 3 minutes (180 seconds)
+            )
         };
-        
+
         let num_bars = arrangement.total_bars;
-        
+
         // Generate chord progression
         let chords = if !genre_config.preferred_chord_types.is_empty() {
             crate::composition::music_theory::generate_chord_progression_with_types(
                 &key,
                 num_bars,
-                Some(&genre_config.preferred_chord_types)
+                Some(&genre_config.preferred_chord_types),
             )
         } else {
             generate_chord_progression(&key, num_bars)
         };
-        
+
         let params = SongParams {
             song_name,
             genre_tags,
@@ -189,32 +227,34 @@ impl SongGenerator {
             arrangement,
             chords,
         };
-        
+
         Self {
             config,
             params,
             genre_config,
         }
     }
-    
+
     /// Get song parameters (for printing)
     pub fn params(&self) -> &SongParams {
         &self.params
     }
-    
+
     /// Generate all audio tracks in parallel
-    pub fn generate_audio_tracks(&self) -> (
-        Vec<f32>, // drums
-        Vec<f32>, // bass
-        Vec<f32>, // melody_l
-        Vec<f32>, // melody_r
-        Vec<f32>, // pads_l
-        Vec<f32>, // pads_r
-        Vec<f32>, // fx
+    pub fn generate_audio_tracks(
+        &self,
+    ) -> (
+        Vec<f32>,         // drums
+        Vec<f32>,         // bass
+        Vec<f32>,         // melody_l
+        Vec<f32>,         // melody_r
+        Vec<f32>,         // pads_l
+        Vec<f32>,         // pads_r
+        Vec<f32>,         // fx
         Option<Vec<f32>>, // percussion
     ) {
         use std::thread;
-        
+
         // Clone all data needed for threads
         let arrangement1 = self.params.arrangement.clone();
         let arrangement2 = self.params.arrangement.clone();
@@ -224,41 +264,92 @@ impl SongGenerator {
         let arrangement6 = self.params.arrangement.clone();
         let arrangement7 = self.params.arrangement.clone();
         let arrangement8 = self.params.arrangement.clone();
-        
+
         let chords1 = self.params.chords.clone();
         let chords2 = self.params.chords.clone();
         let chords3 = self.params.chords.clone();
         let chords4 = self.params.chords.clone();
         let chords5 = self.params.chords.clone();
-        let chords6 = self.params.chords.clone();
-        
+
         let tempo_bpm = self.params.tempo.bpm;
         let genre = self.params.genre;
         let groove_style = self.params.groove_style;
         let drum_kit = self.params.drum_kit;
         let percussion_type = self.params.percussion_type.clone();
         let num_bars = arrangement1.total_bars;
-        let tempo = self.params.tempo.clone();
         let tempo2 = self.params.tempo.clone();
         let key1 = self.params.key.clone();
         let key2 = self.params.key.clone();
         let melody_cfg1 = self.config.composition.melody.clone();
         let melody_cfg2 = self.config.composition.melody.clone();
         let bass_drop_cfg = self.config.composition.bass_drops.clone();
-        let genre_config = self.genre_config.clone();
-        
+        let genre_config_bass = self.genre_config.clone();
+        let genre_config_drums = self.genre_config.clone();
+        let melody_density = self.genre_config.melody_density;
+
         // Generate audio tracks in parallel using threads
         let drums_handle = thread::spawn(move || {
-            render_arranged_drums(&arrangement1, groove_style, tempo_bpm, drum_kit, &genre)
+            render_arranged_drums(
+                &arrangement1,
+                groove_style,
+                tempo_bpm,
+                drum_kit,
+                &genre,
+                &genre_config_drums,
+            )
         });
         let bass_handle = thread::spawn(move || {
-            render_arranged_bass(&arrangement2, &chords1, tempo_bpm, &genre, &bass_drop_cfg, &genre_config)
+            render_arranged_bass(
+                &arrangement2,
+                &chords1,
+                tempo_bpm,
+                &genre,
+                &bass_drop_cfg,
+                &genre_config_bass,
+            )
         });
+        // Generate L/R melody channels with different instrument preferences for stereo width
         let melody_l_handle = thread::spawn(move || {
-            render_arranged_melody(&arrangement3, &key1, &chords2, tempo_bpm, &melody_cfg1, &genre)
+            let mut rng = rand::thread_rng();
+            // L channel: prefer warmer, rounder instruments
+            let instrument_pref = match genre {
+                Genre::Rock => if rng.gen_bool(0.7) { Some(InstrumentType::AcousticGuitar) } else { Some(InstrumentType::ElectricGuitar) },
+                Genre::Jazz | Genre::Funk => if rng.gen_bool(0.6) { Some(InstrumentType::Rhodes) } else { Some(InstrumentType::WarmOrgan) },
+                Genre::Lofi => if rng.gen_bool(0.5) { Some(InstrumentType::SoftPluck) } else { Some(InstrumentType::Rhodes) },
+                Genre::Dubstep | Genre::DnB => if rng.gen_bool(0.5) { Some(InstrumentType::WarmOrgan) } else { Some(InstrumentType::ElectricGuitar) },
+                _ => if rng.gen_bool(0.5) { Some(InstrumentType::Ukulele) } else { Some(InstrumentType::Mallet) },
+            };
+            render_arranged_melody_with_instrument(
+                &arrangement3,
+                &key1,
+                &chords2,
+                tempo_bpm,
+                &melody_cfg1,
+                melody_density,
+                &genre,
+                instrument_pref,
+            )
         });
         let melody_r_handle = thread::spawn(move || {
-            render_arranged_melody(&arrangement4, &key2, &chords3, tempo_bpm, &melody_cfg2, &genre)
+            let mut rng = rand::thread_rng();
+            // R channel: prefer brighter, contrasting instruments
+            let instrument_pref = match genre {
+                Genre::Rock => if rng.gen_bool(0.8) { Some(InstrumentType::ElectricGuitar) } else { Some(InstrumentType::AcousticGuitar) },
+                Genre::Jazz | Genre::Funk => if rng.gen_bool(0.6) { Some(InstrumentType::Mallet) } else { Some(InstrumentType::Rhodes) },
+                Genre::Lofi => if rng.gen_bool(0.5) { Some(InstrumentType::WarmOrgan) } else { Some(InstrumentType::SoftPluck) },
+                Genre::Dubstep | Genre::DnB => if rng.gen_bool(0.7) { Some(InstrumentType::ElectricGuitar) } else { Some(InstrumentType::Mallet) },
+                _ => if rng.gen_bool(0.6) { Some(InstrumentType::AcousticGuitar) } else { Some(InstrumentType::Ukulele) },
+            };
+            render_arranged_melody_with_instrument(
+                &arrangement4,
+                &key2,
+                &chords3,
+                tempo_bpm,
+                &melody_cfg2,
+                melody_density,
+                &genre,
+                instrument_pref,
+            )
         });
         let pads_l_handle = thread::spawn(move || {
             generate_pads_with_arrangement(&arrangement5, &chords4, tempo_bpm, num_bars)
@@ -266,13 +357,11 @@ impl SongGenerator {
         let pads_r_handle = thread::spawn(move || {
             generate_pads_with_arrangement(&arrangement6, &chords5, tempo_bpm, num_bars)
         });
-        let fx_handle = thread::spawn(move || {
-            render_fx_track(&arrangement7, tempo_bpm)
-        });
+        let fx_handle = thread::spawn(move || render_fx_track(&arrangement7, tempo_bpm));
         let percussion_handle = thread::spawn(move || {
-            add_percussion_track(&percussion_type, &arrangement8, &tempo2)
+            add_percussion_track(&percussion_type, &arrangement8, &tempo2, &genre)
         });
-        
+
         (
             drums_handle.join().unwrap(),
             bass_handle.join().unwrap(),
@@ -284,7 +373,7 @@ impl SongGenerator {
             percussion_handle.join().unwrap(),
         )
     }
-    
+
     /// Mix and master the audio
     pub fn mix_and_master(
         &self,
@@ -298,27 +387,39 @@ impl SongGenerator {
         percussion: Option<Vec<f32>>,
     ) -> Vec<f32> {
         let mut rng = rand::thread_rng();
-        
+
         // Build tracks with mixing preset
         let preset = preset_from_str(&self.params.mixing_style);
         let tracks = build_tracks(
-            drums, bass, melody_l, melody_r, pads_l, pads_r, fx, percussion,
-            preset, &self.params.pad_intensity,
+            drums,
+            bass,
+            melody_l,
+            melody_r,
+            pads_l,
+            pads_r,
+            fx,
+            percussion,
+            preset,
+            &self.params.pad_intensity,
         );
-        
+
         let mut stereo_mix = mix_tracks(tracks);
-        
+
         // Apply arrangement-aware dynamics
-        apply_arrangement_dynamics(&mut stereo_mix, &self.params.arrangement, self.params.tempo.bpm);
-        
+        apply_arrangement_dynamics(
+            &mut stereo_mix,
+            &self.params.arrangement,
+            self.params.tempo.bpm,
+        );
+
         // Apply lofi mastering
         master_lofi(&mut stereo_mix, 0.70, 0.5);
-        
+
         // Convert to mono and apply lofi effects
         let mut final_mix = stereo_to_mono(&stereo_mix);
-        
+
         // Apply lofi processing based on genre
-        let mut lofi_processor = match self.params.genre {
+        let lofi_processor = match self.params.genre {
             Genre::Lofi => {
                 let mut proc = if rng.gen_range(0..100) < 50 {
                     LofiProcessor::heavy()
@@ -336,24 +437,24 @@ impl SongGenerator {
             _ => LofiProcessor::subtle(),
         };
         lofi_processor.process(&mut final_mix);
-        
+
         // Normalize loudness
         normalize_loudness(&mut final_mix, 0.25, 0.18);
-        
+
         final_mix
     }
-    
+
     /// Save song files (WAV, MP3, JSON) in parallel
     pub fn save_song(&self, final_mix: &[f32], date: &str) -> Result<(), String> {
-        use crate::utils::{sanitize_filename, create_output_directory};
-        
+        use crate::utils::{create_output_directory, sanitize_filename};
+
         let output_dir = &self.config.generation.output_dir;
         create_output_directory(output_dir)?;
-        
+
         let sanitized_author = sanitize_filename(&self.config.metadata.artist);
         let sanitized_song_name = sanitize_filename(&self.params.song_name);
         let filename_base = format!("{}_{}_{}", date, sanitized_author, sanitized_song_name);
-        
+
         // Create metadata
         let metadata = SongMetadata {
             title: self.params.song_name.clone(),
@@ -362,14 +463,14 @@ impl SongGenerator {
             genre: self.params.genre_tags.clone(),
             date: date.to_string(),
         };
-        
+
         // Spawn threads for parallel file I/O
         use std::thread;
-        
+
         let wav_path = format!("{}/{}.wav", output_dir, filename_base);
         let mp3_path = format!("{}/{}.mp3", output_dir, filename_base);
         let json_path = format!("{}/{}.json", output_dir, filename_base);
-        
+
         // Clone data for threads
         let final_mix_wav = final_mix.to_vec();
         let final_mix_mp3 = final_mix.to_vec();
@@ -380,23 +481,28 @@ impl SongGenerator {
         let artist_json = self.config.metadata.artist.clone();
         let genre_tags_json = self.params.genre_tags.clone();
         let tempo_bpm = self.params.tempo.bpm;
-        let duration = final_mix.len() as f32 / SAMPLE_RATE() as f32;
+        let duration = final_mix.len() as f32 / get_sample_rate() as f32;
         let date_json = date.to_string();
         let write_json = self.config.generation.write_metadata_json;
+        let encode_mp3 = self.config.generation.encode_mp3;
         let wav_path_clone = wav_path.clone();
         let mp3_path_clone = mp3_path.clone();
         let json_path_clone = json_path.clone();
-        
+
         let wav_handle = thread::spawn(move || {
             render_to_wav_with_metadata(&final_mix_wav, &wav_path_clone, &metadata_wav)
                 .map_err(|e| format!("WAV: {}", e))
         });
-        
+
         let mp3_handle = thread::spawn(move || {
-            encode_to_mp3(&final_mix_mp3, &mp3_path_clone, &song_name_mp3, &artist_mp3)
-                .map_err(|e| format!("MP3: {}", e))
+            if encode_mp3 {
+                encode_to_mp3(&final_mix_mp3, &mp3_path_clone, &song_name_mp3, &artist_mp3)
+                    .map_err(|e| format!("MP3: {}", e))
+            } else {
+                Ok(())
+            }
         });
-        
+
         let json_handle = thread::spawn(move || {
             if write_json {
                 let metadata_json = serde_json::json!({
@@ -407,38 +513,42 @@ impl SongGenerator {
                     "duration": duration,
                     "date": date_json,
                 });
-                
-                fs::write(&json_path_clone, serde_json::to_string_pretty(&metadata_json).unwrap())
-                    .map_err(|e| format!("JSON: {}", e))
+
+                fs::write(
+                    &json_path_clone,
+                    serde_json::to_string_pretty(&metadata_json).unwrap(),
+                )
+                .map_err(|e| format!("JSON: {}", e))
             } else {
                 Ok(())
             }
         });
-        
+
         // Wait for all threads and collect results
         let wav_result = wav_handle.join().unwrap();
         let mp3_result = mp3_handle.join().unwrap();
         let json_result = json_handle.join().unwrap();
-        
+
         // Report results
         match wav_result {
             Ok(_) => println!("✅ Successfully created: {}", wav_path),
             Err(e) => eprintln!("❌ Error creating WAV: {}", e),
         }
-        
-        match mp3_result {
-            Ok(_) => println!("✅ Successfully created MP3: {}", mp3_path),
-            Err(e) => eprintln!("⚠️  Warning: Could not create MP3: {}", e),
+
+        if self.config.generation.encode_mp3 {
+            match mp3_result {
+                Ok(_) => println!("✅ Successfully created MP3: {}", mp3_path),
+                Err(e) => eprintln!("⚠️  Warning: Could not create MP3: {}", e),
+            }
         }
-        
+
         if write_json {
             match json_result {
-                Ok(_) => {},
+                Ok(_) => {}
                 Err(e) => eprintln!("⚠️  Warning: Could not write metadata: {}", e),
             }
         }
-        
+
         Ok(())
     }
 }
-

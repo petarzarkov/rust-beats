@@ -50,6 +50,14 @@ jobs:
           path: target
           key: ${{ runner.os }}-cargo-build-target-${{ hashFiles('**/Cargo.lock') }}
 
+      - name: Check compilation and run tests
+        run: |
+          # Ensure code compiles without errors
+          cargo check --all-targets
+          # Run all tests to catch function signature mismatches
+          cargo test --all-targets
+          # Note: We allow warnings (dead code, unused imports) but errors will fail the build
+      
       - name: Build project
         run: cargo build --release
 
@@ -125,9 +133,41 @@ jobs:
       - name: Clean up old songs (keep last 7 songs)
         run: |
           cd docs/songs
-          # Keep only the 7 most recent songs (MP3 and metadata) by modification time
-          ls -t *.mp3 2>/dev/null | tail -n +8 | xargs -r rm -f
-          ls -t *.json 2>/dev/null | tail -n +8 | xargs -r rm -f
+          # Group MP3/JSON pairs by base filename, sort by modification time, keep only 7 most recent
+          # This ensures we delete pairs together to avoid orphaned files
+          
+          # Get all MP3 files sorted by modification time (newest first)
+          MP3_FILES=$(ls -t *.mp3 2>/dev/null | head -7 || true)
+          
+          # Extract base names (without extension) of files to keep
+          KEEP_BASES=""
+          for mp3 in $MP3_FILES; do
+            BASE="${mp3%.mp3}"
+            KEEP_BASES="$KEEP_BASES|$BASE"
+          done
+          
+          # Delete all MP3 files not in the keep list
+          for mp3 in *.mp3 2>/dev/null; do
+            BASE="${mp3%.mp3}"
+            if echo "$KEEP_BASES" | grep -q "|$BASE|" || [ -z "$KEEP_BASES" ]; then
+              : # Keep this file
+            else
+              echo "Deleting old MP3: $mp3"
+              rm -f "$mp3"
+            fi
+          done
+          
+          # Delete all JSON files not in the keep list
+          for json in *.json 2>/dev/null; do
+            BASE="${json%.json}"
+            if echo "$KEEP_BASES" | grep -q "|$BASE|" || [ -z "$KEEP_BASES" ]; then
+              : # Keep this file
+            else
+              echo "Deleting old JSON: $json"
+              rm -f "$json"
+            fi
+          done
+          
           echo "Songs after cleanup:"
           ls -lh
 

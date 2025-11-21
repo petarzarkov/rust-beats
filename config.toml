@@ -72,11 +72,13 @@ dnb_duration_beats = 2.0
 # Chance of melody occurring in a bar (0.0-1.0)
 occurrence_chance = 0.15
 # Percentage of melody notes that use Rhodes sound (0-100)
-rhodes_usage_percent = 60
+rhodes_usage_percent = 30
 
 [generation]
 # Output directory for generated songs
 output_dir = "output"
 # Whether to write metadata JSON alongside WAV files
 write_metadata_json = true
+# Whether to encode MP3 files (set to false to skip MP3 encoding for faster generation)
+encode_mp3 = false
 

@@ -1,14 +1,13 @@
-pub mod song_names;
-pub mod music_theory;
-pub mod beat_maker;
 pub mod arranger;
+pub mod beat_maker;
 pub mod genre;
+pub mod music_theory;
 pub mod song_generator;
+pub mod song_names;
 
-pub use song_names::{generate_song_name, generate_genre_tags};
-pub use music_theory::{Key, Chord, Tempo, generate_chord_progression};
-pub use beat_maker::{DrumHit, GrooveStyle, generate_drum_pattern, select_random_drum_kit};
 pub use arranger::{Arrangement, Section};
-pub use genre::{Genre, BassStyle, select_random_genre, get_genre_config};
-pub use song_generator::{SongGenerator, SongParams};
-
+pub use beat_maker::{select_preferred_drum_kit, GrooveStyle};
+pub use genre::{get_genre_config, select_random_genre, Genre};
+pub use music_theory::{generate_chord_progression, Key, Tempo};
+pub use song_generator::SongGenerator;
+pub use song_names::{generate_genre_tags, generate_song_name};

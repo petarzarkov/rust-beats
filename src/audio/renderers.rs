@@ -1,21 +1,28 @@
-/// Audio rendering functions for generating tracks from arrangements
-use crate::composition::{Arrangement, Genre, Key, Tempo};
-use crate::composition::beat_maker::{DrumKit, DrumHit, GrooveStyle, generate_drum_pattern};
 use crate::composition::arranger::DrumComplexity;
-use crate::synthesis::{
-    SAMPLE_RATE,
-    generate_kick, generate_snare, generate_hihat, generate_clap,
-    generate_pads,
-    generate_rock_bassline, generate_dubstep_bassline, generate_dnb_bassline,
-    generate_riser, generate_downlifter, generate_crash, generate_impact,
-};
-use crate::synthesis::drums::{generate_rock_kick, generate_dubstep_kick, generate_dnb_snare, generate_rock_snare};
-use crate::synthesis::bass::{generate_synth_bass_note, generate_upright_bass_note, generate_finger_bass_note, generate_slap_bass_note, generate_bass_note};
-use crate::synthesis::melody::generate_melody_with_style;
-use crate::synthesis::percussion::{generate_tambourine, generate_cowbell, generate_bongo, generate_woodblock, generate_triangle_perc};
-use crate::composition::music_theory::{Chord, midi_to_freq};
+use crate::composition::beat_maker::{generate_drum_pattern, DrumHit, DrumKit, GrooveStyle};
+use crate::composition::genre::{GenreConfig, MelodyDensity};
+use crate::composition::music_theory::{midi_to_freq, Chord};
+/// Audio rendering functions for generating tracks from arrangements
+use crate::composition::{Arrangement, Genre, Key, Section, Tempo};
 use crate::config;
-use rand::Rng;
+use crate::synthesis::bass::{
+    generate_bass_note, generate_finger_bass_note, generate_funk_bass_pattern,
+    generate_slap_bass_note, generate_synth_bass_note, generate_upright_bass_note,
+};
+use crate::synthesis::drums::{
+    generate_dnb_snare, generate_dubstep_kick, generate_rock_kick, generate_rock_snare,
+};
+use crate::synthesis::melody::{generate_melody_with_style_and_instrument, InstrumentType};
+use crate::synthesis::percussion::{
+    generate_bongo, generate_cowbell, generate_tambourine, generate_triangle_perc,
+    generate_woodblock,
+};
+use crate::synthesis::{
+    generate_clap, generate_crash, generate_dnb_bassline, generate_downlifter, generate_drone,
+    generate_dubstep_bassline, generate_hihat, generate_impact, generate_kick, generate_pads,
+    generate_riser, generate_rock_bassline, generate_snare, get_sample_rate,
+};
+use rand::{seq::SliceRandom, Rng};
 
 pub type DrumPattern = Vec<Vec<DrumHit>>;
 
@@ -26,15 +33,25 @@ pub fn render_arranged_drums(
     bpm: f32,
     drum_kit: DrumKit,
     genre: &Genre,
+    genre_config: &GenreConfig,
 ) -> Vec<f32> {
     let mut all_drums = Vec::new();
     let mut bar_idx = 0;
     let mut rng = rand::thread_rng();
-    
+
     for (section_idx, (section, bars)) in arrangement.sections.iter().enumerate() {
         let complexity = Arrangement::get_drum_complexity(*section);
-        let intensity = Arrangement::get_section_intensity(*section);
-        
+        let mut intensity = Arrangement::get_section_intensity(*section);
+
+        if arrangement.is_section_start(bar_idx) {
+            intensity *= 0.95;
+        }
+        if let Some(current_section) = arrangement.get_section_at_bar(bar_idx) {
+            if current_section == Section::Bridge {
+                intensity *= 1.05;
+            }
+        }
+
         // Allow groove style variation per section (30% chance to change)
         let groove = if rng.gen_range(0..100) < 30 {
             // Map genre to appropriate groove styles
@@ -51,7 +68,7 @@ pub fn render_arranged_drums(
         } else {
             base_groove
         };
-        
+
         // Check for transitions
         let is_transition = arrangement.should_add_fill(bar_idx + bars - 1);
         let needs_buildup = if section_idx > 0 {
@@ -66,9 +83,9 @@ pub fn render_arranged_drums(
         } else {
             false
         };
-        
+
         // Generate pattern with complexity awareness
-        let pattern = generate_drum_pattern_with_complexity(
+        let mut pattern = generate_drum_pattern_with_complexity(
             groove,
             *bars,
             complexity,
@@ -76,14 +93,29 @@ pub fn render_arranged_drums(
             needs_buildup,
             needs_breakdown,
         );
-        
+
+        if let Some((_from, to)) = arrangement.get_transition(bar_idx + bars) {
+            if matches!(to, Section::Chorus | Section::Bridge) {
+                for step in pattern.iter_mut().rev().take(4) {
+                    step.push(DrumHit::Snare);
+                }
+            }
+        }
+
+        let mut section_kit = drum_kit;
+        if let Some(preferred) = genre_config.drum_kit_preference.choose(&mut rng) {
+            if rng.gen_range(0..100) < 25 {
+                section_kit = *preferred;
+            }
+        }
+
         // Render with kit-specific sounds and swing
-        let drums = render_drum_pattern_with_kit(&pattern, bpm, intensity, drum_kit, genre);
+        let drums = render_drum_pattern_with_kit(&pattern, bpm, intensity, section_kit, genre);
         all_drums.extend(drums);
-        
+
         bar_idx += bars;
     }
-    
+
     all_drums
 }
 
@@ -98,7 +130,7 @@ pub fn generate_drum_pattern_with_complexity(
 ) -> DrumPattern {
     let mut pattern = generate_drum_pattern(groove, bars);
     let mut rng = rand::thread_rng();
-    
+
     // Adjust pattern based on complexity
     match complexity {
         DrumComplexity::Simple => {
@@ -121,7 +153,7 @@ pub fn generate_drum_pattern_with_complexity(
             }
         }
     }
-    
+
     // Add fill on last bar if needed
     if add_fill {
         let fill_start = pattern.len().saturating_sub(4); // Last 4 steps
@@ -134,7 +166,7 @@ pub fn generate_drum_pattern_with_complexity(
             }
         }
     }
-    
+
     // Add buildup: gradually increase density
     if needs_buildup {
         let buildup_start = pattern.len().saturating_sub(8); // Last 8 steps
@@ -147,7 +179,7 @@ pub fn generate_drum_pattern_with_complexity(
             }
         }
     }
-    
+
     // Add breakdown: gradually decrease density
     if needs_breakdown {
         let breakdown_length = 8.min(pattern.len());
@@ -158,7 +190,7 @@ pub fn generate_drum_pattern_with_complexity(
             }
         }
     }
-    
+
     pattern
 }
 
@@ -172,23 +204,29 @@ pub fn render_drum_pattern_with_kit(
 ) -> Vec<f32> {
     let beat_duration = 60.0 / bpm;
     let sixteenth_duration = beat_duration / 4.0;
-    
-    // Genre-specific swing amount (applied to off-beats)
-    let swing_amount = match genre {
-        Genre::Lofi => 0.30,      // Heavy swing for laid-back feel
-        Genre::Jazz => 0.35,      // Even more swing for jazz
-        Genre::HipHop => 0.25,    // Medium swing
-        Genre::Funk => 0.20,      // Subtle funk groove
+    let mut rng = rand::thread_rng();
+
+    // Genre-specific base swing amount (applied to off-beats)
+    let base_swing = match genre {
+        Genre::Lofi => 0.30,         // Heavy swing for laid-back feel
+        Genre::Jazz => 0.35,         // Even more swing for jazz
+        Genre::HipHop => 0.25,       // Medium swing
+        Genre::Funk => 0.20,         // Subtle funk groove
         Genre::ElectroSwing => 0.28, // Swing for electro-swing
-        Genre::DnB => 0.10,       // Slight swing for variation
-        _ => 0.05,                // Minimal swing for rock/dubstep
+        Genre::DnB => 0.10,          // Slight swing for variation
+        _ => 0.05,                   // Minimal swing for rock/dubstep
     };
-    
+
+    // Add per-song variation: ±15% swing variance
+    let swing_variation = rng.gen_range(-0.15..0.15);
+    let swing_amount_f32: f32 = base_swing + swing_variation;
+    let swing_amount = swing_amount_f32.max(0.0f32).min(0.5f32);
+
     let total_duration = pattern.len() as f32 * sixteenth_duration;
-    let total_samples = (total_duration * SAMPLE_RATE() as f32) as usize;
-    
+    let total_samples = (total_duration * get_sample_rate() as f32) as usize;
+
     let mut output = vec![0.0; total_samples];
-    
+
     for (step_idx, hits) in pattern.iter().enumerate() {
         // Apply swing: delay every second 16th note (odd indices)
         let swing_offset = if step_idx % 2 == 1 {
@@ -196,10 +234,10 @@ pub fn render_drum_pattern_with_kit(
         } else {
             0.0
         };
-        
+
         let step_time = step_idx as f32 * sixteenth_duration + swing_offset;
-        let start_sample = (step_time * SAMPLE_RATE() as f32) as usize;
-        
+        let start_sample = (step_time * get_sample_rate() as f32) as usize;
+
         for hit in hits {
             let drum_samples = match (hit, drum_kit) {
                 (DrumHit::Kick, DrumKit::Rock) => generate_rock_kick(0.8 * intensity),
@@ -208,14 +246,14 @@ pub fn render_drum_pattern_with_kit(
                     generate_dubstep_kick(0.8 * intensity)
                 }
                 (DrumHit::Kick, _) => generate_kick(0.8 * intensity),
-                
+
                 (DrumHit::Snare, DrumKit::Rock) => generate_rock_snare(0.7 * intensity),
                 (DrumHit::Snare, DrumKit::Electronic808) | (DrumHit::Snare, DrumKit::HipHop) => {
                     // Use DnB snare for electronic kits
                     generate_dnb_snare(0.7 * intensity)
                 }
                 (DrumHit::Snare, _) => generate_snare(0.7 * intensity),
-                
+
                 (DrumHit::HiHatClosed, _) => generate_hihat(0.4 * intensity, false),
                 (DrumHit::HiHatOpen, _) => generate_hihat(0.5 * intensity, true),
                 (DrumHit::Clap, _) => generate_clap(0.6 * intensity),
@@ -223,7 +261,7 @@ pub fn render_drum_pattern_with_kit(
                 (DrumHit::Shaker, _) => crate::synthesis::generate_shaker(0.3 * intensity),
                 (DrumHit::Rest, _) => continue,
             };
-            
+
             // Mix the drum hit into the output
             for (i, &sample) in drum_samples.iter().enumerate() {
                 let idx = start_sample + i;
@@ -233,7 +271,7 @@ pub fn render_drum_pattern_with_kit(
             }
         }
     }
-    
+
     output
 }
 
@@ -248,15 +286,10 @@ pub fn render_arranged_bass(
 ) -> Vec<f32> {
     let mut all_bass = Vec::new();
     let mut bar_idx = 0;
-    
+
     for (section, bars) in &arrangement.sections {
-        let section_chords: Vec<_> = chords
-            .iter()
-            .skip(bar_idx)
-            .take(*bars)
-            .cloned()
-            .collect();
-        
+        let section_chords: Vec<_> = chords.iter().skip(bar_idx).take(*bars).cloned().collect();
+
         if Arrangement::section_has_heavy_bass(*section) {
             // Route to genre-specific bass generator
             let bass = match genre {
@@ -298,13 +331,13 @@ pub fn render_arranged_bass(
         } else {
             // Light bass or no bass - just add silence
             let bar_duration = 60.0 / bpm * 4.0;
-            let silence_samples = (bar_duration * *bars as f32 * SAMPLE_RATE() as f32) as usize;
+            let silence_samples = (bar_duration * *bars as f32 * get_sample_rate() as f32) as usize;
             all_bass.extend(vec![0.0; silence_samples]);
         }
-        
+
         bar_idx += bars;
     }
-    
+
     all_bass
 }
 
@@ -318,10 +351,10 @@ pub fn generate_bassline_with_style(
 ) -> Vec<f32> {
     let beat_duration = 60.0 / tempo;
     let bar_duration = beat_duration * 4.0;
-    
+
     let mut bassline = Vec::new();
     let mut rng = rand::thread_rng();
-    
+
     // Select bass note generator based on style
     let bass_note_fn: fn(f32, f32, f32) -> Vec<f32> = match style {
         Some(crate::composition::genre::BassStyle::Synth) => generate_synth_bass_note,
@@ -330,15 +363,16 @@ pub fn generate_bassline_with_style(
         Some(crate::composition::genre::BassStyle::Slap) => generate_slap_bass_note,
         _ => generate_bass_note, // Default
     };
-    
+
     for bar_idx in 0..bars {
         let chord = &chords[bar_idx % chords.len()];
         let root_note = chord.root;
         let frequency = midi_to_freq(root_note);
-        
+
         // Generate funky bass pattern for this bar
-        let mut pattern = generate_funk_bass_pattern_with_style(frequency, bar_duration, bass_note_fn);
-        
+        let mut pattern =
+            generate_funk_bass_pattern_with_style(frequency, bar_duration, bass_note_fn);
+
         // Add occasional bass drop using config values
         let should_drop = if bar_idx > 0 && bar_idx % 8 == 0 {
             rng.gen_range(0.0..1.0) < bass_drop_cfg.default_chance_8th_bar
@@ -347,13 +381,17 @@ pub fn generate_bassline_with_style(
         } else {
             false
         };
-        
+
         if should_drop {
             // Add a sub-bass drop on beat 1 (start of bar)
             let drop_freq = frequency * 0.5; // One octave down
             let drop_duration = beat_duration * bass_drop_cfg.default_duration_beats;
-            let drop = crate::synthesis::bass::generate_sub_bass(drop_freq, drop_duration, bass_drop_cfg.amplitude);
-            
+            let drop = crate::synthesis::bass::generate_sub_bass(
+                drop_freq,
+                drop_duration,
+                bass_drop_cfg.amplitude,
+            );
+
             // Mix the drop into the pattern
             for (i, &drop_sample) in drop.iter().enumerate() {
                 if i < pattern.len() {
@@ -361,68 +399,22 @@ pub fn generate_bassline_with_style(
                 }
             }
         }
-        
+
         bassline.extend(pattern);
     }
-    
+
     bassline
 }
 
-/// Generate a funky bass pattern with custom bass note generator
+/// Generate a funky bass pattern with custom bass note generator - uses varied patterns from bass.rs
 pub fn generate_funk_bass_pattern_with_style(
     root_freq: f32,
     bar_duration: f32,
-    bass_note_fn: fn(f32, f32, f32) -> Vec<f32>,
+    _bass_note_fn: fn(f32, f32, f32) -> Vec<f32>,
 ) -> Vec<f32> {
-    let mut rng = rand::thread_rng();
-    let note_duration = bar_duration / 8.0; // 8th notes
-    
-    let mut pattern = Vec::new();
-    
-    // Typical funk bass pattern: emphasize 1 and 3, add syncopation
-    let hits = vec![
-        (0.0, 1.0, 1.0),      // Beat 1 - strong
-        (0.5, 0.5, 0.7),      // Off-beat
-        (1.0, 0.8, 0.8),      // Beat 2
-        (1.75, 0.4, 0.6),     // Syncopation
-        (2.0, 1.0, 1.0),      // Beat 3 - strong
-        (2.5, 0.5, 0.7),      // Off-beat
-        (3.0, 0.6, 0.8),      // Beat 4
-        (3.5, 0.4, 0.6),      // Off-beat
-    ];
-    
-    for (beat_pos, duration_mult, velocity) in hits {
-        let start_time = beat_pos * (bar_duration / 4.0);
-        let duration = note_duration * duration_mult;
-        
-        // Mostly stick to root note for consistency
-        let freq_mult = match rng.gen_range(0..100) {
-            0..=92 => 1.0,        // Root (most of the time)
-            93..=97 => 0.5,       // Octave down (rare)
-            _ => 1.5,             // Fifth (very rare)
-        };
-        
-        let note = bass_note_fn(root_freq * freq_mult, duration, velocity * 0.65);
-        
-        // Add to pattern at the right position
-        let start_sample = (start_time * SAMPLE_RATE() as f32) as usize;
-        if start_sample + note.len() > pattern.len() {
-            pattern.resize(start_sample + note.len(), 0.0);
-        }
-        
-        for (i, &sample) in note.iter().enumerate() {
-            let idx = start_sample + i;
-            if idx < pattern.len() {
-                pattern[idx] += sample;
-            }
-        }
-    }
-    
-    // Fill to full bar duration
-    let total_samples = (bar_duration * SAMPLE_RATE() as f32) as usize;
-    pattern.resize(total_samples, 0.0);
-    
-    pattern
+    // Use the varied funk_bass_pattern from bass.rs which has 4 different pattern types
+    // (standard, sparse, dense, syncopated) for much more variance
+    generate_funk_bass_pattern(root_freq, bar_duration)
 }
 
 /// Generate pads with arrangement awareness
@@ -432,77 +424,111 @@ pub fn generate_pads_with_arrangement(
     bpm: f32,
     num_bars: usize,
 ) -> Vec<f32> {
-    // Temporarily disable drones - they might be causing the scratching issue
-    // Just use regular pads for now
-    generate_pads(chords, bpm, num_bars)
+    let beat_duration = 60.0 / bpm;
+    let bar_duration = beat_duration * 4.0;
+    let mut pads = Vec::new();
+    let mut chord_index = 0;
+
+    for (section, bars) in &arrangement.sections {
+        let section_chords: Vec<_> = (0..*bars)
+            .map(|offset| chords[(chord_index + offset) % chords.len()].clone())
+            .collect();
+
+        if Arrangement::section_has_pads(*section) {
+            pads.extend(generate_pads(&section_chords, bpm, *bars));
+        } else if matches!(section, Section::Intro | Section::Outro) {
+            let root_note = section_chords
+                .first()
+                .and_then(|chord| {
+                    let notes = chord.get_notes();
+                    notes.first().copied()
+                })
+                .unwrap_or(48);
+            let freq = midi_to_freq(root_note);
+            let duration = bar_duration * *bars as f32;
+            pads.extend(generate_drone(freq, duration, 0.15));
+        } else {
+            let silence_samples = (bar_duration * *bars as f32 * get_sample_rate() as f32) as usize;
+            pads.extend(vec![0.0; silence_samples]);
+        }
+
+        chord_index += *bars;
+    }
+
+    if pads.is_empty() {
+        generate_pads(chords, bpm, num_bars)
+    } else {
+        pads
+    }
 }
 
-/// Render melody with arrangement awareness
-pub fn render_arranged_melody(
+/// Render melody with arrangement awareness and instrument preference for stereo width
+pub fn render_arranged_melody_with_instrument(
     arrangement: &Arrangement,
     key: &Key,
     chords: &[Chord],
     bpm: f32,
     melody_cfg: &config::MelodyConfig,
+    melody_density: MelodyDensity,
     genre: &Genre,
+    instrument_preference: Option<InstrumentType>,
 ) -> Vec<f32> {
     let mut all_melody = Vec::new();
     let mut bar_idx = 0;
-    
+
     for (section, bars) in &arrangement.sections {
-        let section_chords: Vec<_> = chords
-            .iter()
-            .skip(bar_idx)
-            .take(*bars)
-            .cloned()
-            .collect();
-        
+        let section_chords: Vec<_> = chords.iter().skip(bar_idx).take(*bars).cloned().collect();
+
         if Arrangement::section_has_melody(*section) {
-            // Use new melody generation with style awareness
-            let melody = generate_melody_with_style(
+            // Use new melody generation with style and instrument awareness
+            let melody = generate_melody_with_style_and_instrument(
                 key,
                 &section_chords,
                 bpm,
                 *bars,
                 melody_cfg,
+                melody_density,
                 Some(*section),
                 Some(*genre),
+                instrument_preference,
             );
             all_melody.extend(melody);
         } else {
             // No melody - just add silence
             let bar_duration = 60.0 / bpm * 4.0;
-            let silence_samples = (bar_duration * *bars as f32 * SAMPLE_RATE() as f32) as usize;
+            let silence_samples = (bar_duration * *bars as f32 * get_sample_rate() as f32) as usize;
             all_melody.extend(vec![0.0; silence_samples]);
         }
-        
+
         bar_idx += bars;
     }
-    
+
     all_melody
 }
 
 /// Render transition FX track (risers, crashes, downlifters)
 pub fn render_fx_track(arrangement: &Arrangement, bpm: f32) -> Vec<f32> {
     let bar_duration = 60.0 / bpm * 4.0;
-    let total_samples = (bar_duration * arrangement.total_bars as f32 * SAMPLE_RATE() as f32) as usize;
+    let total_samples =
+        (bar_duration * arrangement.total_bars as f32 * get_sample_rate() as f32) as usize;
     let mut fx_track = vec![0.0; total_samples];
-    
+
     let mut current_bar = 0;
-    
+
     for (section_idx, (section, bars)) in arrangement.sections.iter().enumerate() {
-        let section_start_sample = (current_bar as f32 * bar_duration * SAMPLE_RATE() as f32) as usize;
-        
+        let section_start_sample =
+            (current_bar as f32 * bar_duration * get_sample_rate() as f32) as usize;
+
         // Check if we need a buildup to this section
         if section_idx > 0 {
             let prev_section = arrangement.sections[section_idx - 1].0;
-            
+
             if Arrangement::needs_buildup(prev_section, *section) {
                 // Add riser before section starts (2 bars)
                 let riser_duration = bar_duration * 2.0;
                 let riser = generate_riser(riser_duration);
                 let riser_start = section_start_sample.saturating_sub(riser.len());
-                
+
                 for (i, &sample) in riser.iter().enumerate() {
                     let idx = riser_start + i;
                     if idx < fx_track.len() {
@@ -510,12 +536,12 @@ pub fn render_fx_track(arrangement: &Arrangement, bpm: f32) -> Vec<f32> {
                     }
                 }
             }
-            
+
             if Arrangement::needs_breakdown(prev_section, *section) {
                 // Add downlifter at start of section (1 bar)
                 let downlifter_duration = bar_duration;
                 let downlifter = generate_downlifter(downlifter_duration);
-                
+
                 for (i, &sample) in downlifter.iter().enumerate() {
                     let idx = section_start_sample + i;
                     if idx < fx_track.len() {
@@ -524,11 +550,14 @@ pub fn render_fx_track(arrangement: &Arrangement, bpm: f32) -> Vec<f32> {
                 }
             }
         }
-        
+
         // Add crash at the start of important sections (Chorus, Bridge)
-        if matches!(*section, crate::composition::Section::Chorus | crate::composition::Section::Bridge) {
+        if matches!(
+            *section,
+            crate::composition::Section::Chorus | crate::composition::Section::Bridge
+        ) {
             let crash = generate_crash(2.0);
-            
+
             for (i, &sample) in crash.iter().enumerate() {
                 let idx = section_start_sample + i;
                 if idx < fx_track.len() {
@@ -536,11 +565,11 @@ pub fn render_fx_track(arrangement: &Arrangement, bpm: f32) -> Vec<f32> {
                 }
             }
         }
-        
+
         // Add impact at very start of Chorus for emphasis
         if *section == crate::composition::Section::Chorus {
             let impact = generate_impact();
-            
+
             for (i, &sample) in impact.iter().enumerate() {
                 let idx = section_start_sample + i;
                 if idx < fx_track.len() {
@@ -548,10 +577,10 @@ pub fn render_fx_track(arrangement: &Arrangement, bpm: f32) -> Vec<f32> {
                 }
             }
         }
-        
+
         current_bar += bars;
     }
-    
+
     fx_track
 }
 
@@ -560,30 +589,53 @@ pub fn add_percussion_track(
     percussion_type: &str,
     arrangement: &Arrangement,
     tempo: &Tempo,
+    genre: &Genre,
 ) -> Option<Vec<f32>> {
     if percussion_type == "None" {
         return None;
     }
-    
+
     let mut percussion = Vec::new();
     let mut rng = rand::thread_rng();
     let bar_duration = tempo.bar_duration();
     let beat_duration = tempo.beat_duration();
-    
+    let (beat_hit_chance, syncopated_hit_chance) = match genre {
+        Genre::Funk => (55, 45),
+        Genre::Jazz => (45, 35),
+        Genre::HipHop => (50, 25),
+        Genre::ElectroSwing => (65, 55),
+        Genre::Dubstep | Genre::DnB => (35, 60),
+        _ => (40, 30),
+    };
+
+    let mut absolute_bar = 0;
+
     for (section, bars) in &arrangement.sections {
         if Arrangement::section_has_melody(*section) {
             // Add percussion to sections with melody
-            for _bar_idx in 0..*bars {
-                let bar_samples = (bar_duration * SAMPLE_RATE() as f32) as usize;
+            for bar_offset in 0..*bars {
+                let bar_samples = (bar_duration * get_sample_rate() as f32) as usize;
                 let mut bar = vec![0.0; bar_samples];
-                
+
                 // Add percussion hits on beats
                 for beat in 0..4 {
-                    if rng.gen_range(0..100) < 40 {
+                    let mut chance = beat_hit_chance;
+                    if arrangement.is_section_start(absolute_bar + bar_offset) && beat == 0 {
+                        chance += 15;
+                    }
+                    if let Some((_from, to)) =
+                        arrangement.get_transition(absolute_bar + bar_offset + 1)
+                    {
+                        if matches!(to, Section::Chorus) && beat >= 2 {
+                            chance += 10;
+                        }
+                    }
+
+                    if rng.gen_range(0..100) < chance {
                         // 40% chance per beat
                         let hit_time = beat as f32 * beat_duration;
-                        let hit_sample = (hit_time * SAMPLE_RATE() as f32) as usize;
-                        
+                        let hit_sample = (hit_time * get_sample_rate() as f32) as usize;
+
                         let hit = match percussion_type {
                             "Tambourine" => generate_tambourine(0.4),
                             "Cowbell" => generate_cowbell(0.5),
@@ -591,7 +643,7 @@ pub fn add_percussion_track(
                             "Woodblock" => generate_woodblock(0.4),
                             _ => generate_triangle_perc(0.3),
                         };
-                        
+
                         for (i, &sample) in hit.iter().enumerate() {
                             let idx = hit_sample + i;
                             if idx < bar.len() {
@@ -600,16 +652,37 @@ pub fn add_percussion_track(
                         }
                     }
                 }
-                
+
+                // Add syncopated hits on the "and" of beats for swing-heavy genres
+                for subdivision in [0.5, 1.5, 2.5, 3.5] {
+                    if rng.gen_range(0..100) < syncopated_hit_chance {
+                        let hit_time = subdivision * beat_duration;
+                        let hit_sample = (hit_time * get_sample_rate() as f32) as usize;
+                        let hit = match genre {
+                            Genre::Funk | Genre::Jazz => generate_tambourine(0.35),
+                            Genre::Dubstep | Genre::DnB => generate_triangle_perc(0.25),
+                            Genre::HipHop => generate_woodblock(0.4),
+                            _ => generate_cowbell(0.3),
+                        };
+
+                        for (i, &sample) in hit.iter().enumerate() {
+                            let idx = hit_sample + i;
+                            if idx < bar.len() {
+                                bar[idx] += sample * 0.8;
+                            }
+                        }
+                    }
+                }
+
                 percussion.extend(bar);
             }
         } else {
             // Silence for sections without melody
-            let silence_samples = (bar_duration * *bars as f32 * SAMPLE_RATE() as f32) as usize;
+            let silence_samples = (bar_duration * *bars as f32 * get_sample_rate() as f32) as usize;
             percussion.extend(vec![0.0; silence_samples]);
         }
+        absolute_bar += bars;
     }
-    
+
     Some(percussion)
 }
-
