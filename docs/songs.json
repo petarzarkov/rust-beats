@@ -1,5 +1,16 @@
 [
   {
+    "filename": "2025-11-22_petar_zarkov_velvet_days_express.mp3",
+    "date": "2025-11-22",
+    "size": 4389824,
+    "name": "Velvet Days Express",
+    "genre": [
+      "Dubstep",
+      "Bass",
+      "Heavy"
+    ]
+  },
+  {
     "filename": "2025-11-21_petar_zarkov_platinum_diamond_vibes.mp3",
     "date": "2025-11-21",
     "size": 5082591,
@@ -69,16 +80,6 @@
       "Funk",
       "Rhythm",
       "Instrumental"
-    ]
-  },
-  {
-    "filename": "2025-11-15_petar_zarkov_sassy_cosmic_vibes.mp3",
-    "date": "2025-11-15",
-    "size": 4371016,
-    "name": "Sassy Cosmic Vibes",
-    "genre": [
-      "Electro Swing",
-      "Dance"
     ]
   }
 ]
