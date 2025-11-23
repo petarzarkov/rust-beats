@@ -1,5 +1,15 @@
 [
   {
+    "filename": "2025-11-23_petar_zarkov_cool_funky_lights.mp3",
+    "date": "2025-11-23",
+    "size": 5243715,
+    "name": "Cool Funky Lights",
+    "genre": [
+      "Lofi",
+      "Relaxing"
+    ]
+  },
+  {
     "filename": "2025-11-22_petar_zarkov_velvet_days_express.mp3",
     "date": "2025-11-22",
     "size": 4389824,
@@ -69,17 +79,6 @@
     "genre": [
       "Electro Swing",
       "Swing"
-    ]
-  },
-  {
-    "filename": "2025-11-16_petar_zarkov_dreamy_stories_supreme.mp3",
-    "date": "2025-11-16",
-    "size": 4328384,
-    "name": "Dreamy Stories Supreme",
-    "genre": [
-      "Funk",
-      "Rhythm",
-      "Instrumental"
     ]
   }
 ]
