@@ -1,5 +1,16 @@
 [
   {
+    "filename": "2025-11-24_petar_zarkov_sassy_groove_experience.mp3",
+    "date": "2025-11-24",
+    "size": 4110209,
+    "name": "Sassy Groove Experience",
+    "genre": [
+      "Hip Hop",
+      "Beats",
+      "Instrumental"
+    ]
+  },
+  {
     "filename": "2025-11-23_petar_zarkov_cool_funky_lights.mp3",
     "date": "2025-11-23",
     "size": 5243715,
@@ -69,16 +80,6 @@
     "genre": [
       "Funk",
       "Classic"
-    ]
-  },
-  {
-    "filename": "2025-11-17_petar_zarkov_sunset_motion_connection.mp3",
-    "date": "2025-11-17",
-    "size": 3978552,
-    "name": "Sunset Motion Connection",
-    "genre": [
-      "Electro Swing",
-      "Swing"
     ]
   }
 ]
