@@ -1,58 +1,89 @@
 [
   {
+    "filename": "2025-11-25_petar_zarkov_late_night_stories_fever.mp3",
+    "date": "2025-11-25",
+    "size": 4859401,
+    "name": "Late Night Stories Fever",
+    "genre": [
+      "Hip Hop",
+      "Old School",
+      "Instrumental"
+    ]
+  },
+  {
     "filename": "2025-11-25_petar_zarkov_jumpin_cosmos_delight.mp3",
     "date": "2025-11-25",
     "size": 2145383,
     "name": "Jumpin' Cosmos Delight",
-    "genre": ["Dubstep", "Electronic", "Bass", "Instrumental"]
+    "genre": [
+      "Dubstep",
+      "Electronic",
+      "Bass",
+      "Instrumental"
+    ]
   },
   {
     "filename": "2025-11-25_petar_zarkov_whisper_strut.mp3",
     "date": "2025-11-25",
     "size": 4606118,
     "name": "Whisper Strut",
-    "genre": ["Dubstep", "Heavy", "Instrumental"]
+    "genre": [
+      "Dubstep",
+      "Heavy",
+      "Instrumental"
+    ]
   },
   {
     "filename": "2025-11-24_petar_zarkov_sassy_groove_experience.mp3",
     "date": "2025-11-24",
     "size": 4110209,
     "name": "Sassy Groove Experience",
-    "genre": ["Hip Hop", "Beats", "Instrumental"]
+    "genre": [
+      "Hip Hop",
+      "Beats",
+      "Instrumental"
+    ]
   },
   {
     "filename": "2025-11-23_petar_zarkov_cool_funky_lights.mp3",
     "date": "2025-11-23",
     "size": 5243715,
     "name": "Cool Funky Lights",
-    "genre": ["Lofi", "Relaxing"]
+    "genre": [
+      "Lofi",
+      "Relaxing"
+    ]
   },
   {
     "filename": "2025-11-22_petar_zarkov_velvet_days_express.mp3",
     "date": "2025-11-22",
     "size": 4389824,
     "name": "Velvet Days Express",
-    "genre": ["Dubstep", "Bass", "Heavy"]
+    "genre": [
+      "Dubstep",
+      "Bass",
+      "Heavy"
+    ]
   },
   {
     "filename": "2025-11-21_petar_zarkov_platinum_diamond_vibes.mp3",
     "date": "2025-11-21",
     "size": 5082591,
     "name": "Platinum Diamond Vibes",
-    "genre": ["Jazz", "Lounge"]
+    "genre": [
+      "Jazz",
+      "Lounge"
+    ]
   },
   {
     "filename": "2025-11-21_petar_zarkov_velvet_festival_journey.mp3",
     "date": "2025-11-21",
     "size": 4711444,
     "name": "Velvet Festival Journey",
-    "genre": ["Funk", "Dance", "Instrumental"]
-  },
-  {
-    "filename": "2025-11-20_petar_zarkov_starlight_streets_express.mp3",
-    "date": "2025-11-20",
-    "size": 5984756,
-    "name": "Starlight Streets Express",
-    "genre": ["Hip Hop", "Rap"]
+    "genre": [
+      "Funk",
+      "Dance",
+      "Instrumental"
+    ]
   }
 ]
