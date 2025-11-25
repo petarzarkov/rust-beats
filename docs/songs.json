@@ -1,5 +1,17 @@
 [
   {
+    "filename": "2025-11-25_petar_zarkov_jumpin_cosmos_delight.mp3",
+    "date": "2025-11-25",
+    "size": 2145383,
+    "name": "Jumpin' Cosmos Delight",
+    "genre": [
+      "Dubstep",
+      "Electronic",
+      "Bass",
+      "Instrumental"
+    ]
+  },
+  {
     "filename": "2025-11-25_petar_zarkov_whisper_strut.mp3",
     "date": "2025-11-25",
     "size": 4606118,
@@ -71,16 +83,6 @@
     "genre": [
       "Hip Hop",
       "Rap"
-    ]
-  },
-  {
-    "filename": "2025-11-19_petar_zarkov_universe_tales.mp3",
-    "date": "2025-11-19",
-    "size": 4495777,
-    "name": "Universe Tales",
-    "genre": [
-      "Dubstep",
-      "Wobble"
     ]
   }
 ]
