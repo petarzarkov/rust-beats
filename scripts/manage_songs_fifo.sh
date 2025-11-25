@@ -37,8 +37,16 @@ fi
 
 # 1.3 Update songs.json (FIFO: Add new, remove oldest)
 if [ -f "$SONGS_JSON" ]; then
-    # Insert the new song JSON at the beginning of the array
-    TEMP_JSON_ARRAY=$(jq --argjson new_song "$NEW_SONG_JSON" '. | [ $new_song ] + .' "$SONGS_JSON")
+    # Check if this song already exists in the JSON (by filename)
+    ALREADY_EXISTS=$(jq --arg filename "$NEW_FILENAME" '[.[] | select(.filename == $filename)] | length' "$SONGS_JSON")
+
+    if [ "$ALREADY_EXISTS" -gt 0 ]; then
+        echo "Song already exists in JSON, skipping addition."
+        TEMP_JSON_ARRAY=$(cat "$SONGS_JSON")
+    else
+        # Insert the new song JSON at the beginning of the array
+        TEMP_JSON_ARRAY=$(jq --argjson new_song "$NEW_SONG_JSON" '. | [ $new_song ] + .' "$SONGS_JSON")
+    fi
 else
     TEMP_JSON_ARRAY="[ $NEW_SONG_JSON ]"
 fi
@@ -68,7 +76,10 @@ echo "Files to KEEP (base names):"
 cat "$TEMP_KEEP_BASES"
 
 # 2.2 Iterate and DELETE files not on the keep list
-# Use process substitution to avoid subshell issues with pipes
+# Use a temporary file list to avoid subshell issues
+TEMP_FILE_LIST="/tmp/files_to_check_$$.txt"
+find "$SONGS_DIR" -maxdepth 1 -type f -print0 2>/dev/null > "$TEMP_FILE_LIST"
+
 while IFS= read -r -d $'\0' file; do
     FILENAME=$(basename "$file")
 
@@ -77,13 +88,16 @@ while IFS= read -r -d $'\0' file; do
         : # Keep this file
     else
         echo "Deleting old file (FIFO): $FILENAME"
-        rm -f "$SONGS_DIR/$FILENAME"
+        rm -fv "$SONGS_DIR/$FILENAME"
     fi
-done < <(find "$SONGS_DIR" -maxdepth 1 -type f -print0 2>/dev/null)
+done < "$TEMP_FILE_LIST"
+
+# Clean up temporary file list
+rm -f "$TEMP_FILE_LIST"
 
 # Clean up temporary file
 rm -f "$TEMP_KEEP_BASES"
 
 echo "✅ Physical cleanup complete."
 echo "Songs remaining in $SONGS_DIR:"
-ls -lh
+ls -lh "$SONGS_DIR"

@@ -3,8 +3,8 @@ use crate::audio::{
     encode_to_mp3, generate_pads_with_arrangement, generate_voice_segment, master_lofi,
     mix_tracks, mix_with_ducking, normalize_loudness, preset_from_str, render_arranged_bass,
     render_arranged_drums, render_arranged_melody_with_instrument, render_fx_track,
-    render_to_wav_with_metadata, select_wisdom, stereo_to_mono, SongMetadata, VoiceSegment,
-    VoiceType, WisdomData,
+    render_to_wav_with_metadata, select_wisdom_with_chorus, stereo_to_mono, SongMetadata,
+    VoiceSegment, VoiceType, WisdomData,
 };
 use crate::composition::beat_maker::DrumKit;
 /// Song generation orchestrator
@@ -430,38 +430,66 @@ impl SongGenerator {
         let sample_rate = get_sample_rate();
         let total_samples = (total_duration_seconds * sample_rate as f32) as usize;
 
-        // Calculate number of segments based on duration
-        let duration_minutes = total_duration_seconds / 60.0;
-        let num_segments = (duration_minutes * self.config.voice.segments_per_minute).round() as usize;
-        let num_segments = num_segments.max(1); // At least 1 segment if voice is enabled
+        // Select wisdom quotes with chorus structure
+        let (intro_quote, chorus_quotes, outro_quote) = select_wisdom_with_chorus(wisdom_data, seed);
 
-        // Select wisdom quotes
-        let selected = select_wisdom(wisdom_data, num_segments, seed);
-
-        if selected.is_empty() {
+        if intro_quote.is_empty() && chorus_quotes.is_empty() && outro_quote.is_empty() {
             return Vec::new();
         }
 
-        // Calculate voice timings
+        // Build the sequence: intro + chorus + chorus + ... + outro
+        // Calculate how many times to repeat the chorus based on song duration
+        let duration_minutes = total_duration_seconds / 60.0;
+        let target_segments = (duration_minutes * self.config.voice.segments_per_minute).round() as usize;
+        let target_segments = target_segments.max(2); // At least intro + outro
+
+        // Calculate number of chorus repetitions
+        // Formula: 1 (intro) + N * 3 (chorus repeats) + 1 (outro) = target_segments
+        let chorus_repeats = ((target_segments - 2) as f32 / 3.0).max(1.0).ceil() as usize;
+
+        let mut text_sequence = Vec::new();
+        text_sequence.push(intro_quote.clone()); // Intro
+
+        // Add chorus repetitions
+        for _ in 0..chorus_repeats {
+            for chorus_quote in &chorus_quotes {
+                text_sequence.push(chorus_quote.clone());
+            }
+        }
+
+        text_sequence.push(outro_quote.clone()); // Outro
+
+        println!("  🎵 Voice structure: 1 intro + {} chorus repeats (3 quotes each) + 1 outro = {} segments",
+                 chorus_repeats, text_sequence.len());
+
+        // Calculate voice timings for distributed placement
         let timings = calculate_voice_timings(
-            &self.config.voice.placement,
+            "distributed",
             total_samples,
-            selected.len(),
+            text_sequence.len(),
             sample_rate,
         );
 
-        // Generate voice segments
+        // Generate voice segments (all female voice)
         let mut segments = Vec::new();
-        for (i, (text, voice_type)) in selected.iter().enumerate() {
+        for (i, text) in text_sequence.iter().enumerate() {
             if i >= timings.len() {
                 break;
             }
 
-            println!("  🎤 Generating {:?} voice: {}", voice_type, text);
+            let segment_type = if i == 0 {
+                "Intro"
+            } else if i == text_sequence.len() - 1 {
+                "Outro"
+            } else {
+                "Chorus"
+            };
+
+            println!("  🎤 Generating {} voice: {}", segment_type, text);
 
             match generate_voice_segment(
                 text,
-                *voice_type,
+                VoiceType::Female,
                 &self.config.voice.male_model,
                 &self.config.voice.female_model,
                 &self.config.voice.espeak_data,
@@ -469,7 +497,7 @@ impl SongGenerator {
                 Ok(samples) => {
                     segments.push(VoiceSegment {
                         text: text.clone(),
-                        voice_type: *voice_type,
+                        voice_type: VoiceType::Female,
                         start_sample: timings[i],
                         samples,
                     });

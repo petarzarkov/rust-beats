@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 """
-Generate TTS audio using pyttsx3 (cross-platform offline TTS).
+Generate TTS audio using gTTS (Google Text-to-Speech).
 This script is called by Rust to generate voice narration.
+
+gTTS provides high-quality, natural-sounding voices that work
+identically on macOS and Linux, unlike pyttsx3/espeak-ng.
 
 Usage:
     python3 generate_tts.py <text> <voice_type> <output_wav>
@@ -11,13 +14,12 @@ Example:
 """
 
 import sys
-import wave
 import os
 
 
 def generate_tts(text: str, voice_type: str, output_path: str) -> None:
     """
-    Generate TTS audio and save as WAV file using pyttsx3.
+    Generate TTS audio and save as WAV file using gTTS.
 
     Args:
         text: Text to synthesize
@@ -25,114 +27,40 @@ def generate_tts(text: str, voice_type: str, output_path: str) -> None:
         output_path: Where to save the WAV file
     """
     try:
-        import pyttsx3
+        from gtts import gTTS
+        import subprocess
 
-        # Initialize TTS engine
-        engine = pyttsx3.init()
+        # Generate TTS using gTTS (default voice is natural female)
+        # Note: gTTS already has natural prosody, no need for special characters
+        tts = gTTS(text=text, lang='en', slow=False)
 
-        # Determine voice type from parameter
-        # If parameter looks like a path (contains / or models/), extract gender
-        if "/" in voice_type or voice_type.startswith("models"):
-            # Extract gender from model path (e.g., "models/en_US-joe-medium.onnx" -> male)
-            is_female = "amy" in voice_type.lower() or "female" in voice_type.lower()
-        else:
-            is_female = voice_type.lower() == "female"
-
-        # Get available voices
-        voices = engine.getProperty('voices')
-
-        # Try to find appropriate voice
-        selected_voice = None
-        for voice in voices:
-            voice_name = voice.name.lower()
-            voice_id = voice.id.lower()
-
-            # macOS voice selection
-            if is_female:
-                # Prefer female voices: Samantha, Victoria, Karen, etc.
-                if any(name in voice_name or name in voice_id for name in ['samantha', 'victoria', 'karen', 'fiona', 'female']):
-                    selected_voice = voice.id
-                    break
-            else:
-                # Prefer male voices: Alex, Daniel, Tom, etc.
-                if any(name in voice_name or name in voice_id for name in ['alex', 'daniel', 'tom', 'male']):
-                    selected_voice = voice.id
-                    break
-
-        # Fallback: use first female/male voice found
-        if not selected_voice:
-            for voice in voices:
-                voice_lower = (voice.name + voice.id).lower()
-                if is_female and 'female' in voice_lower:
-                    selected_voice = voice.id
-                    break
-                elif not is_female and 'male' in voice_lower:
-                    selected_voice = voice.id
-                    break
-
-        # Final fallback: use first available voice
-        if not selected_voice and voices:
-            selected_voice = voices[0 if not is_female else (1 if len(voices) > 1 else 0)].id
-
-        if selected_voice:
-            engine.setProperty('voice', selected_voice)
-
-        # Set speech rate (words per minute) - slightly slower for clarity
-        engine.setProperty('rate', 150)
-
-        # Save to temporary AIFF file (macOS pyttsx3 outputs AIFF)
-        temp_output = output_path + ".aiff"
-        engine.save_to_file(text, temp_output)
-        engine.runAndWait()
+        # Save to temporary MP3 file (gTTS outputs MP3)
+        temp_mp3 = output_path + ".mp3"
+        tts.save(temp_mp3)
 
         # Verify file was created
-        if not os.path.exists(temp_output):
+        if not os.path.exists(temp_mp3):
             raise Exception("TTS engine did not create output file")
 
-        # Convert AIFF to WAV using ffmpeg (if available) or try direct conversion
-        try:
-            import subprocess
-            # Try using ffmpeg for conversion
-            result = subprocess.run(
-                ['ffmpeg', '-i', temp_output, '-acodec', 'pcm_s16le', '-ar', '22050', '-ac', '1', '-y', output_path],
-                capture_output=True,
-                timeout=10
-            )
-            if result.returncode != 0:
-                # Fallback: read AIFF and write WAV manually
-                import aifc
-                with aifc.open(temp_output, 'rb') as aiff_file:
-                    params = aiff_file.getparams()
-                    frames = aiff_file.readframes(params.nframes)
+        # Convert MP3 to WAV using ffmpeg (mono, 22050 Hz, 16-bit PCM)
+        result = subprocess.run(
+            ['ffmpeg', '-i', temp_mp3, '-ar', '22050', '-ac', '1', '-acodec', 'pcm_s16le', '-y', output_path],
+            capture_output=True,
+            timeout=10
+        )
 
-                    import wave
-                    with wave.open(output_path, 'wb') as wav_file:
-                        wav_file.setnchannels(params.nchannels)
-                        wav_file.setsampwidth(params.sampwidth)
-                        wav_file.setframerate(params.framerate)
-                        wav_file.writeframes(frames)
-        except FileNotFoundError:
-            # ffmpeg not found, use aifc fallback
-            import aifc
-            with aifc.open(temp_output, 'rb') as aiff_file:
-                params = aiff_file.getparams()
-                frames = aiff_file.readframes(params.nframes)
+        if result.returncode != 0:
+            stderr = result.stderr.decode('utf-8', errors='replace')
+            raise Exception(f"ffmpeg conversion failed: {stderr}")
 
-                import wave
-                with wave.open(output_path, 'wb') as wav_file:
-                    wav_file.setnchannels(params.nchannels)
-                    wav_file.setsampwidth(params.sampwidth)
-                    wav_file.setframerate(params.framerate)
-                    wav_file.writeframes(frames)
-        finally:
-            # Clean up temporary AIFF file
-            if os.path.exists(temp_output):
-                os.remove(temp_output)
+        # Clean up temporary MP3 file
+        if os.path.exists(temp_mp3):
+            os.remove(temp_mp3)
 
-        print(f"✓ Generated TTS audio with voice: {selected_voice if selected_voice else 'default'}", file=sys.stderr)
+        print(f"✓ Generated TTS audio with melodic voice", file=sys.stderr)
 
     except ImportError as e:
-        print(f"Error: pyttsx3 not installed. Run: pip install pyttsx3", file=sys.stderr)
+        print(f"Error: Required packages not installed. Run: pip install gtts pydub", file=sys.stderr)
         print(f"Details: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:

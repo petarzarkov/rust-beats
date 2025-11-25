@@ -38,18 +38,19 @@ pub struct VoiceSegment {
     pub samples: Vec<f32>,
 }
 
-/// Generate TTS audio from text using pyttsx3 Python package
+/// Generate TTS audio from text using gTTS (Google Text-to-Speech) Python package
 /// Returns (samples, sample_rate) tuple
 pub fn generate_tts(
     text: &str,
     model_path: &str,
-    _espeak_data: &str, // Not used by pyttsx3
+    _espeak_data: &str, // Not used by gTTS (kept for API compatibility)
 ) -> Result<(Vec<i16>, u32), Box<dyn std::error::Error>> {
     // Create temporary output file
-    let temp_wav = format!("/tmp/pyttsx3_tts_{}.wav", std::process::id());
+    let temp_wav = format!("/tmp/gtts_tts_{}.wav", std::process::id());
 
     // Call Python script: python3 scripts/generate_tts.py <text> <model_path> <output_wav>
     // model_path is used to determine voice gender (male/female)
+    // gTTS uses different TLDs (.com for male, .co.uk for female)
     let output = Command::new("python3")
         .arg("scripts/generate_tts.py")
         .arg(text)
@@ -269,7 +270,49 @@ pub fn mix_with_ducking(
     }
 }
 
-/// Select wisdom quotes for a song based on genre and placement
+/// Select wisdom quotes for a song with chorus structure
+/// Returns: (intro_quote, chorus_quotes, outro_quote)
+/// - intro_quote: Single quote for beginning
+/// - chorus_quotes: 3 quotes that will be repeated as chorus
+/// - outro_quote: Single quote for ending
+pub fn select_wisdom_with_chorus(
+    wisdom_data: &WisdomData,
+    seed: u64,
+) -> (String, Vec<String>, String) {
+    use rand::{Rng, SeedableRng};
+    let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
+
+    if wisdom_data.wisdom.is_empty() {
+        return (String::new(), Vec::new(), String::new());
+    }
+
+    // Select 5 unique quotes: 1 intro + 3 chorus + 1 outro
+    let mut selected_indices = std::collections::HashSet::new();
+    while selected_indices.len() < 5.min(wisdom_data.wisdom.len()) {
+        let idx = rng.gen_range(0..wisdom_data.wisdom.len());
+        selected_indices.insert(idx);
+    }
+
+    let mut quotes: Vec<String> = selected_indices
+        .iter()
+        .map(|&idx| wisdom_data.wisdom[idx].clone())
+        .collect();
+
+    // Ensure we have enough quotes
+    if quotes.len() < 5 {
+        while quotes.len() < 5 {
+            quotes.push(wisdom_data.wisdom[0].clone());
+        }
+    }
+
+    let intro = quotes[0].clone();
+    let chorus = vec![quotes[1].clone(), quotes[2].clone(), quotes[3].clone()];
+    let outro = quotes[4].clone();
+
+    (intro, chorus, outro)
+}
+
+/// Legacy function for backwards compatibility
 pub fn select_wisdom(
     wisdom_data: &WisdomData,
     max_segments: usize,
@@ -280,7 +323,7 @@ pub fn select_wisdom(
 
     let mut selected = Vec::new();
 
-    for i in 0..max_segments {
+    for _ in 0..max_segments {
         if wisdom_data.wisdom.is_empty() {
             break;
         }
@@ -289,14 +332,8 @@ pub fn select_wisdom(
         let idx = rng.gen_range(0..wisdom_data.wisdom.len());
         let text = wisdom_data.wisdom[idx].clone();
 
-        // Alternate male/female voices
-        let voice_type = if i % 2 == 0 {
-            VoiceType::Male
-        } else {
-            VoiceType::Female
-        };
-
-        selected.push((text, voice_type));
+        // All voices are female now
+        selected.push((text, VoiceType::Female));
     }
 
     selected
