@@ -68,20 +68,18 @@ echo "Files to KEEP (base names):"
 cat "$TEMP_KEEP_BASES"
 
 # 2.2 Iterate and DELETE files not on the keep list
-cd "$SONGS_DIR"
-
-# Loop through ALL files in docs/songs/
-find . -maxdepth 1 -type f -print0 2>/dev/null | while IFS= read -r -d $'\0' file; do
+# Use process substitution to avoid subshell issues with pipes
+while IFS= read -r -d $'\0' file; do
     FILENAME=$(basename "$file")
-    
+
     # Check if the filename is in the list of files to keep
     if grep -q "^${FILENAME}$" "$TEMP_KEEP_BASES" 2>/dev/null; then
         : # Keep this file
     else
         echo "Deleting old file (FIFO): $FILENAME"
-        rm -f "$FILENAME"
+        rm -f "$SONGS_DIR/$FILENAME"
     fi
-done
+done < <(find "$SONGS_DIR" -maxdepth 1 -type f -print0 2>/dev/null)
 
 # Clean up temporary file
 rm -f "$TEMP_KEEP_BASES"
