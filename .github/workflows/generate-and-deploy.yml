@@ -61,12 +61,6 @@ jobs:
           cargo test --all-targets
           # Note: We allow warnings (dead code, unused imports) but errors will fail the build
 
-      - name: Build project
-        run: cargo build --release
-
-      - name: Generate beats
-        run: cargo run --release
-
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -81,6 +75,12 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install -r scripts/requirements.txt
+
+      - name: Build project
+        run: cargo build --release
+
+      - name: Generate beats
+        run: cargo run --release
 
       - name: Create video for YouTube
         run: python3 scripts/create_video.py
