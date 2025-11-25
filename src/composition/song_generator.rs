@@ -1,8 +1,10 @@
 use crate::audio::{
-    add_percussion_track, apply_arrangement_dynamics, build_tracks, encode_to_mp3,
-    generate_pads_with_arrangement, master_lofi, mix_tracks, normalize_loudness, preset_from_str,
-    render_arranged_bass, render_arranged_drums, render_arranged_melody_with_instrument,
-    render_fx_track, render_to_wav_with_metadata, stereo_to_mono, SongMetadata,
+    add_percussion_track, apply_arrangement_dynamics, build_tracks, calculate_voice_timings,
+    encode_to_mp3, generate_pads_with_arrangement, generate_voice_segment, master_lofi,
+    mix_tracks, mix_with_ducking, normalize_loudness, preset_from_str, render_arranged_bass,
+    render_arranged_drums, render_arranged_melody_with_instrument, render_fx_track,
+    render_to_wav_with_metadata, select_wisdom, stereo_to_mono, SongMetadata, VoiceSegment,
+    VoiceType, WisdomData,
 };
 use crate::composition::beat_maker::DrumKit;
 /// Song generation orchestrator
@@ -38,6 +40,7 @@ pub struct SongGenerator {
     config: Config,
     params: SongParams,
     genre_config: crate::composition::genre::GenreConfig,
+    wisdom_data: Option<WisdomData>,
 }
 
 impl SongGenerator {
@@ -234,10 +237,27 @@ impl SongGenerator {
             chords,
         };
 
+        // Load wisdom data if voice is enabled
+        let wisdom_data = if config.voice.enabled {
+            match WisdomData::load(&config.voice.wisdom_file) {
+                Ok(data) => {
+                    println!("  ✓ Loaded {} wisdom quotes", data.wisdom.len());
+                    Some(data)
+                }
+                Err(e) => {
+                    eprintln!("  ⚠️  Warning: Could not load wisdom file: {}", e);
+                    None
+                }
+            }
+        } else {
+            None
+        };
+
         Self {
             config,
             params,
             genre_config,
+            wisdom_data,
         }
     }
 
@@ -250,14 +270,15 @@ impl SongGenerator {
     pub fn generate_audio_tracks(
         &self,
     ) -> (
-        Vec<f32>,         // drums
-        Vec<f32>,         // bass
-        Vec<f32>,         // melody_l
-        Vec<f32>,         // melody_r
-        Vec<f32>,         // pads_l
-        Vec<f32>,         // pads_r
-        Vec<f32>,         // fx
-        Option<Vec<f32>>, // percussion
+        Vec<f32>,                // drums
+        Vec<f32>,                // bass
+        Vec<f32>,                // melody_l
+        Vec<f32>,                // melody_r
+        Vec<f32>,                // pads_l
+        Vec<f32>,                // pads_r
+        Vec<f32>,                // fx
+        Option<Vec<f32>>,        // percussion
+        Vec<VoiceSegment>,       // voice segments
     ) {
         use std::thread;
 
@@ -368,6 +389,13 @@ impl SongGenerator {
             add_percussion_track(&percussion_type, &arrangement8, &tempo2, &genre)
         });
 
+        // Generate voice segments if enabled
+        let voice_segments = if self.config.voice.enabled && self.wisdom_data.is_some() {
+            self.generate_voice_segments()
+        } else {
+            Vec::new()
+        };
+
         (
             drums_handle.join().unwrap(),
             bass_handle.join().unwrap(),
@@ -377,7 +405,82 @@ impl SongGenerator {
             pads_r_handle.join().unwrap(),
             fx_handle.join().unwrap(),
             percussion_handle.join().unwrap(),
+            voice_segments,
         )
+    }
+
+    /// Generate voice segments with wisdom quotes
+    fn generate_voice_segments(&self) -> Vec<VoiceSegment> {
+        let wisdom_data = match &self.wisdom_data {
+            Some(data) => data,
+            None => return Vec::new(),
+        };
+
+        // Generate seed from song name for deterministic selection
+        use std::collections::hash_map::DefaultHasher;
+        use std::hash::{Hash, Hasher};
+        let mut hasher = DefaultHasher::new();
+        self.params.song_name.hash(&mut hasher);
+        let seed = hasher.finish();
+
+        // Calculate total duration
+        let beats_per_sec = self.params.tempo.bpm / 60.0;
+        let seconds_per_bar = 4.0 / beats_per_sec;
+        let total_duration_seconds = self.params.arrangement.total_bars as f32 * seconds_per_bar;
+        let sample_rate = get_sample_rate();
+        let total_samples = (total_duration_seconds * sample_rate as f32) as usize;
+
+        // Calculate number of segments based on duration
+        let duration_minutes = total_duration_seconds / 60.0;
+        let num_segments = (duration_minutes * self.config.voice.segments_per_minute).round() as usize;
+        let num_segments = num_segments.max(1); // At least 1 segment if voice is enabled
+
+        // Select wisdom quotes
+        let selected = select_wisdom(wisdom_data, num_segments, seed);
+
+        if selected.is_empty() {
+            return Vec::new();
+        }
+
+        // Calculate voice timings
+        let timings = calculate_voice_timings(
+            &self.config.voice.placement,
+            total_samples,
+            selected.len(),
+            sample_rate,
+        );
+
+        // Generate voice segments
+        let mut segments = Vec::new();
+        for (i, (text, voice_type)) in selected.iter().enumerate() {
+            if i >= timings.len() {
+                break;
+            }
+
+            println!("  🎤 Generating {:?} voice: {}", voice_type, text);
+
+            match generate_voice_segment(
+                text,
+                *voice_type,
+                &self.config.voice.male_model,
+                &self.config.voice.female_model,
+                &self.config.voice.espeak_data,
+            ) {
+                Ok(samples) => {
+                    segments.push(VoiceSegment {
+                        text: text.clone(),
+                        voice_type: *voice_type,
+                        start_sample: timings[i],
+                        samples,
+                    });
+                }
+                Err(e) => {
+                    eprintln!("  ⚠️  Warning: Voice generation failed: {}", e);
+                }
+            }
+        }
+
+        segments
     }
 
     /// Mix and master the audio
@@ -391,6 +494,7 @@ impl SongGenerator {
         pads_r: Vec<f32>,
         fx: Vec<f32>,
         percussion: Option<Vec<f32>>,
+        voice_segments: Vec<VoiceSegment>,
     ) -> Vec<f32> {
         let mut rng = rand::thread_rng();
 
@@ -443,6 +547,22 @@ impl SongGenerator {
             _ => LofiProcessor::subtle(),
         };
         lofi_processor.process(&mut final_mix);
+
+        // Mix in voice segments with ducking if any
+        if !voice_segments.is_empty() {
+            let sample_rate = get_sample_rate();
+            println!("  🎤 Mixing {} voice segment(s) with music ducking", voice_segments.len());
+
+            for segment in voice_segments {
+                mix_with_ducking(
+                    &mut final_mix,
+                    &segment,
+                    self.config.voice.volume,
+                    self.config.voice.duck_music_db,
+                    sample_rate,
+                );
+            }
+        }
 
         // Normalize loudness
         normalize_loudness(&mut final_mix, 0.25, 0.18);

@@ -85,3 +85,23 @@ write_metadata_json = true
 # Whether to encode MP3 files (set to false to skip MP3 encoding for faster generation)
 encode_mp3 = true
 
+[voice]
+# Enable voice narration with wisdom quotes
+enabled = true
+# Path to wisdom.json file with quote array
+wisdom_file = "wisdom.json"
+# Voice type identifier for male voice (pyttsx3 uses system voices)
+male_model = "male"
+# Voice type identifier for female voice (pyttsx3 uses system voices)
+female_model = "female"
+# Path to espeak-ng data directory (not used by pyttsx3, kept for compatibility)
+espeak_data = "/usr/share/espeak-ng-data"
+# Voice placement: "intro" | "intro_outro" | "bridge" | "intro_bridge" | "distributed"
+placement = "distributed"
+# Voice volume (0.0-1.0)
+volume = 0.7
+# How much to reduce music volume when voice plays (in dB, negative value)
+duck_music_db = -6.0
+# Target voice segments per minute of music (e.g., 3.0 = 9 segments for 3min song)
+segments_per_minute = 3.0
+

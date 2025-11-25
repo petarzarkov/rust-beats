@@ -32,3 +32,6 @@ tmp/
 .env
 venv/
 scripts/__pycache__/
+
+# Voice models (large ONNX files)
+models/

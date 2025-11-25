@@ -2,4 +2,4 @@ google-api-python-client
 google-auth-httplib2
 python-dotenv
 google-auth-oauthlib
-# Note: ffmpeg/ffprobe must be installed separately via system package manager
+pyttsx3

@@ -8,6 +8,8 @@ pub struct Config {
     pub metadata: MetadataConfig,
     pub composition: CompositionConfig,
     pub generation: GenerationConfig,
+    #[serde(default = "default_voice_config")]
+    pub voice: VoiceConfig,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -104,6 +106,19 @@ pub struct GenerationConfig {
     pub encode_mp3: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct VoiceConfig {
+    pub enabled: bool,
+    pub wisdom_file: String,
+    pub male_model: String,
+    pub female_model: String,
+    pub espeak_data: String,
+    pub placement: String, // "intro" | "intro_outro" | "bridge" | "intro_bridge" | "distributed"
+    pub volume: f32,
+    pub duck_music_db: f32,
+    pub segments_per_minute: f32,
+}
+
 fn default_instrument_probabilities() -> InstrumentProbabilities {
     InstrumentProbabilities {
         rhodes: 0.40,
@@ -168,6 +183,20 @@ fn default_encode_mp3() -> bool {
     true
 }
 
+fn default_voice_config() -> VoiceConfig {
+    VoiceConfig {
+        enabled: false,
+        wisdom_file: "wisdom.json".to_string(),
+        male_model: "male".to_string(),
+        female_model: "female".to_string(),
+        espeak_data: "/usr/share/espeak-ng-data".to_string(),
+        placement: "distributed".to_string(),
+        volume: 0.7,
+        duck_music_db: -6.0,
+        segments_per_minute: 3.0,
+    }
+}
+
 impl Config {
     /// Load configuration from a TOML file
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
@@ -209,6 +238,7 @@ impl Config {
                 write_metadata_json: true,
                 encode_mp3: true,
             },
+            voice: default_voice_config(),
         }
     }
 }

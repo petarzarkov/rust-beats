@@ -63,13 +63,13 @@ fn main() {
 
     // Generate all audio tracks in parallel
     println!("  ├─ Generating audio tracks (parallel)");
-    let (drums, bass, melody_l, melody_r, pads_l, pads_r, fx, percussion) =
+    let (drums, bass, melody_l, melody_r, pads_l, pads_r, fx, percussion, voice_segments) =
         generator.generate_audio_tracks();
 
     // Mix and master
     println!("  ├─ Mixing & mastering");
     let final_mix = generator.mix_and_master(
-        drums, bass, melody_l, melody_r, pads_l, pads_r, fx, percussion,
+        drums, bass, melody_l, melody_r, pads_l, pads_r, fx, percussion, voice_segments,
     );
 
     println!("  └─ Finalizing\n");

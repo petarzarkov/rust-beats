@@ -5,6 +5,7 @@ pub mod mixing_presets;
 pub mod renderer;
 pub mod renderers;
 pub mod track_builder;
+pub mod voice;
 
 pub use dynamics::apply_arrangement_dynamics;
 pub use encoder::encode_to_mp3;
@@ -16,3 +17,7 @@ pub use renderers::{
     render_arranged_drums, render_arranged_melody_with_instrument, render_fx_track,
 };
 pub use track_builder::build_tracks;
+pub use voice::{
+    calculate_voice_timings, generate_voice_segment, mix_with_ducking, select_wisdom,
+    VoiceSegment, VoiceType, WisdomData,
+};
