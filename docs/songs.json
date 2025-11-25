@@ -1,5 +1,16 @@
 [
   {
+    "filename": "2025-11-25_petar_zarkov_whisper_strut.mp3",
+    "date": "2025-11-25",
+    "size": 4606118,
+    "name": "Whisper Strut",
+    "genre": [
+      "Dubstep",
+      "Heavy",
+      "Instrumental"
+    ]
+  },
+  {
     "filename": "2025-11-24_petar_zarkov_sassy_groove_experience.mp3",
     "date": "2025-11-24",
     "size": 4110209,
@@ -70,16 +81,6 @@
     "genre": [
       "Dubstep",
       "Wobble"
-    ]
-  },
-  {
-    "filename": "2025-11-18_petar_zarkov_electric_lick_charm.mp3",
-    "date": "2025-11-18",
-    "size": 4977892,
-    "name": "Electric Lick Charm",
-    "genre": [
-      "Funk",
-      "Classic"
     ]
   }
 ]
