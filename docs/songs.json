@@ -1,5 +1,16 @@
 [
   {
+    "filename": "2025-11-26_petar_zarkov_golden_motion_magic.mp3",
+    "date": "2025-11-26",
+    "size": 4008645,
+    "name": "Golden Motion Magic",
+    "genre": [
+      "Jazz",
+      "Cafe",
+      "Instrumental"
+    ]
+  },
+  {
     "filename": "2025-11-26_petar_zarkov_soulful_stories_journey.mp3",
     "date": "2025-11-26",
     "size": 4592325,
@@ -73,18 +84,6 @@
       "Jazz",
       "Lounge",
       "Improv",
-      "Instrumental"
-    ]
-  },
-  {
-    "filename": "2025-11-25_petar_zarkov_cosmic_underground_nights.mp3",
-    "date": "2025-11-25",
-    "size": 4157857,
-    "name": "Cosmic Underground Nights",
-    "genre": [
-      "Drum & Bass",
-      "Fast",
-      "Energy",
       "Instrumental"
     ]
   }
