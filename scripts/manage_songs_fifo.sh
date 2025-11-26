@@ -6,55 +6,91 @@ SONGS_DIR="docs/songs"
 SONGS_JSON="docs/songs.json"
 TEMP_KEEP_BASES="/tmp/keep_bases_for_cleanup.txt"
 
-# --- PART 1: Update songs.json (Adds new song, truncates to 7, FIFO) ---
+# --- PART 1: Rebuild songs.json from all MP3 files in directory (FIFO: keep latest 8) ---
 
 echo "🎧 Starting song list update and cleanup..."
 
-# 1.1 Find the newest MP3 and its metadata JSON in the songs directory (just copied)
-NEW_MP3=$(ls -t "$SONGS_DIR"/*.mp3 2>/dev/null | head -1)
-NEW_JSON=$(ls -t "$SONGS_DIR"/*.json 2>/dev/null | head -1)
+# 1.1 Find all MP3 files in the songs directory, sorted by modification time (newest first)
+# Create a temporary file list to avoid subshell issues
+TEMP_MP3_LIST="/tmp/mp3_list_$$.txt"
+ls -t "$SONGS_DIR"/*.mp3 2>/dev/null > "$TEMP_MP3_LIST" || true
 
-if [ -z "$NEW_MP3" ]; then
-    echo "Error: No new MP3 file found in $SONGS_DIR to process. Exiting."
+if [ ! -s "$TEMP_MP3_LIST" ]; then
+    rm -f "$TEMP_MP3_LIST"
+    echo "Error: No MP3 files found in $SONGS_DIR to process. Exiting."
     exit 1
 fi
 
-NEW_FILENAME=$(basename "$NEW_MP3")
-echo "New file found: $NEW_FILENAME"
+MP3_COUNT=$(wc -l < "$TEMP_MP3_LIST" | tr -d ' ')
+echo "Found $MP3_COUNT MP3 files in directory:"
+while IFS= read -r mp3; do
+    echo "  $(basename "$mp3")"
+done < "$TEMP_MP3_LIST"
 
-# 1.2 Extract metadata for the new song
-NEW_DATE=$(echo "$NEW_FILENAME" | grep -oE '^[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
-NEW_SIZE=$(stat -c%s "$NEW_MP3" 2>/dev/null || echo "0")
+# 1.2 Build JSON array from all MP3 files
+TEMP_JSON_FILE="/tmp/songs_json_$$.json"
+echo "[]" > "$TEMP_JSON_FILE"
 
-if [ -n "$NEW_JSON" ] && [ -f "$NEW_JSON" ]; then
-    NEW_NAME=$(jq -r '.name // ""' "$NEW_JSON" 2>/dev/null || echo "")
-    NEW_GENRE=$(jq -c '.genre // []' "$NEW_JSON" 2>/dev/null || echo "[]")
-    ESCAPED_NAME=$(echo "$NEW_NAME" | sed 's/\"/\\\"/g')
-    NEW_SONG_JSON="  {\"filename\": \"$NEW_FILENAME\", \"date\": \"$NEW_DATE\", \"size\": $NEW_SIZE, \"name\": \"$ESCAPED_NAME\", \"genre\": $NEW_GENRE}"
-else
-    NEW_SONG_JSON="  {\"filename\": \"$NEW_FILENAME\", \"date\": \"$NEW_DATE\", \"size\": $NEW_SIZE}"
-fi
-
-# 1.3 Update songs.json (FIFO: Add new, remove oldest)
-if [ -f "$SONGS_JSON" ]; then
-    # Check if this song already exists in the JSON (by filename)
-    ALREADY_EXISTS=$(jq --arg filename "$NEW_FILENAME" '[.[] | select(.filename == $filename)] | length' "$SONGS_JSON")
-
-    if [ "$ALREADY_EXISTS" -gt 0 ]; then
-        echo "Song already exists in JSON, skipping addition."
-        TEMP_JSON_ARRAY=$(cat "$SONGS_JSON")
+while IFS= read -r MP3_FILE; do
+    FILENAME=$(basename "$MP3_FILE")
+    DATE=$(echo "$FILENAME" | grep -oE '^[0-9]{4}-[0-9]{2}-[0-9]{2}' | head -1)
+    
+    # Get file size (works on both Linux and macOS)
+    if command -v stat >/dev/null 2>&1; then
+        if stat -c%s "$MP3_FILE" >/dev/null 2>&1; then
+            SIZE=$(stat -c%s "$MP3_FILE" 2>/dev/null || echo "0")
+        else
+            SIZE=$(stat -f%z "$MP3_FILE" 2>/dev/null || echo "0")
+        fi
     else
-        # Insert the new song JSON at the beginning of the array
-        TEMP_JSON_ARRAY=$(jq --argjson new_song "$NEW_SONG_JSON" '. | [ $new_song ] + .' "$SONGS_JSON")
+        SIZE=$(wc -c < "$MP3_FILE" 2>/dev/null || echo "0")
     fi
-else
-    TEMP_JSON_ARRAY="[ $NEW_SONG_JSON ]"
-fi
+    
+    # Check for corresponding JSON metadata file
+    JSON_FILE="${MP3_FILE%.mp3}.json"
+    
+    if [ -f "$JSON_FILE" ]; then
+        NAME=$(jq -r '.name // ""' "$JSON_FILE" 2>/dev/null || echo "")
+        GENRE=$(jq -c '.genre // []' "$JSON_FILE" 2>/dev/null || echo "[]")
+        
+        # Build song JSON object
+        if [ -n "$NAME" ] && [ "$NAME" != "null" ] && [ "$NAME" != "" ]; then
+            SONG_JSON=$(jq -n \
+                --arg filename "$FILENAME" \
+                --arg date "$DATE" \
+                --argjson size "$SIZE" \
+                --arg name "$NAME" \
+                --argjson genre "$GENRE" \
+                '{filename: $filename, date: $date, size: $size, name: $name, genre: $genre}')
+        else
+            SONG_JSON=$(jq -n \
+                --arg filename "$FILENAME" \
+                --arg date "$DATE" \
+                --argjson size "$SIZE" \
+                '{filename: $filename, date: $date, size: $size}')
+        fi
+    else
+        SONG_JSON=$(jq -n \
+            --arg filename "$FILENAME" \
+            --arg date "$DATE" \
+            --argjson size "$SIZE" \
+            '{filename: $filename, date: $date, size: $size}')
+    fi
+    
+    # Add to array (maintaining order - newest first)
+    jq --argjson song "$SONG_JSON" '. += [$song]' "$TEMP_JSON_FILE" > "${TEMP_JSON_FILE}.tmp" && mv "${TEMP_JSON_FILE}.tmp" "$TEMP_JSON_FILE"
+done < "$TEMP_MP3_LIST"
 
-NEW_JSON_ARRAY=$(echo "$TEMP_JSON_ARRAY" | jq '.[0:8]')
+# Clean up temp MP3 list
+rm -f "$TEMP_MP3_LIST"
+
+# 1.3 Keep only the latest 8 songs (FIFO)
+NEW_JSON_ARRAY=$(jq '.[0:8]' "$TEMP_JSON_FILE")
 
 echo "$NEW_JSON_ARRAY" > "$SONGS_JSON"
-echo "✅ $SONGS_JSON updated (keeping latest 8 songs temporarily)."
+rm -f "$TEMP_JSON_FILE"
+
+echo "✅ $SONGS_JSON updated (keeping latest 8 songs)."
 
 # --- PART 2: Clean up files based on the new docs/songs.json list ---
 
