@@ -7,32 +7,32 @@ gTTS provides high-quality, natural-sounding voices that work
 identically on macOS and Linux, unlike pyttsx3/espeak-ng.
 
 Usage:
-    python3 generate_tts.py <text> <voice_type> <output_wav>
+    python3 generate_tts.py <text> <language> <output_wav>
 
 Example:
-    python3 generate_tts.py "Hello world" "male" "/tmp/output.wav"
+    python3 generate_tts.py "Hello world" "en" "/tmp/output.wav"
 """
 
 import sys
 import os
 
 
-def generate_tts(text: str, voice_type: str, output_path: str) -> None:
+def generate_tts(text: str, language: str, output_path: str) -> None:
     """
     Generate TTS audio and save as WAV file using gTTS.
 
     Args:
         text: Text to synthesize
-        voice_type: "male" or "female" (or path to model for compatibility)
+        language: Language code (e.g., "en" for English, "bg" for Bulgarian)
         output_path: Where to save the WAV file
     """
     try:
         from gtts import gTTS
         import subprocess
 
-        # Generate TTS using gTTS (default voice is natural female)
+        # Generate TTS using gTTS (natural female voice)
         # Note: gTTS already has natural prosody, no need for special characters
-        tts = gTTS(text=text, lang='en', slow=False)
+        tts = gTTS(text=text, lang=language, slow=False)
 
         # Save to temporary MP3 file (gTTS outputs MP3)
         temp_mp3 = output_path + ".mp3"
@@ -57,7 +57,7 @@ def generate_tts(text: str, voice_type: str, output_path: str) -> None:
         if os.path.exists(temp_mp3):
             os.remove(temp_mp3)
 
-        print(f"✓ Generated TTS audio with melodic voice", file=sys.stderr)
+        print(f"✓ Generated TTS audio with language '{language}'", file=sys.stderr)
 
     except ImportError as e:
         print(f"Error: Required packages not installed. Run: pip install gtts pydub", file=sys.stderr)
@@ -72,19 +72,23 @@ def generate_tts(text: str, voice_type: str, output_path: str) -> None:
 
 def main():
     if len(sys.argv) != 4:
-        print("Usage: generate_tts.py <text> <voice_type_or_model_path> <output_wav>", file=sys.stderr)
+        print("Usage: generate_tts.py <text> <language> <output_wav>", file=sys.stderr)
         sys.exit(1)
 
     text = sys.argv[1]
-    voice_type = sys.argv[2]  # Can be "male"/"female" or model path
+    language = sys.argv[2]  # Language code (e.g., "en", "bg")
     output_path = sys.argv[3]
 
     # Validate inputs
     if not text:
         print("Error: Text cannot be empty", file=sys.stderr)
         sys.exit(1)
+    
+    if not language:
+        print("Error: Language cannot be empty", file=sys.stderr)
+        sys.exit(1)
 
-    generate_tts(text, voice_type, output_path)
+    generate_tts(text, language, output_path)
 
 
 if __name__ == "__main__":

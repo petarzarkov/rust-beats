@@ -18,6 +18,6 @@ pub use renderers::{
 };
 pub use track_builder::build_tracks;
 pub use voice::{
-    calculate_voice_timings, generate_voice_segment, mix_with_ducking, select_wisdom,
-    select_wisdom_with_chorus, VoiceSegment, VoiceType, WisdomData,
+    calculate_voice_timings, generate_voice_segment, mix_with_ducking,
+    select_wisdom_with_chorus, VoiceSegment, WisdomData,
 };

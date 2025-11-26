@@ -24,16 +24,9 @@ impl WisdomData {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum VoiceType {
-    Male,
-    Female,
-}
-
 #[derive(Debug, Clone)]
 pub struct VoiceSegment {
     pub text: String,
-    pub voice_type: VoiceType,
     pub start_sample: usize,
     pub samples: Vec<f32>,
 }
@@ -42,19 +35,17 @@ pub struct VoiceSegment {
 /// Returns (samples, sample_rate) tuple
 pub fn generate_tts(
     text: &str,
-    model_path: &str,
+    language: &str,
     _espeak_data: &str, // Not used by gTTS (kept for API compatibility)
 ) -> Result<(Vec<i16>, u32), Box<dyn std::error::Error>> {
     // Create temporary output file
     let temp_wav = format!("/tmp/gtts_tts_{}.wav", std::process::id());
 
-    // Call Python script: python3 scripts/generate_tts.py <text> <model_path> <output_wav>
-    // model_path is used to determine voice gender (male/female)
-    // gTTS uses different TLDs (.com for male, .co.uk for female)
+    // Call Python script: python3 scripts/generate_tts.py <text> <language> <output_wav>
     let output = Command::new("python3")
         .arg("scripts/generate_tts.py")
         .arg(text)
-        .arg(model_path)
+        .arg(language)
         .arg(&temp_wav)
         .output()?;
 
@@ -177,19 +168,11 @@ pub fn resample_to_target(input: Vec<i16>, from_rate: u32, to_rate: u32) -> Resu
 /// Generate voice segment with complete processing pipeline
 pub fn generate_voice_segment(
     text: &str,
-    voice_type: VoiceType,
-    male_model: &str,
-    female_model: &str,
+    language: &str,
     espeak_data: &str,
 ) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
-    // Select appropriate model
-    let model_path = match voice_type {
-        VoiceType::Male => male_model,
-        VoiceType::Female => female_model,
-    };
-
     // Generate TTS (returns samples and sample rate)
-    let (tts_samples, tts_sample_rate) = generate_tts(text, model_path, espeak_data)?;
+    let (tts_samples, tts_sample_rate) = generate_tts(text, language, espeak_data)?;
 
     // Resample to 44100 Hz if needed
     let tts_44k = if tts_sample_rate != 44100 {
@@ -317,7 +300,7 @@ pub fn select_wisdom(
     wisdom_data: &WisdomData,
     max_segments: usize,
     seed: u64,
-) -> Vec<(String, VoiceType)> {
+) -> Vec<String> {
     use rand::{Rng, SeedableRng};
     let mut rng = rand::rngs::StdRng::seed_from_u64(seed);
 
@@ -332,8 +315,7 @@ pub fn select_wisdom(
         let idx = rng.gen_range(0..wisdom_data.wisdom.len());
         let text = wisdom_data.wisdom[idx].clone();
 
-        // All voices are female now
-        selected.push((text, VoiceType::Female));
+        selected.push(text);
     }
 
     selected

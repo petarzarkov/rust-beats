@@ -4,7 +4,7 @@ use crate::audio::{
     mix_tracks, mix_with_ducking, normalize_loudness, preset_from_str, render_arranged_bass,
     render_arranged_drums, render_arranged_melody_with_instrument, render_fx_track,
     render_to_wav_with_metadata, select_wisdom_with_chorus, stereo_to_mono, SongMetadata,
-    VoiceSegment, VoiceType, WisdomData,
+    VoiceSegment, WisdomData,
 };
 use crate::composition::beat_maker::DrumKit;
 /// Song generation orchestrator
@@ -470,7 +470,7 @@ impl SongGenerator {
             sample_rate,
         );
 
-        // Generate voice segments (all female voice)
+        // Generate voice segments using detected language
         let mut segments = Vec::new();
         for (i, text) in text_sequence.iter().enumerate() {
             if i >= timings.len() {
@@ -489,15 +489,12 @@ impl SongGenerator {
 
             match generate_voice_segment(
                 text,
-                VoiceType::Female,
-                &self.config.voice.male_model,
-                &self.config.voice.female_model,
+                &self.config.voice.language,
                 &self.config.voice.espeak_data,
             ) {
                 Ok(samples) => {
                     segments.push(VoiceSegment {
                         text: text.clone(),
-                        voice_type: VoiceType::Female,
                         start_sample: timings[i],
                         samples,
                     });

@@ -89,10 +89,10 @@ encode_mp3 = true
 # Enable voice narration with wisdom quotes in chorus structure
 enabled = true
 # Path to wisdom.json file with quote array
-wisdom_file = "wisdom.json"
-# Voice type (gTTS uses natural female voice with melodic hints)
-male_model = "male"
-female_model = "female"
+# Language is auto-detected from filename:
+#   - "wisdom.json" -> English ("en")
+#   - "wisdom-bg.json" -> Bulgarian ("bg")
+wisdom_file = "wisdom-bg.json"
 # Placeholder path (not used by gTTS, kept for API compatibility)
 espeak_data = "/usr/share/espeak-ng-data"
 # Voice placement is always "distributed" with chorus structure

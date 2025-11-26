@@ -110,8 +110,8 @@ pub struct GenerationConfig {
 pub struct VoiceConfig {
     pub enabled: bool,
     pub wisdom_file: String,
-    pub male_model: String,
-    pub female_model: String,
+    #[serde(skip)]
+    pub language: String, // Detected from wisdom_file name
     pub espeak_data: String,
     pub placement: String, // "intro" | "intro_outro" | "bridge" | "intro_bridge" | "distributed"
     pub volume: f32,
@@ -187,8 +187,7 @@ fn default_voice_config() -> VoiceConfig {
     VoiceConfig {
         enabled: false,
         wisdom_file: "wisdom.json".to_string(),
-        male_model: "male".to_string(),
-        female_model: "female".to_string(),
+        language: "en".to_string(), // Default to English
         espeak_data: "/usr/share/espeak-ng-data".to_string(),
         placement: "distributed".to_string(),
         volume: 0.7,
@@ -197,11 +196,27 @@ fn default_voice_config() -> VoiceConfig {
     }
 }
 
+impl VoiceConfig {
+    /// Detect language from wisdom file name
+    /// - "wisdom.json" -> "en"
+    /// - "wisdom-bg.json" -> "bg"
+    /// - Default: "en"
+    pub fn detect_language_from_filename(filename: &str) -> String {
+        if filename.contains("-bg") {
+            "bg".to_string()
+        } else {
+            "en".to_string() // Default to English
+        }
+    }
+}
+
 impl Config {
     /// Load configuration from a TOML file
     pub fn load<P: AsRef<Path>>(path: P) -> Result<Self, Box<dyn std::error::Error>> {
         let contents = fs::read_to_string(path)?;
-        let config: Config = toml::from_str(&contents)?;
+        let mut config: Config = toml::from_str(&contents)?;
+        // Detect language from wisdom file name
+        config.voice.language = VoiceConfig::detect_language_from_filename(&config.voice.wisdom_file);
         Ok(config)
     }
 
@@ -238,7 +253,11 @@ impl Config {
                 write_metadata_json: true,
                 encode_mp3: true,
             },
-            voice: default_voice_config(),
+            voice: {
+                let mut voice = default_voice_config();
+                voice.language = VoiceConfig::detect_language_from_filename(&voice.wisdom_file);
+                voice
+            },
         }
     }
 }
