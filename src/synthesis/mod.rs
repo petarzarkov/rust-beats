@@ -8,11 +8,11 @@ pub mod pads;
 pub mod percussion;
 pub mod synthesizer;
 
-pub use bass::{generate_dnb_bassline, generate_dubstep_bassline, generate_rock_bassline};
+pub use bass::generate_metal_bassline;
 pub use drums::{
-    generate_clap, generate_conga, generate_hihat, generate_kick, generate_shaker, generate_snare,
+    generate_hihat, generate_kick, generate_snare, generate_china, generate_ride, generate_tom, generate_crash,
 };
-pub use fx::{generate_crash, generate_downlifter, generate_impact, generate_riser};
+pub use fx::{generate_downlifter, generate_impact, generate_riser};
 pub use lofi_effects::LofiProcessor;
 pub use melody::InstrumentType;
 pub use pads::{generate_drone, generate_pads};

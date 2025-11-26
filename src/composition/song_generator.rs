@@ -52,7 +52,7 @@ impl SongGenerator {
         let song_name = crate::composition::generate_song_name();
 
         // Select genre and get its configuration
-        let genre = select_random_genre();
+        let genre = select_random_genre(); // Will always be SwampMetal now
         let genre_config = get_genre_config(genre);
 
         // Generate genre tags based on actual genre
@@ -86,63 +86,23 @@ impl SongGenerator {
 
         // Map genre to groove style
         let groove_style = match genre {
-            Genre::Rock => GrooveStyle::Rock,
-            Genre::Dubstep => GrooveStyle::Dubstep,
-            Genre::DnB => GrooveStyle::DnB,
-            Genre::Jazz => GrooveStyle::Jazz,
-            Genre::Funk => GrooveStyle::Funk,
-            Genre::HipHop => GrooveStyle::HipHop,
-            Genre::ElectroSwing => GrooveStyle::ElectroSwing,
-            Genre::Lofi => GrooveStyle::Lofi,
+            Genre::SwampMetal => GrooveStyle::SwampMetal,
         };
 
         // Select instruments based on genre
         let lead_instrument = match genre {
-            Genre::Lofi => match rng.gen_range(0..100) {
-                0..=60 => "Rhodes",
-                61..=90 => "SoftPluck",
-                _ => "WarmOrgan"
+            Genre::SwampMetal => match rng.gen_range(0..100) {
+                0..=60 => "Heavy Rhythm Guitar",
+                61..=90 => "Lead Guitar",
+                _ => "Electric Guitar"
             },
-            Genre::Jazz | Genre::Funk => match rng.gen_range(0..100) {
-                0..=40 => "Rhodes",
-                41..=70 => "Piano", // Mapped to Rhodes usually but implies style
-                71..=90 => "Guitar",
-                _ => "Organ"
-            },
-            Genre::Rock => match rng.gen_range(0..100) {
-                0..=70 => "Electric Guitar",
-                71..=90 => "Acoustic Guitar",
-                _ => "Organ"
-            },
-            Genre::DnB | Genre::Dubstep => match rng.gen_range(0..100) {
-                0..=50 => "Synth",
-                51..=80 => "Electric",
-                _ => "Pluck"
-            },
-            Genre::ElectroSwing => match rng.gen_range(0..100) {
-                0..=40 => "Clarinet", // Simulated via filtered Square/Saw
-                41..=70 => "Organ",
-                _ => "Piano"
-            },
-            Genre::HipHop => match rng.gen_range(0..100) {
-                0..=50 => "Rhodes",
-                51..=80 => "Synth",
-                _ => "Piano"
-            }
         };
 
         let bass_type = match genre_config.bass_style {
-            crate::composition::genre::BassStyle::Standard => "Standard",
-            crate::composition::genre::BassStyle::Rock => "Rock",
-            crate::composition::genre::BassStyle::Synth => "Synth",
-            crate::composition::genre::BassStyle::Upright => "Upright",
-            crate::composition::genre::BassStyle::Finger => "Finger",
-            crate::composition::genre::BassStyle::Slap => "Slap",
-            crate::composition::genre::BassStyle::Wobble => "Wobble",
-            crate::composition::genre::BassStyle::Reese => "Reese",
+            crate::composition::genre::BassStyle::Metal => "Metal",
         };
 
-        let drum_kit = select_preferred_drum_kit(&genre_config.drum_kit_preference);
+        let drum_kit = select_preferred_drum_kit(genre);
 
         // Percussion
         let pc = &config.composition.percussion;
@@ -162,44 +122,18 @@ impl SongGenerator {
             "None"
         };
 
-        // Pad intensity
-        let pad_cfg = &config.composition.pads;
-        let pad_intensity = {
-            let roll: f32 = rng.gen_range(0.0..1.0);
-            if roll < pad_cfg.subtle {
-                "Subtle"
-            } else if roll < pad_cfg.subtle + pad_cfg.medium {
-                "Medium"
-            } else {
-                "Prominent"
-            }
-        };
+        // Pad intensity - Swamp Metal uses dark ambience
+        let pad_intensity = "Subtle"; 
 
-        // Mixing style
-        let mix_cfg = &config.composition.mixing;
-        let mixing_style = {
-            let roll: f32 = rng.gen_range(0.0..1.0);
-            if roll < mix_cfg.clean {
-                "Clean"
-            } else if roll < mix_cfg.clean + mix_cfg.warm {
-                "Warm"
-            } else if roll < mix_cfg.clean + mix_cfg.warm + mix_cfg.punchy {
-                "Punchy"
-            } else {
-                "Spacious"
-            }
-        };
+        // Mixing style - Always punchy/heavy for metal
+        let mixing_style = "Punchy";
 
         // Generate arrangement
         let arrangement = if config.composition.structure == "short" {
             Arrangement::generate_short()
         } else {
-            // Dubstep and DnB should be shorter (60-90 seconds) for better impact
-            // Other genres use standard 3 minutes (180 seconds)
-            let target_duration = match genre {
-                Genre::Dubstep | Genre::DnB => rng.gen_range(60.0..90.0), // 1-1.5 minutes
-                _ => 180.0 // Standard 3 minutes for other genres
-            };
+            // Metal songs are typically 3-5 minutes
+            let target_duration = rng.gen_range(180.0..300.0);
             Arrangement::generate_for_duration(
                 genre_config.arrangement_style,
                 tempo.bpm,
@@ -337,15 +271,9 @@ impl SongGenerator {
         });
         // Generate L/R melody channels with different instrument preferences for stereo width
         let melody_l_handle = thread::spawn(move || {
-            let mut rng = rand::thread_rng();
-            // L channel: prefer warmer, rounder instruments
-            let instrument_pref = match genre {
-                Genre::Rock => if rng.gen_bool(0.7) { Some(InstrumentType::AcousticGuitar) } else { Some(InstrumentType::ElectricGuitar) },
-                Genre::Jazz | Genre::Funk => if rng.gen_bool(0.6) { Some(InstrumentType::Rhodes) } else { Some(InstrumentType::WarmOrgan) },
-                Genre::Lofi => if rng.gen_bool(0.5) { Some(InstrumentType::SoftPluck) } else { Some(InstrumentType::Rhodes) },
-                Genre::Dubstep | Genre::DnB => if rng.gen_bool(0.5) { Some(InstrumentType::WarmOrgan) } else { Some(InstrumentType::ElectricGuitar) },
-                _ => if rng.gen_bool(0.5) { Some(InstrumentType::Ukulele) } else { Some(InstrumentType::Mallet) },
-            };
+            let _rng = rand::thread_rng();
+            // L channel: prefer heavy rhythm
+            let instrument_pref = Some(InstrumentType::HeavyRhythmGuitar);
             render_arranged_melody_with_instrument(
                 &arrangement3,
                 &key1,
@@ -359,13 +287,11 @@ impl SongGenerator {
         });
         let melody_r_handle = thread::spawn(move || {
             let mut rng = rand::thread_rng();
-            // R channel: prefer brighter, contrasting instruments
-            let instrument_pref = match genre {
-                Genre::Rock => if rng.gen_bool(0.8) { Some(InstrumentType::ElectricGuitar) } else { Some(InstrumentType::AcousticGuitar) },
-                Genre::Jazz | Genre::Funk => if rng.gen_bool(0.6) { Some(InstrumentType::Mallet) } else { Some(InstrumentType::Rhodes) },
-                Genre::Lofi => if rng.gen_bool(0.5) { Some(InstrumentType::WarmOrgan) } else { Some(InstrumentType::SoftPluck) },
-                Genre::Dubstep | Genre::DnB => if rng.gen_bool(0.7) { Some(InstrumentType::ElectricGuitar) } else { Some(InstrumentType::Mallet) },
-                _ => if rng.gen_bool(0.6) { Some(InstrumentType::AcousticGuitar) } else { Some(InstrumentType::Ukulele) },
+            // R channel: prefer lead or heavy rhythm for double tracking
+            let instrument_pref = if rng.gen_bool(0.4) { 
+                Some(InstrumentType::LeadGuitar) 
+            } else { 
+                Some(InstrumentType::HeavyRhythmGuitar) 
             };
             render_arranged_melody_with_instrument(
                 &arrangement4,
@@ -521,7 +447,7 @@ impl SongGenerator {
         percussion: Option<Vec<f32>>,
         voice_segments: Vec<VoiceSegment>,
     ) -> Vec<f32> {
-        let mut rng = rand::thread_rng();
+        let _rng = rand::thread_rng();
 
         // Build tracks with mixing preset
         let preset = preset_from_str(&self.params.mixing_style);
@@ -555,21 +481,13 @@ impl SongGenerator {
 
         // Apply lofi processing based on genre
         let lofi_processor = match self.params.genre {
-            Genre::Lofi => {
-                let mut proc = if rng.gen_range(0..100) < 50 {
-                    LofiProcessor::heavy()
-                } else {
-                    LofiProcessor::medium()
-                };
-                proc.wow_flutter_intensity = 0.0;
+            Genre::SwampMetal => {
+                let mut proc = LofiProcessor::subtle(); // Less lofi, more grit
+                proc.bit_depth = 16; // High fidelity (u8)
+                proc.downsample_rate = 44100; // Standard rate (u32)
+                proc.tape_drive = 0.4; // Add saturation (was saturation)
                 proc
             }
-            Genre::Jazz | Genre::Funk => {
-                let mut proc = LofiProcessor::medium();
-                proc.wow_flutter_intensity = 0.0;
-                proc
-            }
-            _ => LofiProcessor::subtle(),
         };
         lofi_processor.process(&mut final_mix);
 

@@ -65,6 +65,7 @@ pub enum ChordType {
     Minor6,         // Minor 6
     Dominant7Sharp9,// Hendrix chord
     Dominant7Flat9, // Altered dominant
+    Power5,         // Root + 5th
 }
 
 impl ScaleType {
@@ -193,6 +194,7 @@ impl Chord {
             ChordType::Minor6 => vec![0, 3, 7, 9],
             ChordType::Dominant7Sharp9 => vec![0, 4, 7, 10, 15],
             ChordType::Dominant7Flat9 => vec![0, 4, 7, 10, 13],
+            ChordType::Power5 => vec![0, 7, 12],
         };
 
         intervals

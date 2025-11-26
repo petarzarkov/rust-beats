@@ -328,6 +328,72 @@ pub fn mix_buffers(buffers: &[Vec<f32>]) -> Vec<f32> {
     mixed
 }
 
+
+/// Distortion effect for aggressive metal tones
+pub struct Distortion {
+    pub drive: f32,
+    pub mix: f32,
+    pub output_level: f32,
+}
+
+impl Distortion {
+    pub fn new(drive: f32, mix: f32) -> Self {
+        Distortion {
+            drive: drive.max(0.0),
+            mix: mix.clamp(0.0, 1.0),
+            output_level: 1.0,
+        }
+    }
+
+    /// Apply distortion to a sample
+    pub fn process(&self, input: f32) -> f32 {
+        let dry = input;
+        
+        // Hard clipping / saturation
+        // Tanh is good, but for metal we want something harder
+        let driven = input * (1.0 + self.drive * 10.0);
+        let wet = (driven).tanh();
+        
+        // Mix dry/wet
+        let mixed = dry * (1.0 - self.mix) + wet * self.mix;
+        
+        mixed * self.output_level
+    }
+}
+
+/// Cabinet Simulator (Simple EQ curve to simulate guitar speaker)
+pub struct CabinetSimulator {
+    low_cut: LowPassFilter,
+    high_cut: LowPassFilter, // We'll simulate high cut with low pass
+    mid_scoop: bool,
+}
+
+impl CabinetSimulator {
+    pub fn new() -> Self {
+        CabinetSimulator {
+            low_cut: LowPassFilter::new(80.0, 0.0), // Remove sub rumble
+            high_cut: LowPassFilter::new(5000.0, 0.0), // Remove fizz
+            mid_scoop: true,
+        }
+    }
+
+    pub fn process(&mut self, input: f32) -> f32 {
+        let mut signal = input;
+        
+        // High pass (simulate by subtracting low pass? No, just use simple filters for now)
+        // Actually, we don't have a HighPassFilter struct yet. 
+        // Let's just use the LowPass to roll off highs (cabinet fizz)
+        signal = self.high_cut.process(signal);
+        
+        // Simple mid scoop simulation (volume drop)
+        if self.mid_scoop {
+            signal *= 0.8; 
+        }
+        
+        signal
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

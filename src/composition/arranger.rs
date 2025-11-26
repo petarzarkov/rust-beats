@@ -28,9 +28,7 @@ impl Arrangement {
     pub fn generate_with_style(style: ArrangementStyle) -> Self {
         match style {
             ArrangementStyle::VerseChorus => Self::generate_standard(),
-            ArrangementStyle::BuildDrop => Self::generate_from_templates(&build_drop_templates()),
-            ArrangementStyle::Consistent => Self::generate_from_templates(&consistent_templates()),
-            ArrangementStyle::Groove => Self::generate_from_templates(&groove_templates()),
+            ArrangementStyle::Linear => Self::generate_from_templates(&consistent_templates()),
         }
     }
 

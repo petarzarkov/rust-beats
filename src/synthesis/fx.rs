@@ -8,7 +8,7 @@ pub fn generate_white_noise_sweep(duration: f32, start_freq: f32, end_freq: f32)
     let mut samples = Vec::with_capacity(num_samples);
 
     let mut noise_osc = Oscillator::new(Waveform::Noise, 0.0);
-    let mut filter = LowPassFilter::new(start_freq, 0.7);
+    let mut filter = ResonantFilter::new(start_freq, 0.7); // Use resonant filter for more bite
 
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
@@ -26,7 +26,10 @@ pub fn generate_white_noise_sweep(duration: f32, start_freq: f32, end_freq: f32)
         let mut sample = noise_osc.next_sample();
         sample = filter.process(sample);
 
-        samples.push(sample * amp_env * 0.4); // Reduced from 0.6 to 0.4
+        // Add some distortion for metal texture
+        sample = (sample * 1.5).tanh();
+
+        samples.push(sample * amp_env * 0.5);
     }
 
     samples
@@ -42,70 +45,106 @@ pub fn generate_downlifter(duration: f32) -> Vec<f32> {
     generate_white_noise_sweep(duration, 8000.0, 200.0)
 }
 
-/// Generate a crash cymbal / impact sound (gentler version)
+/// Generate a heavy metal crash cymbal
 pub fn generate_crash(decay: f32) -> Vec<f32> {
     let duration = decay;
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
 
     let mut noise_osc = Oscillator::new(Waveform::Noise, 0.0);
+    let mut metal_osc = Oscillator::new(Waveform::Square, 300.0); // Metallic ring
 
-    // Lower filter cutoffs to reduce harsh high frequencies
-    let mut filter_high = LowPassFilter::new(8000.0, 0.3); // Reduced from 12000Hz to 8000Hz
-    let mut filter_mid = LowPassFilter::new(4000.0, 0.4);  // Reduced from 6000Hz to 4000Hz
-    let mut filter_low = LowPassFilter::new(2000.0, 0.3);  // Added low-pass for warmth
+    // Multiple filters for complex spectrum
+    let mut filter_high = ResonantFilter::new(12000.0, 0.1);
+    let mut filter_mid = ResonantFilter::new(5000.0, 0.3);
+    let mut filter_low = ResonantFilter::new(1000.0, 0.2);
 
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
 
-        // Gentler, longer decay envelope
-        let amp_env = (-time * (2.0 / decay)).exp(); // Slower decay (2.0 instead of 3.0)
-
-        // Softer attack transient
-        let attack = if time < 0.015 {
-            1.0 + (1.0 - time / 0.015) * 1.2 // Reduced from 2.0 to 1.2, longer attack
-        } else {
-            1.0
-        };
+        // Explosive envelope
+        let amp_env = (-time * (3.0 / decay)).exp();
 
         let noise = noise_osc.next_sample();
+        let metal = metal_osc.next_sample() * 0.2; // Add some metallic tone
 
-        // Layer multiple filtered versions with more emphasis on mid/low
-        let high = filter_high.process(noise) * 0.3; // Reduced from 0.6
-        let mid = filter_mid.process(noise) * 0.5;  // Increased from 0.4
-        let low = filter_low.process(noise) * 0.2;  // Added low layer
+        let mix = noise + metal;
 
-        let sample = (high + mid + low) * amp_env * attack;
+        let high = filter_high.process(mix) * 0.5;
+        let mid = filter_mid.process(mix) * 0.4;
+        let low = filter_low.process(mix) * 0.3;
 
-        samples.push(sample * 0.3); // Further reduced from 0.5 to 0.3
+        let sample = (high + mid + low) * amp_env;
+
+        samples.push(sample * 0.6);
     }
 
     samples
 }
 
-/// Generate a short impact hit (for transitions)
+/// Generate a heavy impact hit (sub drop + noise burst)
 pub fn generate_impact() -> Vec<f32> {
-    let duration = 0.3;
+    let duration = 1.5; // Longer tail
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
 
     let mut noise_osc = Oscillator::new(Waveform::Noise, 0.0);
-    let mut sine_osc = Oscillator::new(Waveform::Sine, 80.0);
-    let mut filter = LowPassFilter::new(4000.0, 0.8);
+    let mut sub_osc = Oscillator::new(Waveform::Sine, 60.0); // Sub drop start freq
+    let mut filter = LowPassFilter::new(3000.0, 0.8);
 
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
 
-        // Very fast attack, quick decay
-        let amp_env = (-time * 15.0).exp();
+        // Fast attack, long decay
+        let amp_env = (-time * 2.0).exp();
 
-        // Combine low sine (sub) with filtered noise (body)
-        let sub = sine_osc.next_sample() * 0.5;
-        let noise = noise_osc.next_sample() * 0.5;
+        // Pitch drop for sub
+        let sub_freq = 60.0 * (-time * 3.0).exp();
+        sub_osc.frequency = sub_freq;
+
+        let sub = sub_osc.next_sample() * 0.8;
+        let noise = noise_osc.next_sample() * 0.4;
 
         let sample = filter.process(sub + noise) * amp_env;
 
-        samples.push(sample * 0.6); // Reduced from 0.8 to 0.6
+        // Add saturation
+        let distorted = (sample * 1.2).tanh();
+
+        samples.push(distorted * 0.8);
+    }
+
+    samples
+}
+
+/// Generate guitar feedback squeal
+pub fn generate_feedback(duration: f32, freq: f32) -> Vec<f32> {
+    let num_samples = (duration * get_sample_rate() as f32) as usize;
+    let mut samples = Vec::with_capacity(num_samples);
+
+    let mut osc1 = Oscillator::new(Waveform::Sine, freq);
+    let mut osc2 = Oscillator::new(Waveform::Sine, freq * 2.0); // Octave up
+    let mut lfo = Oscillator::new(Waveform::Sine, 6.0); // Vibrato
+
+    for i in 0..num_samples {
+        let time = i as f32 / get_sample_rate() as f32;
+        
+        // Slow fade in
+        let fade_in = (time / (duration * 0.5)).min(1.0);
+        
+        // Vibrato
+        let vibrato = lfo.next_sample() * 5.0;
+        osc1.frequency = freq + vibrato;
+        osc2.frequency = (freq * 2.0) + vibrato;
+
+        let s1 = osc1.next_sample();
+        let s2 = osc2.next_sample() * 0.5;
+
+        let mix = s1 + s2;
+        
+        // Heavy distortion
+        let distorted = (mix * 5.0).tanh();
+
+        samples.push(distorted * fade_in * 0.4);
     }
 
     samples
