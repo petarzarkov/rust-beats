@@ -1,90 +1,51 @@
 [
   {
-    "filename": "2025-11-26_petar_zarkov_golden_motion_magic.mp3",
+    "filename": "2025-11-26_petar_zarkov_cursed_blood_journey.mp3",
     "date": "2025-11-26",
-    "size": 4008645,
-    "name": "Golden Motion Magic",
-    "genre": [
-      "Jazz",
-      "Cafe",
-      "Instrumental"
-    ]
+    "size": 863920,
+    "name": "Cursed Blood Journey",
+    "genre": ["Swamp Metal", "Heavy", "Southern"]
   },
   {
-    "filename": "2025-11-26_petar_zarkov_soulful_stories_journey.mp3",
-    "date": "2025-11-26",
-    "size": 4592325,
-    "name": "Soulful Stories Journey",
-    "genre": [
-      "Electro Swing",
-      "Upbeat"
-    ]
-  },
-  {
-    "filename": "2025-11-26_petar_zarkov_smooth_river_delight.mp3",
-    "date": "2025-11-26",
-    "size": 4929618,
-    "name": "Smooth River Delight",
-    "genre": [
-      "Dubstep",
-      "Electronic"
-    ]
-  },
-  {
-    "filename": "2025-11-25_petar_zarkov_whisper_strut.mp3",
+    "filename": "2025-11-25_petar_zarkov_bog_nightmare.mp3",
     "date": "2025-11-25",
-    "size": 4606118,
-    "name": "Whisper Strut",
-    "genre": [
-      "Dubstep",
-      "Heavy",
-      "Instrumental"
-    ]
+    "size": 863920,
+    "name": "Bog Nightmare",
+    "genre": ["Swamp Metal", "Sludge"]
   },
   {
-    "filename": "2025-11-25_petar_zarkov_streets_vibes.mp3",
-    "date": "2025-11-25",
-    "size": 5796048,
-    "name": "Streets Vibes",
-    "genre": [
-      "Lofi",
-      "Sleep",
-      "Beats"
-    ]
+    "filename": "2025-11-24_petar_zarkov_bleeding_abyss_sensation.mp3",
+    "date": "2025-11-24",
+    "size": 951065,
+    "name": "Bleeding Abyss Sensation",
+    "genre": ["Swamp Metal", "Sludge", "Doom"]
   },
   {
-    "filename": "2025-11-25_petar_zarkov_late_night_stories_fever.mp3",
-    "date": "2025-11-25",
-    "size": 4859401,
-    "name": "Late Night Stories Fever",
-    "genre": [
-      "Hip Hop",
-      "Old School",
-      "Instrumental"
-    ]
+    "filename": "2025-11-23_petar_zarkov_mire_flesh.mp3",
+    "date": "2025-11-23",
+    "size": 902164,
+    "name": "Mire Flesh",
+    "genre": ["Swamp Metal", "Groove", "Heavy"]
   },
   {
-    "filename": "2025-11-25_petar_zarkov_jumpin_cosmos_delight.mp3",
-    "date": "2025-11-25",
-    "size": 2145383,
-    "name": "Jumpin' Cosmos Delight",
-    "genre": [
-      "Dubstep",
-      "Electronic",
-      "Bass",
-      "Instrumental"
-    ]
+    "filename": "2025-11-22_petar_zarkov_ancient_ooze_spell.mp3",
+    "date": "2025-11-22",
+    "size": 937899,
+    "name": "Ancient Ooze Spell",
+    "genre": ["Swamp Metal", "Heavy", "Groove", "Instrumental"]
   },
   {
-    "filename": "2025-11-25_petar_zarkov_hot_celebration_express.mp3",
-    "date": "2025-11-25",
-    "size": 5306408,
-    "name": "Hot Celebration Express",
-    "genre": [
-      "Jazz",
-      "Lounge",
-      "Improv",
-      "Instrumental"
-    ]
+    "filename": "2025-11-21_petar_zarkov_vile_blood_connection.mp3",
+    "date": "2025-11-21",
+    "size": 863920,
+    "name": "Vile Blood Connection",
+    "genre": ["Swamp Metal", "Doom", "Instrumental"]
+  },
+  {
+    "filename": "2025-11-20_petar_zarkov_forgotten_slime_experience.mp3",
+    "date": "2025-11-20",
+    "size": 893386,
+    "name": "Forgotten Slime Experience",
+    "genre": ["Swamp Metal", "Doom", "Southern"]
   }
 ]

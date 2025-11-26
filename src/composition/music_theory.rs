@@ -17,17 +17,18 @@ pub enum ScaleType {
     Minor,
     Dorian,
     Mixolydian,
-    Phrygian,         // Dark, Spanish flavor
+    Phrygian,         // Dark, Spanish flavor - METAL CORE
     Lydian,           // Dreamy, jazzy
     MinorPentatonic,
     MajorPentatonic,
     Blues,
     HarmonicMinor,    // Dramatic, classical
     MelodicMinor,     // Jazz, sophisticated
-    PhrygianDominant, // Exotic, Middle Eastern
+    PhrygianDominant, // Exotic, Middle Eastern - METAL TECH
     WholeTone,        // Dreamy, surreal
     Diminished,       // Tense, jazzy
-    Locrian,          // Very dark, unstable
+    Locrian,          // Very dark, unstable - METAL EXTREME
+    DoubleHarmonicMajor, // Byzantine scale - METAL DJENT/PROG
 }
 
 /// Represents a chord
@@ -87,6 +88,7 @@ impl ScaleType {
             ScaleType::WholeTone => vec![0, 2, 4, 6, 8, 10],
             ScaleType::Diminished => vec![0, 2, 3, 5, 6, 8, 9, 11],
             ScaleType::Locrian => vec![0, 1, 3, 5, 6, 8, 10],
+            ScaleType::DoubleHarmonicMajor => vec![0, 1, 4, 5, 7, 8, 11], // 1, b2, 3, 4, 5, b6, 7
         }
     }
 }
@@ -162,6 +164,31 @@ impl Key {
             }
         }
         notes
+    }
+
+    /// Calculate interval in semitones between two notes
+    pub fn calculate_interval(note_a: MidiNote, note_b: MidiNote) -> u8 {
+        (note_a as i16 - note_b as i16).abs() as u8 % 12
+    }
+
+    /// Check if an interval is dissonant (minor second or tritone)
+    pub fn is_dissonant(note_a: MidiNote, note_b: MidiNote) -> bool {
+        let interval = Self::calculate_interval(note_a, note_b);
+        interval == 1 || interval == 6  // Minor second (b2) or tritone (b5)
+    }
+
+    /// Get dissonance weight for metal riff generation (higher = more dissonant = more metal)
+    pub fn get_dissonance_weight(interval: u8) -> f32 {
+        match interval {
+            1 => 2.0,  // Minor second - very metal
+            6 => 1.8,  // Tritone - the devil's interval
+            2 => 0.5,  // Major second - less interesting
+            3 => 0.3,  // Minor third - consonant
+            4 => 0.2,  // Major third - too happy
+            5 => 1.0,  // Perfect fourth - good for metal
+            7 => 1.2,  // Perfect fifth - power chord foundation
+            _ => 0.5,  // Other intervals
+        }
     }
 }
 

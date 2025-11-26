@@ -1,23 +1,6 @@
-pub mod dynamics;
+// Audio utilities for metal generation
 pub mod encoder;
-pub mod mixer;
-pub mod mixing_presets;
-pub mod renderer;
-pub mod renderers;
-pub mod track_builder;
 pub mod voice;
 
-pub use dynamics::apply_arrangement_dynamics;
+// Core exports
 pub use encoder::encode_to_mp3;
-pub use mixer::{master_lofi, mix_tracks, normalize_loudness, stereo_to_mono, Track};
-pub use mixing_presets::preset_from_str;
-pub use renderer::{render_to_wav_with_metadata, SongMetadata};
-pub use renderers::{
-    add_percussion_track, generate_pads_with_arrangement, render_arranged_bass,
-    render_arranged_drums, render_arranged_melody_with_instrument, render_fx_track,
-};
-pub use track_builder::build_tracks;
-pub use voice::{
-    calculate_voice_timings, generate_voice_segment, mix_with_ducking,
-    select_wisdom_with_chorus, VoiceSegment, WisdomData,
-};

@@ -1,13 +1,18 @@
-pub mod arranger;
-pub mod beat_maker;
-pub mod genre;
+// Metal-focused composition modules
 pub mod music_theory;
-pub mod song_generator;
 pub mod song_names;
+pub mod tuning;         // Guitar tunings for metal
+pub mod rhythm;         // Euclidean and polymetric rhythms
+pub mod riff_generator; // Markov chains and pedal point riff generation
+pub mod fretboard;      // Fretboard pathfinding for playable riffs
+pub mod drum_humanizer; // Drum humanization for realistic metal drums
+pub mod metal_song_generator; // Complete metal song generation
+pub mod bass_generator; // Bass line generation for metal
 
-pub use arranger::{Arrangement, Section};
-pub use beat_maker::{select_preferred_drum_kit, GrooveStyle};
-pub use genre::{get_genre_config, select_random_genre, Genre};
-pub use music_theory::{generate_chord_progression, Key, Tempo};
-pub use song_generator::SongGenerator;
+// Core exports used by main
+pub use music_theory::{Key, Tempo};
 pub use song_names::{generate_genre_tags, generate_song_name};
+pub use metal_song_generator::{MetalSongGenerator, MetalSubgenre};
+
+// Legacy export for compatibility (maps to metal)
+pub use metal_song_generator::Genre;

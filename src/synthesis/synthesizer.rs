@@ -142,8 +142,8 @@ impl Oscillator {
 }
 
 
-
-/// Simple low-pass filter
+/// Low-pass filter for removing high frequencies
+#[derive(Debug, Clone)]
 pub struct LowPassFilter {
     pub cutoff: f32,
     pub resonance: f32,
