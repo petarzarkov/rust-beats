@@ -1,13 +1,13 @@
 [
   {
-    "filename": "2025-11-26_petar_zarkov_golden_motion_magic.mp3",
-    "date": "2025-11-26",
-    "size": 4008645,
-    "name": "Golden Motion Magic",
+    "filename": "2025-11-27_petar_zarkov_cosmic_whisper.mp3",
+    "date": "2025-11-27",
+    "size": 5238699,
+    "name": "Cosmic Whisper",
     "genre": [
       "Jazz",
-      "Cafe",
-      "Instrumental"
+      "Fusion",
+      "Improv"
     ]
   },
   {
@@ -28,6 +28,17 @@
     "genre": [
       "Dubstep",
       "Electronic"
+    ]
+  },
+  {
+    "filename": "2025-11-26_petar_zarkov_golden_motion_magic.mp3",
+    "date": "2025-11-26",
+    "size": 4008645,
+    "name": "Golden Motion Magic",
+    "genre": [
+      "Jazz",
+      "Cafe",
+      "Instrumental"
     ]
   },
   {
@@ -72,18 +83,6 @@
       "Dubstep",
       "Electronic",
       "Bass",
-      "Instrumental"
-    ]
-  },
-  {
-    "filename": "2025-11-25_petar_zarkov_hot_celebration_express.mp3",
-    "date": "2025-11-25",
-    "size": 5306408,
-    "name": "Hot Celebration Express",
-    "genre": [
-      "Jazz",
-      "Lounge",
-      "Improv",
       "Instrumental"
     ]
   }
