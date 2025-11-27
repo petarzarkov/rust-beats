@@ -172,7 +172,8 @@ impl StaminaModel {
 
     /// Apply stamina decay based on hit count
     fn apply_decay(&self, base_velocity: u8, hit_count: usize) -> u8 {
-        let decay_amount = (hit_count / 16) as f32 * self.decay_rate;
+        // Decay starts after 16 hits, so we subtract 1 to make hits 1-16 return base velocity
+        let decay_amount = ((hit_count - 1) / 16) as f32 * self.decay_rate;
         let decayed = base_velocity as f32 - decay_amount;
         decayed.max(self.min_velocity as f32) as u8
     }
