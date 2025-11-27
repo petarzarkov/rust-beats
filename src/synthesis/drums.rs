@@ -1,4 +1,4 @@
-use super::synthesizer::*;
+use crate::utils::get_sample_rate;
 use rand::Rng;
 
 /// Per-song drum sound variation parameters
@@ -20,7 +20,7 @@ impl DrumSoundParams {
         DrumSoundParams {
             kick_pitch_offset: rng.gen_range(-5.0..5.0),
             kick_decay_offset: rng.gen_range(-0.5..0.5),
-            kick_click_amount: rng.gen_range(1.2..1.5), // Boosted click
+            kick_click_amount: rng.gen_range(0.8..1.2), // Reduced from 1.2..1.5 to reduce DnB noise
             snare_freq_offset: rng.gen_range(-10.0..10.0),
             snare_decay_offset: rng.gen_range(-1.0..1.0),
             snare_noise_amount: rng.gen_range(1.0..1.3),
@@ -37,9 +37,8 @@ pub fn generate_kick(amplitude: f32) -> Vec<f32> {
 
 pub fn generate_kick_with_params(amplitude: f32, params: Option<&DrumSoundParams>) -> Vec<f32> {
     let mut rng = rand::thread_rng();
-    let duration = 0.5;
-    // Start higher for that "basketball" click, drop lower for the sub
-    let base_pitch = 55.0; 
+    let duration = 0.4; // Slightly shorter for tighter sound
+    let base_pitch = 60.0; // Higher base for more click
     
     let start_pitch = if let Some(p) = params { base_pitch + p.kick_pitch_offset } else { base_pitch };
     
@@ -49,30 +48,27 @@ pub fn generate_kick_with_params(amplitude: f32, params: Option<&DrumSoundParams
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
 
-        // Pitch envelope: Drastic drop from 180Hz down to 50Hz very quickly
-        let pitch_drop = (-time * 40.0).exp(); 
-        let pitch = start_pitch + (120.0 * pitch_drop);
+        // AGGRESSIVE pitch envelope: Start at 220Hz (beater attack), drop to 45Hz (sub)
+        let pitch_drop = (-time * 50.0).exp(); // Faster drop
+        let pitch = 45.0 + (175.0 * pitch_drop);
 
-        // Amplitude envelope: 
-        let amp_env = (-time * 6.0).exp();
+        // SHARPER amplitude envelope for punch
+        let amp_env = (-time * 8.0).exp();
 
         // Main Body (Sine + Triangle blend for weight)
         let phase = 2.0 * std::f32::consts::PI * pitch * time;
         let body = (phase.sin() * 0.7 + (phase * 0.5).sin().signum() * 0.3) * amp_env;
 
-        // The Click (High pass filtered noise burst)
-        let click_amp = params.map(|p| p.kick_click_amount).unwrap_or(1.0);
-        let click_env = (-time * 80.0).exp(); // Super fast decay
+        // AGGRESSIVE CLICK: Sharp beater attack
+        let click_amp = params.map(|p| p.kick_click_amount).unwrap_or(1.2); 
+        let click_env = (-time * 180.0).exp(); // Very fast decay
         let click = (rng.gen_range(-1.0..1.0)) * click_amp * click_env;
 
+        // More click in the mix for modern metal
         let mut sample = body + click * 0.4;
 
-        // Hard Clipping / Limiting to square it off (The "Thud")
-        sample = (sample * 3.0).tanh(); 
-
-        // Low pass to remove digital harshness from the clip
-        // Simple distinct filter implementation for brevity or use struct if available
-        // ... (Omitting filter state for stateless function, relying on tanh smoothing)
+        // HARD saturation for that "basketball" thud
+        sample = (sample * 4.5).tanh(); 
 
         samples.push(sample * amplitude);
     }
@@ -87,8 +83,8 @@ pub fn generate_snare(amplitude: f32) -> Vec<f32> {
 
 pub fn generate_snare_with_params(amplitude: f32, params: Option<&DrumSoundParams>) -> Vec<f32> {
     let mut rng = rand::thread_rng();
-    let duration = 0.35;
-    let base_freq = 180.0; // Lower fundamental for "fat" snare
+    let duration = 0.3; // Shorter for tighter sound
+    let base_freq = 190.0; // Slightly higher for more crack
     
     let freq = if let Some(p) = params { base_freq + p.snare_freq_offset } else { base_freq };
 
@@ -98,22 +94,22 @@ pub fn generate_snare_with_params(amplitude: f32, params: Option<&DrumSoundParam
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
 
-        // Envelope
-        let amp_env = (-time * 10.0).exp();
+        // SHARPER envelope for more attack
+        let amp_env = (-time * 12.0).exp();
 
         // Tonal Body (Pitch dive)
-        let pitch_mod = 1.0 - (-time * 20.0).exp() * 0.2;
+        let pitch_mod = 1.0 - (-time * 25.0).exp() * 0.3;
         let phase = 2.0 * std::f32::consts::PI * freq * pitch_mod * time;
-        let body = phase.sin() * amp_env * 0.4;
+        let body = phase.sin() * amp_env * 0.35;
 
-        // Noise (Snares) - Broad spectrum
-        let noise_amp = params.map(|p| p.snare_noise_amount).unwrap_or(1.0);
-        let noise = rng.gen_range(-1.0..1.0) * amp_env * 0.8 * noise_amp;
+        // MORE NOISE for aggressive crack
+        let noise_amp = params.map(|p| p.snare_noise_amount).unwrap_or(1.2);
+        let noise = rng.gen_range(-1.0..1.0) * amp_env * 0.9 * noise_amp;
 
         let mut sample = body + noise;
         
-        // Bitcrush-like distortion for that "90s metal sample" feel
-        sample = (sample * 2.5).clamp(-0.9, 0.9);
+        // HARDER clipping for that "gunshot" quality
+        sample = (sample * 3.0).clamp(-0.95, 0.95);
 
         samples.push(sample * amplitude);
     }
@@ -199,5 +195,21 @@ impl MetalDrums {
 
     pub fn generate_hihat(&self, amplitude: f32, open: bool) -> Vec<f32> {
         generate_hihat_with_params(amplitude, open, Some(&self.params))
+    }
+
+    pub fn generate_crash(&self, amplitude: f32) -> Vec<f32> {
+        generate_crash(amplitude)
+    }
+
+    pub fn generate_ride(&self, amplitude: f32) -> Vec<f32> {
+        generate_ride(amplitude)
+    }
+
+    pub fn generate_tom(&self, amplitude: f32) -> Vec<f32> {
+        generate_tom(amplitude)
+    }
+
+    pub fn generate_china(&self, amplitude: f32) -> Vec<f32> {
+        generate_china(amplitude)
     }
 }

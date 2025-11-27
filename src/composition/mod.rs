@@ -10,9 +10,7 @@ pub mod metal_song_generator; // Complete metal song generation
 pub mod bass_generator; // Bass line generation for metal
 
 // Core exports used by main
-pub use music_theory::{Key, Chord, ScaleType};
 pub use song_names::{generate_genre_tags, generate_song_name};
-pub use metal_song_generator::MetalSong;
 pub mod rhythm_generator;
 
 // Legacy export for compatibility (maps to metal)

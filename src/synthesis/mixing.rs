@@ -1,4 +1,4 @@
-use crate::synthesis::synthesizer::get_sample_rate;
+use crate::utils::get_sample_rate;
 
 /// Professional mixing effects for metal music
 /// Includes reverb, EQ, and compression

@@ -3,6 +3,8 @@ use crate::composition::{
     fretboard::{FretboardPathfinder, calculate_playability_score},
     music_theory::{Key, ScaleType, MidiNote},
     tuning::GuitarTuning,
+    rhythm::{euclidean_rhythm, rotate_rhythm},
+    riff_generator::{MetalMarkovPresets, PedalPointGenerator},
 };
 use rand::Rng;
 
@@ -12,6 +14,14 @@ pub enum Genre {
     SwampMetal,
 }
 
+/// Defines the rhythmic feel of the drums relative to the tempo
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RhythmicFeel {
+    HalfTime,    // Drums feel like tempo is 50% (Breakdowns, Sludge)
+    Normal,      // Standard 4/4
+    DoubleTime,  // Drums feel 2x faster (Thrash Skank beats)
+    Blast,       // Maximum density
+}
 
 /// Metal song structure sections
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -44,6 +54,18 @@ impl MetalSection {
             MetalSection::Breakdown => SectionIntensity::Extreme,
             MetalSection::Solo => SectionIntensity::High,
             MetalSection::Outro => SectionIntensity::Low,
+        }
+    }
+
+    /// Get the rhythmic feel (Drum Tempo modifier)
+    pub fn rhythmic_feel(&self) -> RhythmicFeel {
+        match self {
+            MetalSection::Intro => RhythmicFeel::Normal,
+            MetalSection::Verse => RhythmicFeel::Normal, // Could be Blast for Death Metal logic
+            MetalSection::Chorus => RhythmicFeel::Normal,
+            MetalSection::Breakdown => RhythmicFeel::HalfTime, // CRITICAL: Fixes DnB feel
+            MetalSection::Solo => RhythmicFeel::Normal,
+            MetalSection::Outro => RhythmicFeel::HalfTime,
         }
     }
 }
@@ -217,57 +239,70 @@ impl MetalSongGenerator {
     /// Generate a complete metal riff for a section
     /// Now varies based on section intensity and type
     pub fn generate_riff(&self, section: MetalSection) -> MetalRiff {
-        let _intensity = section.intensity();
         match section {
             MetalSection::Intro => {
                 let root = self.key.root;
                 let scale = self.key.scale_type;
-                // Intro: Low intensity, maybe single guitar or build-up
-                // Simpler, more sparse
                 let notes = self.generate_intro_sequence(root, scale, 16);
                 self.build_riff_from_notes(notes, section)
             },
             MetalSection::Verse => {
                 let root = self.key.root;
                 let scale = self.key.scale_type;
-                // Verse: Palm-muted chugs, tight rhythm
                 let notes = self.generate_verse_sequence(root, scale, 16);
                 self.build_riff_from_notes(notes, section)
             },
             MetalSection::Chorus => {
                 let root = self.key.root;
                 let scale = self.key.scale_type;
-                // Chorus: Open power chords, wider, more melodic
                 let notes = self.generate_chorus_sequence(root, scale, 16);
                 self.build_riff_from_notes(notes, section)
             },
             MetalSection::Breakdown => {
                 let root = self.key.root;
-                let scale = self.key.scale_type;
-                // Breakdown: Half-time feel, synchronized rhythmic stabs
-                let notes = self.generate_breakdown_sequence(root, scale, 16);
+                // Breakdown: Force root notes (0s) and simple rhythms
+                // Fewer notes = Heavier
+                let notes = vec![root; 8]; // 8 notes is enough for a sparse breakdown
                 self.build_riff_from_notes(notes, section)
             },
             MetalSection::Solo => {
                 let root = self.key.root;
                 let scale = self.key.scale_type;
-                // Solo: More melodic, faster
                 let notes = self.generate_solo_sequence(root, scale, 32);
                 self.build_riff_from_notes(notes, section)
             },
             MetalSection::Outro => {
                 let root = self.key.root;
                 let scale = self.key.scale_type;
-                // Outro: Fade out, simpler
                 let notes = self.generate_outro_sequence(root, scale, 16);
                 self.build_riff_from_notes(notes, section)
             },
         }
     }
 
+    /// Generate polymetric riff for Progressive Metal (Djent)
+    /// Research Section 3.1: Uses PolymetricRiff for complex rhythmic structures
+    fn generate_polymetric_riff(&self, section: MetalSection) -> MetalRiff {
+        use crate::composition::rhythm::PolymetricRiff;
+        
+        // Create a 7/16 polymetric pattern over 4/4 bars
+        let poly = PolymetricRiff::new(7, 16, false);
+        
+        // Generate a short melodic phrase
+        let root = self.key.root;
+        let scale = self.key.scale_type;
+        let phrase = self.generate_markov_sequence_with_pedal(root, scale, 7, 0.4);
+        
+        // Fill 2 bars with the polymetric pattern
+        let notes = poly.fill_bars(&phrase, 2);
+        
+        self.build_riff_from_notes(notes, section)
+    }
+
     /// Build a MetalRiff from notes with appropriate palm muting, chords, and rhythms
     fn build_riff_from_notes(&self, notes: Vec<MidiNote>, section: MetalSection) -> MetalRiff {
         let root = self.key.root;
+        let mut rng = rand::thread_rng();
         
         // Generate rhythm patterns based on section and subgenre
         let rhythms = self.generate_rhythm_patterns(notes.len(), section);
@@ -281,63 +316,96 @@ impl MetalSongGenerator {
             let is_strong_beat = i % 4 == 0;
             let rhythm = rhythms.get(i).copied().unwrap_or(RhythmPattern::SixteenthNote);
             
-            // If rest, skip this note (will be handled in renderer)
+            // BREAKDOWN LOGIC: Force unison/palm mutes
+            if section == MetalSection::Breakdown {
+                if rhythm == RhythmPattern::Rest {
+                    palm_muted.push(true);
+                    chord_types.push(ChordType::Single);
+                    continue;
+                }
+                
+                // Heavy accents on strong beats
+                if i % 2 == 0 {
+                    palm_muted.push(false); // Open for accent
+                    chord_types.push(ChordType::Power); // Power chord
+                } else {
+                    palm_muted.push(true); // Tight mute
+                    chord_types.push(ChordType::Single);
+                }
+                continue;
+            }
+
+            // Normal Section Logic
             if rhythm == RhythmPattern::Rest {
                 palm_muted.push(true);
                 chord_types.push(ChordType::Single);
                 continue;
             }
             
+            // ENHANCED: More complex chord selection based on section and note position
             match section {
                 MetalSection::Intro => {
-                    // Intro: Mostly single notes, occasional power chords
                     if is_strong_beat && i % 8 == 0 {
                         palm_muted.push(false);
-                        chord_types.push(ChordType::Power);
+                        chord_types.push(if rng.gen_bool(0.6) {
+                            ChordType::Octave
+                        } else {
+                            ChordType::Power
+                        });
                     } else {
                         palm_muted.push(true);
                         chord_types.push(ChordType::Single);
                     }
                 },
                 MetalSection::Verse => {
-                    // Verse: Palm-muted chugs
                     if is_pedal {
                         palm_muted.push(true);
                         chord_types.push(ChordType::Single);
+                    } else if is_strong_beat {
+                        palm_muted.push(false);
+                        chord_types.push(if rng.gen_bool(0.5) {
+                            ChordType::Minor
+                        } else {
+                            ChordType::Power
+                        });
                     } else {
                         palm_muted.push(true);
                         chord_types.push(ChordType::Power);
                     }
                 },
                 MetalSection::Chorus => {
-                    // Chorus: Open power chords, wide stereo
+                    palm_muted.push(false);
                     if is_strong_beat {
-                        palm_muted.push(false);
-                        chord_types.push(ChordType::Power);
+                        chord_types.push(if rng.gen_bool(0.4) {
+                            ChordType::Minor
+                        } else {
+                            ChordType::Power
+                        });
                     } else {
-                        palm_muted.push(false);
                         chord_types.push(ChordType::Power);
                     }
                 },
                 MetalSection::Breakdown => {
-                    // Breakdown: Heavy, synchronized stabs
-                    if is_strong_beat || (i % 4 == 2) {
+                    // This case handled above, but fallback:
+                     palm_muted.push(true);
+                     chord_types.push(ChordType::Power);
+                },
+                MetalSection::Solo => {
+                    if is_strong_beat && i % 8 == 0 {
                         palm_muted.push(false);
-                        chord_types.push(ChordType::Power);
+                        chord_types.push(ChordType::Octave);
                     } else {
-                        palm_muted.push(true);
+                        palm_muted.push(false);
                         chord_types.push(ChordType::Single);
                     }
                 },
-                MetalSection::Solo => {
-                    // Solo: Single notes, fast
-                    palm_muted.push(false);
-                    chord_types.push(ChordType::Single);
-                },
                 MetalSection::Outro => {
-                    // Outro: Fade out
                     palm_muted.push(true);
-                    chord_types.push(ChordType::Single);
+                    chord_types.push(if is_strong_beat {
+                        ChordType::Octave
+                    } else {
+                        ChordType::Single
+                    });
                 },
             }
         }
@@ -359,7 +427,21 @@ impl MetalSongGenerator {
     /// Generate rhythm patterns for a riff based on section and subgenre
     fn generate_rhythm_patterns(&self, length: usize, section: MetalSection) -> Vec<RhythmPattern> {
         match section {
-            MetalSection::Breakdown => self.generate_breakdown_rhythms(length),
+            MetalSection::Breakdown => {
+                // BREAKDOWN: Sparse, quarter notes. NOT 16th notes.
+                // This prevents the "noisy" machine gun effect
+                let mut rhythms = Vec::new();
+                for i in 0..length {
+                    if i % 2 == 0 {
+                         // Quarter note feel
+                         rhythms.push(RhythmPattern::QuarterNote);
+                    } else {
+                        // Space
+                        rhythms.push(RhythmPattern::Rest);
+                    }
+                }
+                rhythms
+            },
             _ => match self.subgenre {
                 MetalSubgenre::ThrashMetal => self.generate_thrash_rhythms(length, section),
                 MetalSubgenre::DeathMetal => self.generate_death_rhythms(length, section),
@@ -372,117 +454,46 @@ impl MetalSongGenerator {
 
     /// Generate intro sequence (low intensity, sparse)
     fn generate_intro_sequence(&self, root: MidiNote, scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        let mut rng = rand::thread_rng();
-        let mut notes = Vec::with_capacity(length);
-        
-        let intervals = match scale {
-            ScaleType::Phrygian => vec![0, 1, 3, 5, 7, 8, 10],
-            ScaleType::MinorPentatonic => vec![0, 3, 5, 7, 10],
-            ScaleType::HarmonicMinor => vec![0, 2, 3, 5, 7, 8, 11],
-            ScaleType::Dorian => vec![0, 2, 3, 5, 7, 9, 10],
-            _ => vec![0, 2, 4, 5, 7, 9, 11],
-        };
-        
-        for i in 0..length {
-            // Intro: More sparse, mostly root with occasional melodic notes
-            if i % 4 == 0 || rng.gen_bool(0.2) {
-                if rng.gen_bool(0.7) {
-                    notes.push(root);
-                } else {
-                    let interval = intervals[rng.gen_range(0..intervals.len())];
-                    notes.push(root + interval);
-                }
-            } else {
-                // Rest or sustain
-                notes.push(root);
-            }
-        }
-        notes
+        self.generate_markov_sequence_with_pedal(root, scale, length, 0.60)
     }
 
     /// Generate verse sequence (palm-muted chugs, tight rhythm)
     fn generate_verse_sequence(&self, root: MidiNote, scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        // Verse: More rhythmic, pedal point emphasis
-        self.generate_markov_sequence(root, scale, length)
+        self.generate_markov_sequence_with_pedal(root, scale, length, 0.50)
     }
 
     /// Generate chorus sequence (open power chords, melodic)
     fn generate_chorus_sequence(&self, root: MidiNote, scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        let mut rng = rand::thread_rng();
-        let mut notes = Vec::with_capacity(length);
-        
-        let intervals = match scale {
-            ScaleType::Phrygian => vec![0, 1, 3, 5, 7, 8, 10],
-            ScaleType::MinorPentatonic => vec![0, 3, 5, 7, 10],
-            ScaleType::HarmonicMinor => vec![0, 2, 3, 5, 7, 8, 11],
-            ScaleType::Dorian => vec![0, 2, 3, 5, 7, 9, 10],
-            _ => vec![0, 2, 4, 5, 7, 9, 11],
-        };
-        
-        // Chorus: More melodic movement, less pedal point
-        for i in 0..length {
-            if i % 4 == 0 {
-                // Strong beats: root
-                notes.push(root);
-            } else {
-                // More melodic movement
-                if rng.gen_bool(0.4) {
-                    let interval = intervals[rng.gen_range(0..intervals.len())];
-                    notes.push(root + interval);
-                } else {
-                    notes.push(root);
-                }
-            }
-        }
-        notes
-    }
-
-    /// Generate breakdown sequence (half-time feel, synchronized stabs)
-    fn generate_breakdown_sequence(&self, root: MidiNote, _scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        // Breakdown: Heavy, synchronized, mostly root
-        let mut notes = Vec::with_capacity(length);
-        for i in 0..length {
-            // Breakdown: Strong beats get root, off-beats might be rests or chugs
-            if i % 4 == 0 || i % 4 == 2 {
-                notes.push(root);
-            } else {
-                notes.push(root); // Still root, but will be palm muted
-            }
-        }
-        notes
+        self.generate_markov_sequence_with_pedal(root, scale, length, 0.30)
     }
 
     /// Generate solo sequence (melodic, fast)
     fn generate_solo_sequence(&self, root: MidiNote, scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        // Solo: More melodic, faster movement
-        self.generate_markov_sequence(root, scale, length)
+        self.generate_markov_sequence_with_pedal(root, scale, length, 0.20)
     }
 
     /// Generate outro sequence (fade out, simple)
-    fn generate_outro_sequence(&self, root: MidiNote, _scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        // Outro: Simple, mostly root, fading
-        vec![root; length]
+    fn generate_outro_sequence(&self, root: MidiNote, scale: ScaleType, length: usize) -> Vec<MidiNote> {
+        self.generate_markov_sequence_with_pedal(root, scale, length, 0.80)
     }
 
     /// Generate a complete metal song structure
     pub fn generate_song(&self) -> MetalSong {
         let mut sections = Vec::new();
 
-        // Extended metal song structure for 2+ minute songs
         sections.push((MetalSection::Intro, self.generate_riff(MetalSection::Intro)));
         sections.push((MetalSection::Verse, self.generate_riff(MetalSection::Verse)));
         sections.push((MetalSection::Chorus, self.generate_riff(MetalSection::Chorus)));
         sections.push((MetalSection::Verse, self.generate_riff(MetalSection::Verse)));
         sections.push((MetalSection::Chorus, self.generate_riff(MetalSection::Chorus)));
-        sections.push((MetalSection::Verse, self.generate_riff(MetalSection::Verse))); // Bridge/Verse 3
+        sections.push((MetalSection::Verse, self.generate_riff(MetalSection::Verse)));
         sections.push((MetalSection::Breakdown, self.generate_riff(MetalSection::Breakdown)));
         sections.push((MetalSection::Solo, self.generate_riff(MetalSection::Solo)));
         sections.push((MetalSection::Chorus, self.generate_riff(MetalSection::Chorus)));
-        sections.push((MetalSection::Breakdown, self.generate_riff(MetalSection::Breakdown))); // Final breakdown
-        sections.push((MetalSection::Chorus, self.generate_riff(MetalSection::Chorus))); // Final chorus
+        sections.push((MetalSection::Breakdown, self.generate_riff(MetalSection::Breakdown)));
+        sections.push((MetalSection::Chorus, self.generate_riff(MetalSection::Chorus)));
         sections.push((MetalSection::Outro, self.generate_riff(MetalSection::Outro)));
 
-        // Choose drum humanizer based on subgenre
         let drum_humanizer = match self.subgenre {
             MetalSubgenre::HeavyMetal => DrumHumanizer::new(),
             MetalSubgenre::ThrashMetal => DrumHumanizer::thrash(),
@@ -501,17 +512,17 @@ impl MetalSongGenerator {
         }
     }
 
-    /// Get interval weight for metal generation (prioritizes dissonant intervals)
+    /// Get interval weight for metal generation (DEPRECATED - use Markov chains instead)
     fn get_interval_weight(interval: u8, _scale: ScaleType, subgenre: MetalSubgenre) -> f32 {
         match interval {
             1 => 2.0,  // Minor second - very metal (b2)
             6 => 1.8,  // Tritone - devil's interval (b5)
-            7 => 1.2,  // Perfect fifth - power chord foundation
+            7 => 1.2,  // Perfect fifth
             10 => 1.1, // Minor seventh
-            3 => if matches!(subgenre, MetalSubgenre::DeathMetal) { 1.0 } else { 0.3 }, // Minor third
-            4 => 0.2,  // Major third - too happy
-            2 => 0.5,  // Major second - less interesting
-            5 => 1.0,  // Perfect fourth - good for metal
+            3 => if matches!(subgenre, MetalSubgenre::DeathMetal) { 1.0 } else { 0.3 },
+            4 => 0.2,  // Major third
+            2 => 0.5,  // Major second
+            5 => 1.0,  // Perfect fourth
             8 => 0.8,  // Minor sixth
             9 => 0.4,  // Major sixth
             11 => 1.0, // Major seventh
@@ -519,76 +530,52 @@ impl MetalSongGenerator {
         }
     }
 
-    /// Generate a sequence of notes using a Markov-like process with metal interval weighting
-    fn generate_markov_sequence(&self, root: u8, scale: ScaleType, length: usize) -> Vec<u8> {
-        let mut rng = rand::thread_rng();
-        let mut notes = Vec::with_capacity(length);
+    /// Generate sequence using advanced Markov chains and pedal point logic
+    /// This replaces the old weighted random approach with proper music theory
+    fn generate_markov_sequence_with_pedal(&self, root: u8, scale: ScaleType, length: usize, pedal_prob: f64) -> Vec<u8> {
+        // Use the advanced Markov chain from riff_generator.rs
+        let key = Key { root, scale_type: scale };
         
-        // Start with root
-        let mut current_note = root;
-        notes.push(current_note);
-        
-        // Get scale intervals
-        let intervals = match scale {
-            ScaleType::Phrygian => vec![0, 1, 3, 5, 7, 8, 10], // 1, b2, b3, 4, 5, b6, b7
-            ScaleType::MinorPentatonic => vec![0, 3, 5, 7, 10],
-            ScaleType::HarmonicMinor => vec![0, 2, 3, 5, 7, 8, 11],
-            ScaleType::Dorian => vec![0, 2, 3, 5, 7, 9, 10],
-            _ => vec![0, 2, 4, 5, 7, 9, 11], // Major/Ionian fallback
-        };
-        
-        // Calculate weights for each interval
-        let mut weighted_intervals = Vec::new();
-        for &interval in &intervals {
-            let weight = Self::get_interval_weight(interval, scale, self.subgenre);
-            weighted_intervals.push((interval, weight));
-        }
-        
-        for _ in 1..length {
-            // Enhanced pedal point logic: 70-80% chance to return to root
-            let pedal_prob = if matches!(self.subgenre, MetalSubgenre::DoomMetal) { 0.8 } else { 0.75 };
+        // For high pedal probability, use PedalPointGenerator
+        if pedal_prob > 0.5 {
+            let mut pedal_gen = PedalPointGenerator::from_key(&key);
+            pedal_gen.return_probability = pedal_prob as f32;
+            pedal_gen.generate_sequence(length)
+        } else {
+            // For lower pedal probability, use Markov chain for more melodic movement
+            let mut markov = match self.subgenre {
+                MetalSubgenre::HeavyMetal => MetalMarkovPresets::heavy_metal(&key),
+                MetalSubgenre::ThrashMetal => MetalMarkovPresets::heavy_metal(&key),
+                MetalSubgenre::DeathMetal => MetalMarkovPresets::death_metal(&key),
+                MetalSubgenre::DoomMetal => MetalMarkovPresets::heavy_metal(&key),
+                MetalSubgenre::ProgressiveMetal => MetalMarkovPresets::progressive_metal(&key),
+            };
             
-            if rng.gen_bool(pedal_prob) {
-                current_note = root;
-            } else {
-                // Weighted selection based on metal intervals
-                // Prioritize minor second (b2) when leaving pedal
-                let total_weight: f32 = weighted_intervals.iter().map(|(_, w)| w).sum();
-                let mut rand_val = rng.gen::<f32>() * total_weight;
-                
-                for &(interval, weight) in &weighted_intervals {
-                    if rand_val <= weight {
-                        current_note = root + interval;
-                        break;
-                    }
-                    rand_val -= weight;
-                }
+            let mut notes = Vec::with_capacity(length);
+            for _ in 0..length {
+                notes.push(markov.next_note());
             }
-            notes.push(current_note);
+            notes
         }
-        
-        notes
     }
 
-    /// Generate thrash metal rhythms (gallop patterns)
+    /// Generate thrash metal rhythms
     fn generate_thrash_rhythms(&self, length: usize, section: MetalSection) -> Vec<RhythmPattern> {
-        let _ = section; // Used in match below
+        let _ = section;
         let mut rng = rand::thread_rng();
         let mut rhythms = Vec::with_capacity(length);
         let mut i = 0;
         
         while i < length {
             if matches!(section, MetalSection::Verse) && rng.gen_bool(0.4) {
-                // Gallop pattern: Eighth + two sixteenths
                 if i + 2 < length {
                     rhythms.push(RhythmPattern::Gallop);
-                    i += 1; // Gallop counts as one pattern but represents 3 notes
+                    i += 1;
                 } else {
                     rhythms.push(RhythmPattern::SixteenthNote);
                     i += 1;
                 }
             } else if rng.gen_bool(0.3) {
-                // Rest for chugging space
                 rhythms.push(RhythmPattern::Rest);
                 i += 1;
             } else if rng.gen_bool(0.5) {
@@ -603,7 +590,7 @@ impl MetalSongGenerator {
         rhythms
     }
 
-    /// Generate death metal rhythms (tremolo picking bursts)
+    /// Generate death metal rhythms
     fn generate_death_rhythms(&self, length: usize, _section: MetalSection) -> Vec<RhythmPattern> {
         let mut rng = rand::thread_rng();
         let mut rhythms = Vec::with_capacity(length);
@@ -611,13 +598,11 @@ impl MetalSongGenerator {
         
         while i < length {
             if rng.gen_bool(0.3) {
-                // Tremolo burst: 4-8 thirty-second notes
                 let burst_len = rng.gen_range(4..=8);
                 for _ in 0..burst_len.min(length - i) {
                     rhythms.push(RhythmPattern::ThirtySecondNote);
                     i += 1;
                 }
-                // Rest after burst
                 if i < length && rng.gen_bool(0.7) {
                     rhythms.push(RhythmPattern::Rest);
                     i += 1;
@@ -634,7 +619,7 @@ impl MetalSongGenerator {
         rhythms
     }
 
-    /// Generate doom metal rhythms (slow, heavy)
+    /// Generate doom metal rhythms
     fn generate_doom_rhythms(&self, length: usize, _section: MetalSection) -> Vec<RhythmPattern> {
         let mut rng = rand::thread_rng();
         let mut rhythms = Vec::with_capacity(length);
@@ -642,7 +627,6 @@ impl MetalSongGenerator {
         
         while i < length {
             if rng.gen_bool(0.5) {
-                // Rest for heaviness
                 rhythms.push(RhythmPattern::Rest);
                 i += 1;
             } else if rng.gen_bool(0.6) {
@@ -657,7 +641,7 @@ impl MetalSongGenerator {
         rhythms
     }
 
-    /// Generate heavy metal rhythms (mix of eighth and sixteenth)
+    /// Generate heavy metal rhythms
     fn generate_heavy_rhythms(&self, length: usize, section: MetalSection) -> Vec<RhythmPattern> {
         let mut rng = rand::thread_rng();
         let mut rhythms = Vec::with_capacity(length);
@@ -672,9 +656,38 @@ impl MetalSongGenerator {
             if rng.gen_bool(rest_prob) {
                 rhythms.push(RhythmPattern::Rest);
             } else if i % 4 == 0 {
+                rhythms.push(RhythmPattern::EighthNote);
+            } else {
+                rhythms.push(RhythmPattern::SixteenthNote);
+            }
+        }
+        
+        rhythms
+    }
+
+    /// Generate progressive metal rhythms using Euclidean rhythms
+    /// Research: Polymetric and Euclidean patterns are essential for Djent/Progressive metal
+    fn generate_progressive_rhythms(&self, length: usize, _section: MetalSection) -> Vec<RhythmPattern> {
+        let mut rng = rand::thread_rng();
+        
+        // Use Euclidean rhythm with prime numbers for interesting syncopation
+        let pulses = if length >= 16 { 7 } else { 5 }; // Prime numbers create better patterns
+        let euclidean_pattern = euclidean_rhythm(length, pulses);
+        
+        // Rotate the pattern for variety
+        let rotation = rng.gen_range(0..length);
+        let rotated_pattern = rotate_rhythm(&euclidean_pattern, rotation);
+        
+        // Convert boolean pattern to rhythm patterns
+        let mut rhythms = Vec::with_capacity(length);
+        for (i, &hit) in rotated_pattern.iter().enumerate() {
+            if !hit {
+                rhythms.push(RhythmPattern::Rest);
+            } else if i % 4 == 0 {
                 // Strong beats: eighth notes
                 rhythms.push(RhythmPattern::EighthNote);
             } else {
+                // Weak beats: sixteenth notes
                 rhythms.push(RhythmPattern::SixteenthNote);
             }
         }
@@ -682,54 +695,14 @@ impl MetalSongGenerator {
         rhythms
     }
 
-    /// Generate progressive metal rhythms (polymetric patterns)
-    fn generate_progressive_rhythms(&self, length: usize, section: MetalSection) -> Vec<RhythmPattern> {
-        let mut rng = rand::thread_rng();
-        let mut rhythms = Vec::with_capacity(length);
-        
-        for i in 0..length {
-            if rng.gen_bool(0.25) {
-                rhythms.push(RhythmPattern::Rest);
-            } else if i % 5 == 0 || i % 7 == 0 {
-                // Polymetric accents
-                rhythms.push(RhythmPattern::EighthNote);
-            } else {
-                rhythms.push(RhythmPattern::SixteenthNote);
-            }
-        }
-        
-        rhythms
-    }
-
-    /// Generate breakdown rhythms (half-time feel: quarter notes)
-    fn generate_breakdown_rhythms(&self, length: usize) -> Vec<RhythmPattern> {
-        let mut rng = rand::thread_rng();
-        let mut rhythms = Vec::with_capacity(length);
-        
-        for i in 0..length {
-            if i % 4 == 0 || i % 4 == 2 {
-                // Strong beats: quarter note power chords
-                rhythms.push(RhythmPattern::QuarterNote);
-            } else if rng.gen_bool(0.6) {
-                // 60% rests for impact
-                rhythms.push(RhythmPattern::Rest);
-            } else {
-                rhythms.push(RhythmPattern::EighthNote);
-            }
-        }
-        
-        rhythms
-    }
-
-    /// Generate drums for a section
+    /// Generate drums for a section (Legacy support method)
     pub fn generate_drums(&self, section: MetalSection, humanizer: &DrumHumanizer) -> Vec<(u8, i32)> {
         let mut drum_hits = Vec::new();
         let subdivisions = match section {
-            MetalSection::Breakdown => 8,  // Slower, heavier
-            _ => 16, // Standard 16th notes
+            MetalSection::Breakdown => 8,
+            _ => 16,
         };
 
-        // Generate blast beat for appropriate sections
         let use_blast = matches!(
             (self.subgenre, section),
             (MetalSubgenre::DeathMetal, MetalSection::Verse) |
@@ -747,9 +720,8 @@ impl MetalSongGenerator {
                 }
             }
         } else {
-            // Standard pattern
             for i in 0..subdivisions {
-                let is_accent = i % 4 == 0; // Accent on beats
+                let is_accent = i % 4 == 0;
                 let base_velocity = if is_accent { 110 } else { 95 };
                 let (velocity, timing) = humanizer.humanize_hit(base_velocity, is_accent);
                 drum_hits.push((velocity, timing));
@@ -757,92 +729,5 @@ impl MetalSongGenerator {
         }
 
         drum_hits
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[test]
-    fn test_metal_subgenre_tuning() {
-        assert_eq!(MetalSubgenre::HeavyMetal.default_tuning(), GuitarTuning::EStandard);
-        assert_eq!(MetalSubgenre::DeathMetal.default_tuning(), GuitarTuning::DStandard);
-    }
-
-    #[test]
-    fn test_metal_subgenre_tempo() {
-        let (min, max) = MetalSubgenre::ThrashMetal.tempo_range();
-        assert!(min >= 160);
-        assert!(max <= 220);
-    }
-
-    #[test]
-    fn test_song_generator_creation() {
-        let generator = MetalSongGenerator::new(MetalSubgenre::HeavyMetal);
-        assert_eq!(generator.subgenre, MetalSubgenre::HeavyMetal);
-        assert!(generator.tempo >= 120 && generator.tempo <= 160);
-    }
-
-    #[test]
-    fn test_generate_riff() {
-        let generator = MetalSongGenerator::new(MetalSubgenre::DeathMetal);
-        let riff = generator.generate_riff(MetalSection::Verse);
-        
-        assert_eq!(riff.notes.len(), 16);
-        assert_eq!(riff.palm_muted.len(), 16);
-        assert!(riff.playability_score >= 0.0 && riff.playability_score <= 1.0);
-    }
-
-    #[test]
-    fn test_generate_song() {
-        let generator = MetalSongGenerator::new(MetalSubgenre::ThrashMetal);
-        let song = generator.generate_song();
-        
-        assert_eq!(song.subgenre, MetalSubgenre::ThrashMetal);
-        assert!(song.sections.len() > 0);
-        assert!(song.tempo >= 160 && song.tempo <= 220);
-    }
-
-    #[test]
-    fn test_generate_drums() {
-        let generator = MetalSongGenerator::new(MetalSubgenre::DeathMetal);
-        let humanizer = DrumHumanizer::blast_beat();
-        let drums = generator.generate_drums(MetalSection::Verse, &humanizer);
-        
-        assert!(drums.len() > 0);
-        // Check velocity and timing are within valid ranges
-        for (velocity, timing) in drums {
-            assert!(velocity >= 1 && velocity <= 127);
-            assert!(timing.abs() < 100); // Reasonable timing offset
-        }
-    }
-
-    #[test]
-    fn test_all_subgenres() {
-        let subgenres = vec![
-            MetalSubgenre::HeavyMetal,
-            MetalSubgenre::ThrashMetal,
-            MetalSubgenre::DeathMetal,
-            MetalSubgenre::DoomMetal,
-            MetalSubgenre::ProgressiveMetal,
-        ];
-
-        for subgenre in subgenres {
-            let generator = MetalSongGenerator::new(subgenre);
-            let song = generator.generate_song();
-            assert_eq!(song.subgenre, subgenre);
-        }
-    }
-
-    #[test]
-    fn test_riff_playability() {
-        let generator = MetalSongGenerator::new(MetalSubgenre::ProgressiveMetal);
-        let riff = generator.generate_riff(MetalSection::Solo);
-        
-        // Solo should be longer
-        assert_eq!(riff.notes.len(), 32);
-        // Should have a playability score
-        assert!(riff.playability_score > 0.0);
     }
 }

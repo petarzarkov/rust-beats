@@ -1,4 +1,4 @@
-use crate::synthesis::synthesizer::get_sample_rate;
+use crate::utils::get_sample_rate;
 
 /// Advanced distortion with tube-style waveshaping and oversampling
 /// Based on research: tanh for tube emulation, oversampling to prevent aliasing
@@ -163,6 +163,220 @@ impl NoiseGate {
     }
 }
 
+// ============================================================================
+// EQ and Filter Components
+// ============================================================================
+
+/// Simple high-pass filter (1-pole)
+#[derive(Debug, Clone)]
+struct SimpleHighPass {
+    prev_input: f32,
+    prev_output: f32,
+    alpha: f32,
+}
+
+impl SimpleHighPass {
+    fn new(cutoff_hz: f32) -> Self {
+        let sample_rate = get_sample_rate() as f32;
+        let rc = 1.0 / (2.0 * std::f32::consts::PI * cutoff_hz);
+        let dt = 1.0 / sample_rate;
+        let alpha = rc / (rc + dt);
+
+        SimpleHighPass {
+            prev_input: 0.0,
+            prev_output: 0.0,
+            alpha,
+        }
+    }
+
+    fn process(&mut self, input: f32) -> f32 {
+        let output = self.alpha * (self.prev_output + input - self.prev_input);
+        self.prev_input = input;
+        self.prev_output = output;
+        output
+    }
+}
+
+/// Simple low-pass filter (1-pole)
+#[derive(Debug, Clone)]
+struct SimpleLowPass {
+    prev_output: f32,
+    alpha: f32,
+}
+
+impl SimpleLowPass {
+    fn new(cutoff_hz: f32) -> Self {
+        let sample_rate = get_sample_rate() as f32;
+        let rc = 1.0 / (2.0 * std::f32::consts::PI * cutoff_hz);
+        let dt = 1.0 / sample_rate;
+        let alpha = dt / (rc + dt);
+
+        SimpleLowPass {
+            prev_output: 0.0,
+            alpha,
+        }
+    }
+
+    fn process(&mut self, input: f32) -> f32 {
+        let output = self.prev_output + self.alpha * (input - self.prev_output);
+        self.prev_output = output;
+        output
+    }
+}
+
+/// Simple peaking EQ (boost/cut at frequency)
+#[derive(Debug, Clone)]
+struct SimplePeaking {
+    gain: f32,
+}
+
+impl SimplePeaking {
+    fn new(_freq_hz: f32, gain: f32) -> Self {
+        // Simplified: just apply gain (proper implementation would use biquad)
+        SimplePeaking { gain }
+    }
+
+    fn process(&self, input: f32) -> f32 {
+        input * self.gain
+    }
+}
+
+/// Simple high-shelf filter
+#[derive(Debug, Clone)]
+struct SimpleHighShelf {
+    gain: f32,
+}
+
+impl SimpleHighShelf {
+    fn new(_freq_hz: f32, gain: f32) -> Self {
+        // Simplified: just apply gain (proper implementation would use biquad)
+        SimpleHighShelf { gain }
+    }
+
+    fn process(&self, input: f32) -> f32 {
+        input * self.gain
+    }
+}
+
+/// Pre-gain EQ for shaping tone before distortion
+/// Boosts mids, cuts mud
+#[derive(Debug, Clone)]
+pub struct PreGainEQ {
+    high_pass: SimpleHighPass,
+    mid_boost: SimplePeaking,
+}
+
+impl PreGainEQ {
+    pub fn new() -> Self {
+        PreGainEQ {
+            high_pass: SimpleHighPass::new(80.0), // Remove mud
+            mid_boost: SimplePeaking::new(1400.0, 1.5), // Djent "quack"
+        }
+    }
+
+    pub fn process(&mut self, sample: f32) -> f32 {
+        let sample = self.high_pass.process(sample);
+        self.mid_boost.process(sample)
+    }
+
+    pub fn process_buffer(&mut self, buffer: &mut [f32]) {
+        for sample in buffer.iter_mut() {
+            *sample = self.process(*sample);
+        }
+    }
+}
+
+/// Post-distortion EQ for presence and air
+#[derive(Debug, Clone)]
+pub struct PostDistortionEQ {
+    presence: SimplePeaking,
+    air: SimpleHighShelf,
+    low_pass: SimpleLowPass,
+}
+
+impl PostDistortionEQ {
+    pub fn new() -> Self {
+        PostDistortionEQ {
+            presence: SimplePeaking::new(4000.0, 1.3), // Clarity
+            air: SimpleHighShelf::new(8000.0, 1.2),     // Brightness
+            low_pass: SimpleLowPass::new(12000.0),      // Smooth harshness
+        }
+    }
+
+    pub fn process(&mut self, sample: f32) -> f32 {
+        let sample = self.presence.process(sample);
+        let sample = self.air.process(sample);
+        self.low_pass.process(sample)
+    }
+
+    pub fn process_buffer(&mut self, buffer: &mut [f32]) {
+        for sample in buffer.iter_mut() {
+            *sample = self.process(*sample);
+        }
+    }
+}
+
+// ============================================================================
+// Unified Metal DSP Chain
+// ============================================================================
+
+/// Complete metal DSP chain combining all processing stages
+/// Signal flow: Noise Gate → Pre-EQ → Distortion (with oversampling) → Post-EQ
+#[derive(Debug, Clone)]
+pub struct MetalDSPChain {
+    noise_gate: NoiseGate,
+    pre_eq: PreGainEQ,
+    distortion: TubeDistortion,
+    post_eq: PostDistortionEQ,
+}
+
+impl MetalDSPChain {
+    /// Create a new metal DSP chain with specified drive
+    pub fn new(drive: f32) -> Self {
+        MetalDSPChain {
+            noise_gate: NoiseGate::metal(),
+            pre_eq: PreGainEQ::new(),
+            distortion: TubeDistortion::new(drive, 1.0),
+            post_eq: PostDistortionEQ::new(),
+        }
+    }
+
+    /// Metal preset: balanced heavy tone
+    pub fn metal() -> Self {
+        MetalDSPChain {
+            noise_gate: NoiseGate::metal(),
+            pre_eq: PreGainEQ::new(),
+            distortion: TubeDistortion::metal(),
+            post_eq: PostDistortionEQ::new(),
+        }
+    }
+
+    /// High-gain preset: extreme distortion
+    pub fn high_gain() -> Self {
+        MetalDSPChain {
+            noise_gate: NoiseGate::metal(),
+            pre_eq: PreGainEQ::new(),
+            distortion: TubeDistortion::high_gain(),
+            post_eq: PostDistortionEQ::new(),
+        }
+    }
+
+    /// Process a single sample through the complete DSP chain
+    pub fn process(&mut self, sample: f32) -> f32 {
+        let sample = self.noise_gate.process(sample);
+        let sample = self.pre_eq.process(sample);
+        let sample = self.distortion.process(sample);
+        self.post_eq.process(sample)
+    }
+
+    /// Process a buffer of samples
+    pub fn process_buffer(&mut self, buffer: &mut [f32]) {
+        for sample in buffer.iter_mut() {
+            *sample = self.process(*sample);
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -220,4 +434,25 @@ mod tests {
         // Asymmetry means positive and negative should clip differently
         assert_ne!(positive.abs(), negative.abs());
     }
+
+    #[test]
+    fn test_metal_dsp_chain() {
+        let mut chain = MetalDSPChain::metal();
+        let mut buffer = vec![0.5; 100];
+        
+        chain.process_buffer(&mut buffer);
+        
+        // All samples should be processed and within valid range
+        assert!(buffer.iter().all(|&s| s.abs() < 1.0));
+    }
+
+    #[test]
+    fn test_dsp_chain_presets() {
+        let metal = MetalDSPChain::metal();
+        let high_gain = MetalDSPChain::high_gain();
+        
+        // High gain should have higher drive
+        assert!(high_gain.distortion.drive > metal.distortion.drive);
+    }
 }
+

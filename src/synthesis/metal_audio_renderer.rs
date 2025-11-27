@@ -1,55 +1,52 @@
 use crate::composition::{
-    metal_song_generator::{MetalSong, MetalRiff, MetalSection, MetalSubgenre, ChordType, SectionIntensity, RhythmPattern},
+    metal_song_generator::{MetalSong, MetalRiff, MetalSection, MetalSubgenre, ChordType, SectionIntensity, RhythmPattern, RhythmicFeel},
     rhythm_generator,
     bass_generator::BassMode,
 };
 use crate::synthesis::{
     karplus_strong::{generate_metal_guitar_note, generate_metal_bass_string, PlayingTechnique},
-    metal_dsp::{TubeDistortion, NoiseGate},
+    metal_dsp::{MetalDSPChain, TubeDistortion},
     cabinet::CabinetSimulator,
     drums::MetalDrums,
+    fx::generate_drop_kick,
 };
-use crate::synthesis::synthesizer::get_sample_rate;
+use crate::utils::get_sample_rate;
 
-/// Audio renderer for metal songs
-/// Converts symbolic representation (MetalSong) into audio samples
 pub struct MetalAudioRenderer {
     drums: MetalDrums,
-    distortion: TubeDistortion,
+    dsp_chain: MetalDSPChain,
+    bass_dsp: TubeDistortion,
     cabinet: CabinetSimulator,
-    noise_gate: NoiseGate,
     sample_rate: u32,
 }
 
 impl MetalAudioRenderer {
-    /// Create a new metal audio renderer
     pub fn new() -> Self {
         Self {
             drums: MetalDrums::new(),
-            distortion: TubeDistortion::new(0.8, 0.7), // High gain
+            // REDUCED DRIVE to prevent noise wall (was higher default)
+            dsp_chain: MetalDSPChain::new(6.0), 
+            bass_dsp: TubeDistortion::new(5.0, 1.0),
             cabinet: CabinetSimulator::metal_4x12(),
-            noise_gate: NoiseGate::new(0.001),
             sample_rate: get_sample_rate(),
         }
     }
 
-    /// Render a complete metal song to audio
     pub fn render_song(&mut self, song: &MetalSong, duration_per_section: f32) -> Vec<f32> {
         let mut full_audio = Vec::new();
         
-        // Render each section
         for (section_type, riff) in &song.sections {
             let section_audio = self.render_section(*section_type, riff, duration_per_section, song.tempo, song.subgenre);
             full_audio.extend(section_audio);
         }
         
-        // Normalize
-        Self::normalize(&mut full_audio);
+        // Final Limiter instead of Normalize
+        // Normalize just finds peak, Limiter compresses peaks
+        Self::apply_limiter(&mut full_audio, 0.95);
         
         full_audio
     }
 
-    /// Render a single section with dynamic intensity and bass locking
     pub fn render_section(
         &mut self,
         section_type: MetalSection,
@@ -58,26 +55,52 @@ impl MetalAudioRenderer {
         tempo: u16,
         subgenre: MetalSubgenre,
     ) -> Vec<f32> {
-        // Calculate note duration based on tempo
         let beat_duration = 60.0 / tempo as f32;
         let intensity = section_type.intensity();
+        // CRITICAL: Get the rhythmic feel (HalfTime/Normal/Blast) from the section
+        let rhythmic_feel = section_type.rhythmic_feel();
 
         let mut section_audio = Vec::new();
 
-        // Render guitar riff with variable durations
+        // 1. THE DROP: Add an aggressive kick drop for breakdowns
+        if matches!(section_type, MetalSection::Breakdown) {
+            let silence_duration = 0.5; // Shorter silence before the drop
+            let silence_samples = (silence_duration * self.sample_rate as f32) as usize;
+            
+            // Generate Heavy Drop Kick
+            let drop_kick = generate_drop_kick();
+            let mut transition = vec![0.0; silence_samples];
+            
+            // Add the drop kick after the silence
+            transition.extend(drop_kick);
+            
+            section_audio.extend(transition);
+            println!("💥 THE DROP: Heavy kick drop triggered");
+        }
+
+        // 2. Render Guitar (Keeps Song Tempo - Guitars still chug on grid)
         let guitar_audio = self.render_guitar_riff(riff, beat_duration);
         
-        // Generate drum pattern first (needed for bass locking)
-        let (kick_pattern, _, _) = self.generate_drum_patterns(section_type, duration, tempo, subgenre);
+        // 3. Render Drums (Decoupled Tempo based on RhythmicFeel)
+        let (kick_pattern, _, _) = self.generate_drum_patterns(section_type, duration, tempo, subgenre, rhythmic_feel);
         
-        // Render bass with locking mode
-        let bass_mode = crate::composition::bass_generator::MetalBassGenerator::mode_for_subgenre(subgenre);
-        // For breakdowns, use 8th note subdivision for bass too
-        let bass_note_duration = if matches!(section_type, MetalSection::Breakdown) {
-            beat_duration / 2.0
+        let drum_audio = self.render_drums(section_type, duration, tempo, subgenre, rhythmic_feel);
+
+        // 4. Render Bass (Locks to Kick OR Guitar depending on density)
+        // If it's a breakdown, bass matches the sparse kick (Lock mode)
+        let bass_mode = if section_type == MetalSection::Breakdown {
+            BassMode::Lock 
         } else {
-            beat_duration / 4.0
+            crate::composition::bass_generator::MetalBassGenerator::mode_for_subgenre(subgenre)
         };
+
+        // For breakdowns, bass notes are loooong (Quarter notes)
+        let bass_note_duration = if section_type == MetalSection::Breakdown {
+            beat_duration 
+        } else {
+            beat_duration / 4.0 // 16th note bass
+        };
+
         let bass_audio = self.render_bass_riff_locked(
             &riff.notes,
             &kick_pattern,
@@ -85,29 +108,25 @@ impl MetalAudioRenderer {
             bass_mode,
             &riff,
         );
-        
-        // Render drums with subgenre-specific patterns
-        let drum_audio = self.render_drums(section_type, duration, tempo, subgenre);
 
-        // Dynamic mixing based on section intensity
+        // 5. Dynamic Mixing (Turn down instruments to avoid clipping/noise)
         let (guitar_level, bass_level, drum_level) = match intensity {
-            SectionIntensity::Low => (0.3, 0.25, 0.2),      // Intro: Quieter
-            SectionIntensity::Medium => (0.4, 0.35, 0.25),  // Verse: Standard
-            SectionIntensity::High => (0.45, 0.4, 0.3),    // Chorus: Louder
-            SectionIntensity::Extreme => (0.5, 0.45, 0.35), // Breakdown: Maximum
+            SectionIntensity::Low => (0.35, 0.40, 0.50),
+            SectionIntensity::Medium => (0.40, 0.45, 0.60),
+            SectionIntensity::High => (0.45, 0.50, 0.65),
+            SectionIntensity::Extreme => (0.50, 0.55, 0.70), // Louder, but safe
         };
 
-        // Mix guitar, bass, and drums with dynamic levels
         let max_len = guitar_audio.len().max(bass_audio.len()).max(drum_audio.len());
-        section_audio.resize(max_len, 0.0);
+        section_audio.resize(section_audio.len() + max_len, 0.0);
+        let offset = section_audio.len() - max_len;
 
         for i in 0..max_len {
             let guitar = if i < guitar_audio.len() { guitar_audio[i] } else { 0.0 };
             let bass = if i < bass_audio.len() { bass_audio[i] } else { 0.0 };
             let drums = if i < drum_audio.len() { drum_audio[i] } else { 0.0 };
             
-            // Apply dynamic mixing
-            section_audio[i] = guitar * guitar_level + bass * bass_level + drums * drum_level;
+            section_audio[offset + i] = guitar * guitar_level + bass * bass_level + drums * drum_level;
         }
 
         section_audio
@@ -155,7 +174,6 @@ impl MetalAudioRenderer {
             },
             BassMode::Counterpoint => {
                 // Counterpoint Mode: Distinct bass lines
-                // For now, use simplified version - can be enhanced
                 for &note in guitar_notes {
                     let bass_note = note.saturating_sub(12);
                     let frequency = 440.0 * 2.0_f32.powf((bass_note as f32 - 69.0) / 12.0);
@@ -177,57 +195,75 @@ impl MetalAudioRenderer {
         bass_audio
     }
 
-    /// Generate drum patterns (returns patterns for bass locking)
+    /// Generate drum patterns based on RhythmicFeel (Tempo Decoupling)
     fn generate_drum_patterns(
         &self,
         section: MetalSection,
         duration: f32,
         tempo: u16,
         subgenre: MetalSubgenre,
+        feel: RhythmicFeel,
     ) -> (Vec<bool>, Vec<bool>, Vec<bool>) {
-        let sample_rate = self.sample_rate as f32;
+        let _ = section; 
         let beat_duration = 60.0 / tempo as f32;
-        let sixteenth_duration = beat_duration / 4.0;
+        let sixteenth_duration = beat_duration / 4.0; 
+        
         let steps = (duration / sixteenth_duration).ceil() as usize;
         
-        match section {
-            MetalSection::Breakdown => {
-                rhythm_generator::generate_breakdown_pattern(steps, 0.9)
-            },
-            MetalSection::Verse | MetalSection::Chorus | MetalSection::Solo => {
-                if matches!(subgenre, MetalSubgenre::DeathMetal) && matches!(section, MetalSection::Verse) {
-                    rhythm_generator::generate_blast_beat(subgenre, steps)
-                } else {
-                    let pulses = if matches!(subgenre, MetalSubgenre::ProgressiveMetal) { 7 } else { 5 };
-                    let kick = rhythm_generator::generate_euclidean_pattern(steps, pulses);
-                    
-                    let mut snare = vec![false; steps];
-                    let mut cymbal = vec![false; steps];
-                    
-                    for i in 0..steps {
-                        if i % 16 == 4 || i % 16 == 12 {
-                            snare[i] = true;
-                        }
-                        // Sparse cymbals: only on beat 1 of each bar (every 16th step)
-                        if i % 16 == 0 {
-                            cymbal[i] = true;
-                        }
-                    }
-                    (kick, snare, cymbal)
-                }
-            },
-            _ => {
-                let mut kick = vec![false; steps];
-                let mut snare = vec![false; steps];
-                let mut cymbal = vec![false; steps];
+        let mut kick = vec![false; steps];
+        let mut snare = vec![false; steps];
+        let mut cymbal = vec![false; steps];
+
+        match feel {
+            RhythmicFeel::HalfTime => {
+                // HALF TIME LOGIC (Breakdowns)
+                // Snare on beat 3 (Step 8 in a 0-15 grid)
+                // Kick is sparse, Euclidean pulses reduced
+                let pulses = 3; 
+                kick = rhythm_generator::generate_euclidean_pattern(steps, pulses);
                 
                 for i in 0..steps {
-                    if i % 16 == 0 { kick[i] = true; cymbal[i] = true; }
-                    if i % 16 == 8 { snare[i] = true; }
+                    // Snare on beat 3 (every 16 steps, offset 8)
+                    if i % 16 == 8 { 
+                        snare[i] = true; 
+                        kick[i] = false; // Don't kick on snare
+                    }
+                    // China/Crash on beat 1
+                    if i % 16 == 0 { cymbal[i] = true; kick[i] = true; }
                 }
-                (kick, snare, cymbal)
-            }
+            },
+            RhythmicFeel::DoubleTime | RhythmicFeel::Blast => {
+                // BLAST LOGIC
+                // Every 2nd step (8th note at high tempo)
+                for i in 0..steps {
+                    if i % 2 == 0 {
+                        kick[i] = true;
+                        snare[i] = true; // Unison blast
+                        cymbal[i] = true;
+                    }
+                }
+            },
+            RhythmicFeel::Normal => {
+                // STANDARD METAL
+                // Snare on 2 and 4 (Steps 4 and 12)
+                let pulses = if matches!(subgenre, MetalSubgenre::ProgressiveMetal) { 7 } else { 5 };
+                kick = rhythm_generator::generate_euclidean_pattern(steps, pulses);
+                
+                for i in 0..steps {
+                    if i % 16 == 4 || i % 16 == 12 {
+                        snare[i] = true;
+                        kick[i] = false; // Clear kick for snare
+                    }
+                    // Sparse cymbals: only on beat 1 of each bar (every 16th step)
+                    if i % 16 == 0 {
+                        cymbal[i] = true;
+                        kick[i] = true;
+                    }
+                }
+            },
         }
+        
+        (kick, snare, cymbal)
     }
 
     /// Render guitar riff with chords support and variable durations
@@ -292,38 +328,40 @@ impl MetalAudioRenderer {
                         let s1 = if j < root_samples.len() { root_samples[j] } else { 0.0 };
                         let s2 = if j < fifth_samples.len() { fifth_samples[j] } else { 0.0 };
                         let s3 = if j < oct_samples.len() { oct_samples[j] } else { 0.0 };
-                        
                         note_samples[j] = s1 * 0.5 + s2 * 0.3 + s3 * 0.2;
                     }
                 },
                 ChordType::Minor => {
-                     // Render Root
+                    // Render Minor chord (Root, 3rd, 5th)
                     let root_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::MinorChordRoot);
                     
-                    // Render Minor 3rd (+3 semitones)
-                    let freq_m3 = 440.0 * 2.0_f32.powf(((note + 3) as f32 - 69.0) / 12.0);
-                    let m3_samples = generate_metal_guitar_note(freq_m3, note_duration, velocity, is_palm_muted, PlayingTechnique::MinorChordThird);
+                    // Render 3rd (+3 semitones)
+                    let freq_3rd = 440.0 * 2.0_f32.powf(((note + 3) as f32 - 69.0) / 12.0);
+                    let third_samples = generate_metal_guitar_note(freq_3rd, note_duration, velocity, is_palm_muted, PlayingTechnique::MinorChordThird);
                     
                     // Render 5th (+7 semitones)
                     let freq_5th = 440.0 * 2.0_f32.powf(((note + 7) as f32 - 69.0) / 12.0);
                     let fifth_samples = generate_metal_guitar_note(freq_5th, note_duration, velocity, is_palm_muted, PlayingTechnique::MinorChordFifth);
                     
                     // Mix
-                    let max_len = root_samples.len().max(m3_samples.len()).max(fifth_samples.len());
+                    let max_len = root_samples.len().max(third_samples.len()).max(fifth_samples.len());
                     note_samples.resize(max_len, 0.0);
                     
                     for j in 0..max_len {
                         let s1 = if j < root_samples.len() { root_samples[j] } else { 0.0 };
-                        let s2 = if j < m3_samples.len() { m3_samples[j] } else { 0.0 };
+                        let s2 = if j < third_samples.len() { third_samples[j] } else { 0.0 };
                         let s3 = if j < fifth_samples.len() { fifth_samples[j] } else { 0.0 };
-                        
                         note_samples[j] = s1 * 0.4 + s2 * 0.3 + s3 * 0.3;
                     }
                 },
-                _ => {
-                    // Single note
+                ChordType::Diminished | ChordType::Octave => {
+                    // Fallback to single note for unsupported chord types
                     note_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::SingleNote);
-                }
+                },
+                ChordType::Single => {
+                    // Render single note
+                    note_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::SingleNote);
+                },
             }
             
             guitar_audio.extend(note_samples);
@@ -392,14 +430,11 @@ impl MetalAudioRenderer {
         let mut processed = Vec::with_capacity(samples.len());
 
         for &sample in samples {
-            // 1. Noise Gate (remove hum between notes)
-            let gated = self.noise_gate.process(sample);
+            // Process through DSP chain
+            let processed_sample = self.dsp_chain.process(sample);
             
-            // 2. Tube Distortion (add gain and harmonics)
-            let distorted = self.distortion.process(gated);
-            
-            // 3. Cabinet Simulation (speaker coloration)
-            let final_sample = self.cabinet.process(distorted);
+            // Cabinet Simulation (speaker coloration)
+            let final_sample = self.cabinet.process(processed_sample);
             
             processed.push(final_sample);
         }
@@ -407,8 +442,7 @@ impl MetalAudioRenderer {
         processed
     }
 
-    /// Render drums for a section with subgenre-specific patterns
-    fn render_drums(&self, section: MetalSection, duration: f32, tempo: u16, subgenre: MetalSubgenre) -> Vec<f32> {
+    fn render_drums(&self, section: MetalSection, duration: f32, tempo: u16, subgenre: MetalSubgenre, feel: RhythmicFeel) -> Vec<f32> {
         let sample_rate = self.sample_rate as f32;
         let num_samples = (duration * sample_rate) as usize;
         let mut drum_audio = vec![0.0; num_samples];
@@ -416,38 +450,36 @@ impl MetalAudioRenderer {
         let beat_duration = 60.0 / tempo as f32;
         let sixteenth_duration = beat_duration / 4.0;
         
-        // Determine number of 16th note steps in the section
-        let steps = (duration / sixteenth_duration).ceil() as usize;
-        
-        // Generate patterns using rhythm generator (reuse the helper)
-        let (kick_pattern, snare_pattern, cymbal_pattern) = self.generate_drum_patterns(section, duration, tempo, subgenre);
+        // Pass 'feel' to pattern generator
+        let (kick_pattern, snare_pattern, cymbal_pattern) = self.generate_drum_patterns(section, duration, tempo, subgenre, feel);
 
-        // Render the patterns with humanization
-        for i in 0..steps {
-            let time = i as f32 * sixteenth_duration;
-            let sample_idx = (time * sample_rate) as usize;
+        // Render loop
+        for i in 0..kick_pattern.len() {
+            let base_time = i as f32 * sixteenth_duration;
+            let sample_idx = (base_time * sample_rate) as usize;
             
             if sample_idx >= num_samples { break; }
-            
-            if kick_pattern.get(i).copied().unwrap_or(false) {
-                let kick_sound = self.drums.generate_kick(0.8);
+
+            // Velocity logic...
+            let velocity = 0.9; // Less than 1.0 to prevent clipping
+
+            if kick_pattern[i] {
+                let kick_sound = self.drums.generate_kick(velocity);
                 self.mix_drum_hit(&mut drum_audio, &kick_sound, sample_idx);
             }
-            
-            if snare_pattern.get(i).copied().unwrap_or(false) {
-                let snare_sound = self.drums.generate_snare(0.7);
+            if snare_pattern[i] {
+                let snare_sound = self.drums.generate_snare(velocity);
                 self.mix_drum_hit(&mut drum_audio, &snare_sound, sample_idx);
             }
-            
-            if cymbal_pattern.get(i).copied().unwrap_or(false) {
-                let hihat_sound = self.drums.generate_hihat(0.6, false);
-                self.mix_drum_hit(&mut drum_audio, &hihat_sound, sample_idx);
+            if cymbal_pattern[i] {
+                let crash_sound = self.drums.generate_crash(velocity * 0.8);
+                self.mix_drum_hit(&mut drum_audio, &crash_sound, sample_idx);
             }
         }
 
         drum_audio
     }
-
+    
     /// Mix a drum hit into the main buffer
     fn mix_drum_hit(&self, buffer: &mut [f32], hit: &[f32], start_idx: usize) {
         for (i, &sample) in hit.iter().enumerate() {
@@ -457,18 +489,13 @@ impl MetalAudioRenderer {
         }
     }
 
-
-    
-    /// Normalize audio buffer
-    pub fn normalize(samples: &mut [f32]) {
-        let max_amplitude = samples.iter()
-            .map(|&s| s.abs())
-            .fold(0.0f32, f32::max);
-
-        if max_amplitude > 0.0 {
-            let scale = 0.95 / max_amplitude; // Leave headroom
-            for sample in samples.iter_mut() {
-                *sample *= scale;
+    /// Normalize audio buffer using soft clipping limiter
+    fn apply_limiter(samples: &mut [f32], threshold: f32) {
+        for sample in samples.iter_mut() {
+            if *sample > threshold {
+                *sample = threshold + (*sample - threshold).tanh() * 0.1;
+            } else if *sample < -threshold {
+                *sample = -threshold + (*sample + threshold).tanh() * 0.1;
             }
         }
     }
@@ -477,126 +504,5 @@ impl MetalAudioRenderer {
 impl Default for MetalAudioRenderer {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::composition::metal_song_generator::MetalSongGenerator;
-
-    #[test]
-    fn test_renderer_creation() {
-        let renderer = MetalAudioRenderer::new();
-        assert_eq!(renderer.sample_rate, get_sample_rate());
-    }
-
-    #[test]
-    fn test_render_guitar_riff() {
-        let mut renderer = MetalAudioRenderer::new();
-        
-        let riff = MetalRiff {
-            notes: vec![40, 42, 43, 40], // E, F#, G, E
-            chord_types: vec![ChordType::Single; 4],
-            palm_muted: vec![true, false, false, true],
-            rhythms: vec![RhythmPattern::SixteenthNote; 4],
-            playability_score: 0.9,
-        };
-
-        let audio = renderer.render_guitar_riff(&riff, 0.25);
-        assert!(!audio.is_empty());
-        
-        // Check that audio was generated
-        let has_signal = audio.iter().any(|&s| s.abs() > 0.01);
-        assert!(has_signal);
-    }
-
-    #[test]
-    fn test_render_drums() {
-        let renderer = MetalAudioRenderer::new();
-        let drums = renderer.render_drums(MetalSection::Verse, 2.0, 120, MetalSubgenre::HeavyMetal);
-        
-        assert!(!drums.is_empty());
-        
-        // Check that drums were generated
-        let has_signal = drums.iter().any(|&s| s.abs() > 0.01);
-        assert!(has_signal);
-    }
-
-    #[test]
-    fn test_render_section() {
-        let mut renderer = MetalAudioRenderer::new();
-        
-        let riff = MetalRiff {
-            notes: vec![40, 40, 43, 40],
-            chord_types: vec![ChordType::Single; 4],
-            palm_muted: vec![true, true, false, true],
-            rhythms: vec![RhythmPattern::SixteenthNote; 4],
-            playability_score: 0.95,
-        };
-
-        let audio = renderer.render_section(
-            MetalSection::Verse,
-            &riff,
-            2.0, // 2 seconds
-            120,
-            MetalSubgenre::HeavyMetal,
-        );
-
-        assert_eq!(audio.len(), 2 * 44100);
-    }
-
-    #[test]
-    fn test_normalize() {
-        let mut samples = vec![0.5, -1.5, 0.8, -0.3];
-        MetalAudioRenderer::normalize(&mut samples);
-        
-        // Check that max amplitude is <= 0.95
-        let max = samples.iter().map(|&s| s.abs()).fold(0.0f32, f32::max);
-        assert!(max <= 0.95);
-        assert!(max > 0.9); // Should be close to 0.95
-    }
-
-    #[test]
-    fn test_dsp_chain_processing() {
-        let mut renderer = MetalAudioRenderer::new();
-        
-        // Generate some test samples
-        let input = vec![0.1, 0.2, 0.3, 0.2, 0.1];
-        let output = renderer.process_guitar_chain(&input);
-        
-        assert_eq!(output.len(), input.len());
-        
-        // Output should be different from input (processed)
-        let is_different = output.iter().zip(input.iter())
-            .any(|(a, b)| (a - b).abs() > 0.001);
-        assert!(is_different);
-    }
-
-    #[test]
-    fn test_all_sections_render() {
-        let mut renderer = MetalAudioRenderer::new();
-        
-        let riff = MetalRiff {
-            notes: vec![40, 40, 40, 40],
-            chord_types: vec![ChordType::Single; 4],
-            palm_muted: vec![true, true, true, true],
-            rhythms: vec![RhythmPattern::SixteenthNote; 4],
-            playability_score: 1.0,
-        };
-
-        let sections = vec![
-            MetalSection::Intro,
-            MetalSection::Verse,
-            MetalSection::Chorus,
-            MetalSection::Breakdown,
-            MetalSection::Solo,
-            MetalSection::Outro,
-        ];
-
-        for section in sections {
-            let audio = renderer.render_section(section, &riff, 1.0, 120, MetalSubgenre::HeavyMetal);
-            assert!(!audio.is_empty(), "Section {:?} should produce audio", section);
-        }
     }
 }

@@ -1,3 +1,20 @@
+use std::sync::OnceLock;
+
+static SAMPLE_RATE_STORAGE: OnceLock<u32> = OnceLock::new();
+
+/// Initialize the sample rate from config (must be called before any synthesis)
+pub fn init_sample_rate(sample_rate: u32) {
+    SAMPLE_RATE_STORAGE
+        .set(sample_rate)
+        .expect("Sample rate already initialized");
+}
+
+/// Get the current sample rate
+pub fn get_sample_rate() -> u32 {
+    *SAMPLE_RATE_STORAGE.get().unwrap_or(&44100) // Fallback to 44100 if not initialized
+}
+
+
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 

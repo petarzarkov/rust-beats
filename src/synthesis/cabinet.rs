@@ -1,4 +1,5 @@
-use crate::synthesis::synthesizer::{get_sample_rate, LowPassFilter};
+use crate::utils::get_sample_rate;
+use crate::synthesis::filters::LowPassFilter;
 
 /// Cabinet simulator for guitar amplifier cabinet emulation
 /// Simulates the frequency response of a guitar speaker cabinet
