@@ -4,9 +4,18 @@ use rand::Rng;
 /// Playing technique for guitar strings
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum PlayingTechnique {
-    Open,       // Normal open string
-    PalmMute,   // Palm muted (damped)
-    Harmonic,   // Natural harmonic
+    Open,               // Normal open string
+    PalmMute,           // Palm muted (damped)
+    Harmonic,           // Natural harmonic
+    PinchHarmonic,      // Artificial harmonic (squeal)
+    TremoloPick,        // Fast alternate picking
+    PowerChordRoot,     // Root note of a power chord
+    PowerChordFifth,    // Fifth of a power chord
+    PowerChordOctave,   // Octave of a power chord
+    MinorChordRoot,     // Root of a minor chord
+    MinorChordThird,    // Minor third
+    MinorChordFifth,    // Fifth of a minor chord
+    SingleNote,         // Standard single note
 }
 
 /// Karplus-Strong string synthesizer for realistic guitar/bass sounds
@@ -33,10 +42,15 @@ impl KarplusStrong {
             .collect();
 
         // Set decay factor and filter based on technique
+        // Set decay factor and filter based on technique
         let (decay_factor, filter_cutoff) = match technique {
-            PlayingTechnique::Open => (0.996, 8000.0),      // Long sustain, bright
-            PlayingTechnique::PalmMute => (0.90, 1000.0),   // Short decay, muffled
-            PlayingTechnique::Harmonic => (0.999, 12000.0), // Very long sustain, pure
+            PlayingTechnique::Open | PlayingTechnique::SingleNote => (0.996, 8000.0),
+            PlayingTechnique::PalmMute => (0.90, 1000.0),
+            PlayingTechnique::Harmonic | PlayingTechnique::PinchHarmonic => (0.999, 12000.0),
+            PlayingTechnique::TremoloPick => (0.95, 6000.0),
+            PlayingTechnique::PowerChordRoot | PlayingTechnique::MinorChordRoot => (0.98, 5000.0),
+            PlayingTechnique::PowerChordFifth | PlayingTechnique::MinorChordFifth => (0.98, 5500.0),
+            PlayingTechnique::PowerChordOctave | PlayingTechnique::MinorChordThird => (0.97, 6000.0),
         };
 
         KarplusStrong {
@@ -86,7 +100,10 @@ impl KarplusStrong {
             
             // Envelope depends on technique
             let envelope = match technique {
-                PlayingTechnique::Open => {
+                PlayingTechnique::Open | PlayingTechnique::SingleNote | 
+                PlayingTechnique::PowerChordRoot | PlayingTechnique::PowerChordFifth | 
+                PlayingTechnique::PowerChordOctave | PlayingTechnique::MinorChordRoot |
+                PlayingTechnique::MinorChordThird | PlayingTechnique::MinorChordFifth => {
                     // Quick attack, long sustain
                     if t < 0.01 {
                         t / 0.01
@@ -102,12 +119,20 @@ impl KarplusStrong {
                         (1.0 - t).powf(2.0)
                     }
                 }
-                PlayingTechnique::Harmonic => {
+                PlayingTechnique::Harmonic | PlayingTechnique::PinchHarmonic => {
                     // Very smooth, sustained
                     if t < 0.02 {
                         t / 0.02
                     } else {
                         1.0 - (t - 0.02) * 0.2
+                    }
+                }
+                PlayingTechnique::TremoloPick => {
+                    // Sharp attack, medium sustain
+                    if t < 0.005 {
+                        t / 0.005
+                    } else {
+                        1.0 - (t - 0.005) * 0.5
                     }
                 }
             };
@@ -125,14 +150,9 @@ pub fn generate_metal_guitar_note(
     frequency: f32,
     duration: f32,
     velocity: f32,
-    palm_mute: bool,
+    _palm_mute: bool,
+    technique: PlayingTechnique,
 ) -> Vec<f32> {
-    let technique = if palm_mute {
-        PlayingTechnique::PalmMute
-    } else {
-        PlayingTechnique::Open
-    };
-    
     let mut buffer = KarplusStrong::generate_note(frequency, duration, technique);
     
     // Apply velocity scaling
@@ -144,6 +164,7 @@ pub fn generate_metal_guitar_note(
 }
 
 /// Generate a bass note using Karplus-Strong with extra low-end
+/// Enhanced with lower cutoff and sub-bass boost for heaviness
 pub fn generate_metal_bass_string(
     frequency: f32,
     duration: f32,
@@ -156,6 +177,10 @@ pub fn generate_metal_bass_string(
     let mut synth = KarplusStrong::new(frequency, PlayingTechnique::Open);
     // Increase decay for bass sustain
     synth.decay_factor = 0.998;
+    
+    // Lower cutoff filter for bass damping (separate from guitar)
+    // Bass should be darker and heavier
+    let mut bass_filter = LowPassFilter::new(2000.0, 0.7); // Lower cutoff than guitar
     
     let mut buffer = Vec::with_capacity(num_samples);
     
@@ -171,7 +196,21 @@ pub fn generate_metal_bass_string(
             0.9 * (1.0 - (t - 0.8) / 0.2)
         };
         
-        let sample = synth.next_sample() * envelope * velocity;
+        let mut sample = synth.next_sample() * envelope * velocity;
+        
+        // Apply bass filter (darker tone)
+        sample = bass_filter.process(sample);
+        
+        // Sub-bass boost: Add harmonics in 60-100Hz range
+        // Simple approach: boost frequencies below 100Hz
+        if frequency < 100.0 {
+            // Boost sub-bass frequencies
+            sample *= 1.3;
+        } else if frequency < 200.0 {
+            // Slight boost for low bass
+            sample *= 1.15;
+        }
+        
         buffer.push(sample);
     }
     
@@ -230,7 +269,8 @@ mod tests {
             220.0,
             0.3,
             0.8,
-            true // palm mute
+            true, // palm mute
+            PlayingTechnique::PalmMute
         );
         
         assert!(buffer.len() > 0);

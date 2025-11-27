@@ -73,8 +73,25 @@ fn main() {
     // Render the audio
     println!("🔊 Rendering audio...");
     let mut renderer = MetalAudioRenderer::new();
-    let duration_per_section = 4.0; // 4 seconds per section
-    let audio_samples = renderer.render_song(&song, duration_per_section);
+    
+    // Calculate variable durations for each section
+    let mut total_duration = 0.0;
+    let mut section_durations = Vec::new();
+    
+    for (section, _) in &song.sections {
+        let duration = get_section_duration(*section, song.tempo);
+        section_durations.push(duration);
+        total_duration += duration;
+    }
+    
+    println!("   Estimated Duration: {:.1}s ({:.1} min)", total_duration, total_duration / 60.0);
+    
+    // Render each section with its specific duration
+    let mut audio_samples = Vec::new();
+    for ((section, riff), duration) in song.sections.iter().zip(section_durations.iter()) {
+        let section_audio = renderer.render_section(*section, riff, *duration, song.tempo, song.subgenre);
+        audio_samples.extend(section_audio);
+    }
     
     let duration_seconds = audio_samples.len() as f32 / get_sample_rate() as f32;
     println!("   Duration: {:.1}s", duration_seconds);
@@ -188,3 +205,23 @@ fn save_wav(filename: &str, samples: &[f32], sample_rate: u32) -> Result<(), Box
     
     Ok(())
 }
+
+/// Calculate section duration based on bars and tempo
+fn get_section_duration(section: composition::metal_song_generator::MetalSection, tempo: u16) -> f32 {
+    use composition::metal_song_generator::MetalSection;
+    
+    let bars = match section {
+        MetalSection::Intro => 4,
+        MetalSection::Verse => 8,
+        MetalSection::Chorus => 8,
+        MetalSection::Breakdown => 4,
+        MetalSection::Solo => 12,
+        MetalSection::Outro => 4,
+    };
+    
+    // Calculate duration: bars * beats_per_bar * seconds_per_beat
+    let beats_per_bar = 4.0;
+    let seconds_per_beat = 60.0 / tempo as f32;
+    bars as f32 * beats_per_bar * seconds_per_beat
+}
+

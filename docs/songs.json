@@ -1,51 +1,16 @@
 [
-  {
-    "filename": "2025-11-26_petar_zarkov_cursed_blood_journey.mp3",
-    "date": "2025-11-26",
-    "size": 863920,
-    "name": "Cursed Blood Journey",
-    "genre": ["Swamp Metal", "Heavy", "Southern"]
-  },
-  {
-    "filename": "2025-11-25_petar_zarkov_bog_nightmare.mp3",
-    "date": "2025-11-25",
-    "size": 863920,
-    "name": "Bog Nightmare",
-    "genre": ["Swamp Metal", "Sludge"]
-  },
-  {
-    "filename": "2025-11-24_petar_zarkov_bleeding_abyss_sensation.mp3",
-    "date": "2025-11-24",
-    "size": 951065,
-    "name": "Bleeding Abyss Sensation",
-    "genre": ["Swamp Metal", "Sludge", "Doom"]
-  },
-  {
-    "filename": "2025-11-23_petar_zarkov_mire_flesh.mp3",
-    "date": "2025-11-23",
-    "size": 902164,
-    "name": "Mire Flesh",
-    "genre": ["Swamp Metal", "Groove", "Heavy"]
-  },
-  {
-    "filename": "2025-11-22_petar_zarkov_ancient_ooze_spell.mp3",
-    "date": "2025-11-22",
-    "size": 937899,
-    "name": "Ancient Ooze Spell",
-    "genre": ["Swamp Metal", "Heavy", "Groove", "Instrumental"]
-  },
-  {
-    "filename": "2025-11-21_petar_zarkov_vile_blood_connection.mp3",
-    "date": "2025-11-21",
-    "size": 863920,
-    "name": "Vile Blood Connection",
-    "genre": ["Swamp Metal", "Doom", "Instrumental"]
-  },
-  {
-    "filename": "2025-11-20_petar_zarkov_forgotten_slime_experience.mp3",
-    "date": "2025-11-20",
-    "size": 893386,
-    "name": "Forgotten Slime Experience",
-    "genre": ["Swamp Metal", "Doom", "Southern"]
-  }
+  {"filename": "2025-11-26_petar_zarkov_ancient_nightmare_supreme.mp3", "date": "2025-11-26", "size": 7012309, "name": "Ancient Nightmare Supreme", "genre": ["Swamp Metal","Sludge","Southern"]}
+,
+  {"filename": "2025-11-25_petar_zarkov_rotting_altar_adventure.mp3", "date": "2025-11-25", "size": 2678281, "name": "Rotting Altar Adventure", "genre": ["Swamp Metal","Doom","Heavy","Instrumental"]}
+,
+  {"filename": "2025-11-24_petar_zarkov_slime_ooze.mp3", "date": "2025-11-24", "size": 3101465, "name": "Slime Ooze", "genre": ["Swamp Metal","Heavy"]}
+,
+  {"filename": "2025-11-23_petar_zarkov_abyssal_shadows.mp3", "date": "2025-11-23", "size": 3291427, "name": "Abyssal Shadows", "genre": ["Swamp Metal","Doom","Instrumental"]}
+,
+  {"filename": "2025-11-22_petar_zarkov_broken_thunder_express.mp3", "date": "2025-11-22", "size": 8064312, "name": "Broken Thunder Express", "genre": ["Swamp Metal","Sludge"]}
+,
+  {"filename": "2025-11-21_petar_zarkov_frozen_blood_connection.mp3", "date": "2025-11-21", "size": 2972315, "name": "Frozen Blood Connection", "genre": ["Swamp Metal","Heavy"]}
+,
+  {"filename": "2025-11-20_petar_zarkov_grim_abyss_express.mp3", "date": "2025-11-20", "size": 2954134, "name": "Grim Abyss Express", "genre": ["Swamp Metal","Doom","Groove"]}
+
 ]

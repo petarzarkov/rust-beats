@@ -128,7 +128,7 @@ pub fn generate_hihat(amplitude: f32, open: bool) -> Vec<f32> {
 
 pub fn generate_hihat_with_params(amplitude: f32, open: bool, params: Option<&DrumSoundParams>) -> Vec<f32> {
     let duration = if open { 0.5 } else { 0.05 };
-    let brightness = params.map(|p| p.hihat_brightness).unwrap_or(1.0);
+    let _brightness = params.map(|p| p.hihat_brightness).unwrap_or(1.0);
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
     let mut rng = rand::thread_rng();
@@ -175,4 +175,29 @@ pub fn generate_china(amplitude: f32) -> Vec<f32> {
         samples.push((noise + metal * 0.5) * env * amplitude);
     }
     samples
+}
+
+/// Metal Drums synthesizer
+pub struct MetalDrums {
+    params: DrumSoundParams,
+}
+
+impl MetalDrums {
+    pub fn new() -> Self {
+        Self {
+            params: DrumSoundParams::generate(),
+        }
+    }
+
+    pub fn generate_kick(&self, amplitude: f32) -> Vec<f32> {
+        generate_kick_with_params(amplitude, Some(&self.params))
+    }
+
+    pub fn generate_snare(&self, amplitude: f32) -> Vec<f32> {
+        generate_snare_with_params(amplitude, Some(&self.params))
+    }
+
+    pub fn generate_hihat(&self, amplitude: f32, open: bool) -> Vec<f32> {
+        generate_hihat_with_params(amplitude, open, Some(&self.params))
+    }
 }

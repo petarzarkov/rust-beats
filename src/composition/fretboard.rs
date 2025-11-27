@@ -1,6 +1,6 @@
 use crate::composition::music_theory::MidiNote;
 use crate::composition::tuning::GuitarTuning;
-use std::collections::{BinaryHeap, HashMap};
+
 use std::cmp::Ordering;
 
 /// Represents a position on the guitar fretboard

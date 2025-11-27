@@ -1,19 +1,49 @@
 use crate::composition::{
     music_theory::{Key, MidiNote},
     tuning::GuitarTuning,
+    metal_song_generator::MetalSubgenre,
 };
 use rand::Rng;
+
+/// Bass playing mode for different metal styles
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum BassMode {
+    /// Lock Mode: Bass plays exactly when kick drum plays (tight low end)
+    Lock,
+    /// Counterpoint Mode: Bass plays distinct melodic lines (for Prog/Tech metal)
+    Counterpoint,
+    /// Follow Mode: Bass follows guitar but simplified (default)
+    Follow,
+}
 
 /// Bass line generator for metal music
 /// Follows the guitar riff but simplified and lower
 pub struct MetalBassGenerator {
     tuning: GuitarTuning,
+    mode: BassMode,
 }
 
 impl MetalBassGenerator {
     /// Create a new bass generator
     pub fn new(tuning: GuitarTuning) -> Self {
-        MetalBassGenerator { tuning }
+        MetalBassGenerator { 
+            tuning,
+            mode: BassMode::Follow,
+        }
+    }
+
+    /// Create a bass generator with a specific mode
+    pub fn with_mode(tuning: GuitarTuning, mode: BassMode) -> Self {
+        MetalBassGenerator { tuning, mode }
+    }
+
+    /// Get the appropriate bass mode for a subgenre
+    pub fn mode_for_subgenre(subgenre: MetalSubgenre) -> BassMode {
+        match subgenre {
+            MetalSubgenre::DeathMetal | MetalSubgenre::ThrashMetal => BassMode::Lock,
+            MetalSubgenre::ProgressiveMetal => BassMode::Counterpoint,
+            _ => BassMode::Follow,
+        }
     }
 
     /// Generate a bass line from a guitar riff
@@ -149,6 +179,88 @@ impl MetalBassGenerator {
     /// Determine if bass should use unison doubling based on tuning
     pub fn should_use_unison(&self) -> bool {
         self.tuning.bass_should_use_unison()
+    }
+
+    /// Generate bass notes that lock with kick drum pattern
+    /// Returns a vector of (note, should_play) tuples aligned with kick pattern
+    pub fn generate_locked_bass(
+        &self,
+        guitar_notes: &[MidiNote],
+        kick_pattern: &[bool],
+        key: &Key,
+    ) -> Vec<(MidiNote, bool)> {
+        let root = key.root;
+        let bass_root = if root >= 12 { root - 12 } else { root };
+        
+        let mut bass_line = Vec::with_capacity(kick_pattern.len());
+        
+        // Map guitar notes to kick pattern length
+        let guitar_len = guitar_notes.len();
+        let pattern_len = kick_pattern.len();
+        
+        for i in 0..pattern_len {
+            let should_play = kick_pattern[i];
+            
+            if should_play {
+                // When kick hits, play the corresponding guitar note (or root if out of range)
+                let guitar_idx = (i * guitar_len) / pattern_len;
+                let guitar_note = if guitar_idx < guitar_len {
+                    guitar_notes[guitar_idx]
+                } else {
+                    root
+                };
+                
+                // Simplify to bass root or power chord root
+                let bass_note = if guitar_note % 12 == root % 12 {
+                    bass_root
+                } else {
+                    // Play root when kick hits (tight low end)
+                    bass_root
+                };
+                
+                bass_line.push((bass_note, true));
+            } else {
+                // No kick = no bass (or sustain previous note)
+                bass_line.push((bass_root, false));
+            }
+        }
+        
+        bass_line
+    }
+
+    /// Generate counterpoint bass line (distinct from guitar)
+    pub fn generate_counterpoint_bass(
+        &self,
+        key: &Key,
+        length: usize,
+    ) -> Vec<MidiNote> {
+        let root = key.root;
+        let bass_root = if root >= 12 { root - 12 } else { root };
+        let scale = key.get_scale_notes();
+        
+        let mut bass_line = Vec::with_capacity(length);
+        let mut rng = rand::thread_rng();
+        
+        // Counterpoint: walk through scale notes, emphasizing root and fifth
+        let fifth = bass_root + 7;
+        
+        for i in 0..length {
+            let note = if i % 4 == 0 {
+                // Strong beats: root
+                bass_root
+            } else if i % 4 == 2 {
+                // Weak beats: fifth
+                fifth
+            } else {
+                // Off-beats: random scale note
+                let scale_note = scale[rng.gen_range(0..scale.len())];
+                bass_root + (scale_note % 12)
+            };
+            
+            bass_line.push(note);
+        }
+        
+        bass_line
     }
 }
 
