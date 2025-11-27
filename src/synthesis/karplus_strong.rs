@@ -46,7 +46,7 @@ impl KarplusStrong {
         // Research Section 6.3: Tuned palm mute for modern metal (tighter, more aggressive)
         let (decay_factor, filter_cutoff) = match technique {
             PlayingTechnique::Open | PlayingTechnique::SingleNote => (0.996, 8000.0),
-            PlayingTechnique::PalmMute => (0.9985, 800.0), // Tighter decay, more aggressive damping
+            PlayingTechnique::PalmMute => (0.90, 800.0), // Lower decay factor for faster damping (palm mute)
             PlayingTechnique::Harmonic | PlayingTechnique::PinchHarmonic => (0.999, 12000.0),
             PlayingTechnique::TremoloPick => (0.95, 6000.0),
             PlayingTechnique::PowerChordRoot | PlayingTechnique::MinorChordRoot => (0.98, 5000.0),
@@ -223,12 +223,15 @@ pub fn generate_metal_bass_string(
         
         // Sub-bass boost: Add weight in low frequencies
         if frequency < 100.0 {
-            // Massive boost for sub-bass frequencies
-            sample *= 1.5;
+            // Boost for sub-bass frequencies
+            sample *= 1.3;
         } else if frequency < 200.0 {
             // Moderate boost for low bass
-            sample *= 1.25;
+            sample *= 1.15;
         }
+        
+        // Clamp to valid range to prevent clipping
+        sample = sample.clamp(-1.0, 1.0);
         
         buffer.push(sample);
     }
