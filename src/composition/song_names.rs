@@ -5,130 +5,18 @@ pub fn generate_song_name() -> String {
     let mut rng = rand::thread_rng();
 
     let adjectives = vec![
-        // Funky vibes
-        "Funky",
-        "Groovy",
-        "Swingin'",
-        "Jumpin'",
-        "Bumpin'",
-        "Soulful",
-        "Smooth",
-        "Slick",
-        "Cool",
-        "Hot",
-        // Jazz vibes
-        "Blue",
-        "Mellow",
-        "Sweet",
-        "Sassy",
-        "Jazzy",
-        "Velvet",
-        "Silky",
-        "Liquid",
-        "Dreamy",
-        "Moody",
-        // Electro-swing vibes
-        "Electric",
-        "Cosmic",
-        "Neon",
-        "Digital",
-        "Vintage",
-        "Retro",
-        "Urban",
-        "Downtown",
-        "Midnight",
-        "Sunset",
-        // Energy vibes
-        "Wild",
-        "Crazy",
-        "Wicked",
-        "Radical",
-        "Ultimate",
-        "Supreme",
-        "Golden",
-        "Silver",
-        "Diamond",
-        "Platinum",
-        // Time/place vibes
-        "Late Night",
-        "Early Morning",
-        "Twilight",
-        "Moonlight",
-        "Starlight",
-        "Underground",
-        "Uptown",
-        "Street",
-        "Avenue",
-        "Boulevard",
+        "Brutal", "Dark", "Heavy", "Sludge", "Doom", "Black", "Rotting", "Vile",
+        "Ancient", "Cursed", "Toxic", "Grim", "Savage", "Feral", "Rusty", "Hollow",
+        "Abyssal", "Infernal", "Wicked", "Twisted", "Broken", "Shattered", "Bleeding",
+        "Frozen", "Burning", "Dying", "Dead", "Lost", "Forgotten", "Eternal",
     ];
-
     let nouns = vec![
-        // Music/groove terms
-        "Groove",
-        "Rhythm",
-        "Beat",
-        "Pulse",
-        "Funk",
-        "Soul",
-        "Vibes",
-        "Flow",
-        "Motion",
-        "Movement",
-        // Jazz terms
-        "Blues",
-        "Swing",
-        "Bop",
-        "Cats",
-        "Notes",
-        "Riff",
-        "Lick",
-        "Solo",
-        "Jam",
-        "Session",
-        // Urban/city vibes
-        "Streets",
-        "Lights",
-        "City",
-        "Dreams",
-        "Nights",
-        "Days",
-        "Tales",
-        "Stories",
-        "Memories",
-        "Echoes",
-        // Cosmic vibes
-        "Galaxy",
-        "Cosmos",
-        "Stars",
-        "Space",
-        "Universe",
-        "Orbit",
-        "Nebula",
-        "Planet",
-        "Moon",
-        "Sun",
-        // Smooth vibes
-        "Velvet",
-        "Silk",
-        "Satin",
-        "Honey",
-        "Sugar",
-        "Whisper",
-        "Breeze",
-        "Wave",
-        "River",
-        "Ocean",
-        // Party vibes
-        "Party",
-        "Celebration",
-        "Fiesta",
-        "Carnival",
-        "Festival",
-        "Dance",
-        "Shuffle",
-        "Strut",
-        "Glide",
-        "Slide",
+        "Swamp", "Mud", "Grave", "Tomb", "Skull", "Bone", "Flesh", "Blood",
+        "Nightmare", "Void", "Abyss", "Storm", "Thunder", "Beast", "Demon",
+        "Witch", "Ritual", "Cult", "Altar", "Sacrifice", "Doom", "Death",
+        "Decay", "Rot", "Sludge", "Mire", "Bog", "Marsh", "Ooze", "Slime",
+        "Metal", "Steel", "Iron", "Chains", "Spikes", "Thorns", "Shadows",
+        "Darkness", "Eclipse", "Winter", "Frost", "Flame", "Fire", "Ash",
     ];
 
     let suffixes = vec![
@@ -180,27 +68,14 @@ pub fn generate_genre_tags(genre: Genre) -> Vec<String> {
 
     // Add primary genre name
     let primary = match genre {
-        Genre::Lofi => "Lofi",
-        Genre::Rock => "Rock",
-        Genre::Dubstep => "Dubstep",
-        Genre::DnB => "Drum & Bass",
-        Genre::Jazz => "Jazz",
-        Genre::Funk => "Funk",
-        Genre::HipHop => "Hip Hop",
-        Genre::ElectroSwing => "Electro Swing",
+        Genre::SwampMetal => "Swamp Metal",
     };
     tags.push(primary.to_string());
 
     // Genre-specific secondary tags
+    // Genre-specific secondary tags
     let secondary_options = match genre {
-        Genre::Lofi => vec!["Chill", "Study", "Relaxing", "Nostalgic", "Sleep", "Beats"],
-        Genre::Rock => vec!["Alternative", "Indie", "Electric", "Guitar", "Energy"],
-        Genre::Dubstep => vec!["Bass", "Electronic", "Heavy", "Wobble", "Drop"],
-        Genre::DnB => vec!["Liquid", "Fast", "Electronic", "Breakbeat", "Energy"],
-        Genre::Jazz => vec!["Smooth", "Fusion", "Improv", "Lounge", "Cafe"],
-        Genre::Funk => vec!["Groove", "Soul", "Rhythm", "Dance", "Classic"],
-        Genre::HipHop => vec!["Boom Bap", "Urban", "Rap", "Beats", "Old School"],
-        Genre::ElectroSwing => vec!["Vintage", "Swing", "Dance", "Retro", "Upbeat"],
+        Genre::SwampMetal => vec!["Sludge", "Doom", "Heavy", "Groove", "Southern"],
     };
 
     // Add 1-2 secondary tags
@@ -238,9 +113,9 @@ mod tests {
     #[test]
     fn test_genre_tags() {
         for _ in 0..10 {
-            let tags = generate_genre_tags(Genre::Lofi);
+            let tags = generate_genre_tags(Genre::SwampMetal);
             assert!(!tags.is_empty());
-            assert!(tags.contains(&"Lofi".to_string()));
+            assert!(tags.contains(&"Swamp Metal".to_string()));
             println!("Tags: {:?}", tags);
         }
     }

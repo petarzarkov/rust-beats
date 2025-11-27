@@ -36,7 +36,6 @@ pub struct VoiceSegment {
 pub fn generate_tts(
     text: &str,
     language: &str,
-    _espeak_data: &str, // Not used by gTTS (kept for API compatibility)
 ) -> Result<(Vec<i16>, u32), Box<dyn std::error::Error>> {
     // Create temporary output file
     let temp_wav = format!("/tmp/gtts_tts_{}.wav", std::process::id());
@@ -169,10 +168,9 @@ pub fn resample_to_target(input: Vec<i16>, from_rate: u32, to_rate: u32) -> Resu
 pub fn generate_voice_segment(
     text: &str,
     language: &str,
-    espeak_data: &str,
 ) -> Result<Vec<f32>, Box<dyn std::error::Error>> {
     // Generate TTS (returns samples and sample rate)
-    let (tts_samples, tts_sample_rate) = generate_tts(text, language, espeak_data)?;
+    let (tts_samples, tts_sample_rate) = generate_tts(text, language)?;
 
     // Resample to 44100 Hz if needed
     let tts_44k = if tts_sample_rate != 44100 {

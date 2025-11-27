@@ -4,12 +4,20 @@ mod config;
 mod synthesis;
 mod utils;
 
-use composition::SongGenerator;
+use audio::encode_to_mp3;
+use composition::{
+    generate_song_name, generate_genre_tags,
+    metal_song_generator::{MetalSongGenerator, MetalSubgenre},
+};
 use config::Config;
-use synthesis::{get_sample_rate, init_sample_rate};
-use utils::get_current_date;
+use synthesis::{get_sample_rate, init_sample_rate, metal_audio_renderer::MetalAudioRenderer};
+use utils::{get_current_date, sanitize_filename};
+use std::fs;
 
 fn main() {
+    println!("🤘 RUST BEATS - METAL MUSIC GENERATOR 🤘");
+    println!("=========================================\n");
+
     // Load configuration
     let config = Config::load_default().unwrap_or_else(|e| {
         eprintln!("⚠️  Warning: Could not load config.toml: {}", e);
@@ -17,82 +25,203 @@ fn main() {
         Config::default()
     });
 
-    // Initialize sample rate from config (must be done before any synthesis)
+    // Initialize sample rate from config
     init_sample_rate(config.audio.sample_rate);
-
-    println!("🎵 Rust Beats - Procedural Music Generator");
-    println!("============================================");
+    
     println!("Artist: {}", config.metadata.artist);
-    println!("Sample Rate: {} Hz", config.audio.sample_rate);
-    println!("Structure: {}\n", config.composition.structure);
-
-    // Create song generator
-    let generator = SongGenerator::new(config);
-    let params = generator.params();
-
-    println!("📝 Song Name: {}", params.song_name);
-    println!("🎸 Genres: {:?}", params.genre_tags);
-    println!(
-        "🎹 Key: Root MIDI {}, Scale: {:?}",
-        params.key.root, params.key.scale_type
-    );
-    println!("⏱️  Tempo: {:.1} BPM", params.tempo.bpm);
-    println!("🎵 Genre: {:?}", params.genre);
-    println!("🥁 Groove: {:?}", params.groove_style);
-    println!(
-        "🎸 Lead: {}, Bass: {}, Drums: {:?}",
-        params.lead_instrument, params.bass_type, params.drum_kit
-    );
-    println!(
-        "🥁 Percussion: {}, Pads: {}, Mix: {}\n",
-        params.percussion_type, params.pad_intensity, params.mixing_style
-    );
-
-    println!(
-        "🎼 Generating {} bars of music...",
-        params.arrangement.total_bars
-    );
-    println!(
-        "   Structure: {} sections",
-        params.arrangement.sections.len()
-    );
-    for (section, bars) in &params.arrangement.sections {
-        println!("   {:?}: {} bars", section, bars);
+    println!("Sample Rate: {} Hz\n", config.audio.sample_rate);
+    
+    // Choose a random metal subgenre
+    let subgenres = vec![
+        MetalSubgenre::HeavyMetal,
+        MetalSubgenre::ThrashMetal,
+        MetalSubgenre::DeathMetal,
+        MetalSubgenre::DoomMetal,
+        MetalSubgenre::ProgressiveMetal,
+    ];
+    
+    let subgenre = subgenres[rand::random::<usize>() % subgenres.len()];
+    
+    println!("🎸 Generating {:?} song...\n", subgenre);
+    
+    // Generate song name and genre tags
+    let song_name = generate_song_name();
+    let genre = composition::Genre::SwampMetal; // Map to our genre system
+    let genre_tags = generate_genre_tags(genre);
+    
+    // Generate the song structure
+    let generator = MetalSongGenerator::new(subgenre);
+    let song = generator.generate_song();
+    
+    println!("📝 Song Details:");
+    println!("   Name: {}", song_name);
+    println!("   Genre: {}", genre_tags.join(", "));
+    println!("   Subgenre: {:?}", song.subgenre);
+    println!("   Key: {:?} {:?}", song.key.root, song.key.scale_type);
+    println!("   Tempo: {} BPM", song.tempo);
+    println!("   Tuning: {:?}", song.tuning);
+    println!("   Sections: {}", song.sections.len());
+    println!();
+    
+    // Print section breakdown
+    println!("🎼 Song Structure:");
+    for (i, (section, riff)) in song.sections.iter().enumerate() {
+        println!("   {}. {:?} - {} notes", i + 1, section, riff.notes.len());
     }
     println!();
-
-    // Generate all audio tracks in parallel
-    println!("  ├─ Generating audio tracks (parallel)");
-    let (drums, bass, melody_l, melody_r, pads_l, pads_r, fx, percussion, voice_segments) =
-        generator.generate_audio_tracks();
-
-    // Mix and master
-    println!("  ├─ Mixing & mastering");
-    let final_mix = generator.mix_and_master(
-        drums, bass, melody_l, melody_r, pads_l, pads_r, fx, percussion, voice_segments,
-    );
-
-    println!("  └─ Finalizing\n");
-
-    // Get current date
+    
+    // Render the audio
+    println!("🔊 Rendering audio...");
+    let mut renderer = MetalAudioRenderer::new();
+    
+    // Calculate variable durations for each section
+    let mut total_duration = 0.0;
+    let mut section_durations = Vec::new();
+    
+    for (section, _) in &song.sections {
+        let duration = get_section_duration(*section, song.tempo);
+        section_durations.push(duration);
+        total_duration += duration;
+    }
+    
+    println!("   Estimated Duration: {:.1}s ({:.1} min)", total_duration, total_duration / 60.0);
+    
+    // Render each section with its specific duration
+    let mut audio_samples = Vec::new();
+    for ((section, riff), duration) in song.sections.iter().zip(section_durations.iter()) {
+        let section_audio = renderer.render_section(*section, riff, *duration, song.tempo, song.subgenre);
+        audio_samples.extend(section_audio);
+    }
+    
+    let duration_seconds = audio_samples.len() as f32 / get_sample_rate() as f32;
+    println!("   Duration: {:.1}s", duration_seconds);
+    println!("   Samples: {}", audio_samples.len());
+    println!();
+    
+    // Save files
+    println!("💾 Saving audio...");
     let date = get_current_date();
-
-    // Save song files in parallel
-    if let Err(e) = generator.save_song(&final_mix, &date) {
-        eprintln!("❌ Error saving song: {}", e);
+    
+    // Create sanitized filename
+    let sanitized_artist = sanitize_filename(&config.metadata.artist);
+    let sanitized_song_name = sanitize_filename(&song_name);
+    let filename_base = format!("{}_{}_{}",  date, sanitized_artist, sanitized_song_name);
+    
+    // Create output directory
+    let output_dir = &config.generation.output_dir;
+    if let Err(e) = fs::create_dir_all(output_dir) {
+        eprintln!("❌ Error creating output directory: {}", e);
         return;
     }
-
-    println!(
-        "   Duration: {:.1}s",
-        final_mix.len() as f32 / get_sample_rate() as f32
-    );
-    println!("   Samples: {}", final_mix.len());
-    println!("\n🎉 Song generation complete!");
-    println!("   Name: {}", params.song_name);
-    println!(
-        "   Style: {} @ {:.0} BPM",
-        params.genre_tags.join(", "),
-        params.tempo.bpm
-    );
+    
+    let wav_path = format!("{}/{}.wav", output_dir, filename_base);
+    let mp3_path = format!("{}/{}.mp3", output_dir, filename_base);
+    let json_path = format!("{}/{}.json", output_dir, filename_base);
+    
+    // Save WAV file
+    match save_wav(&wav_path, &audio_samples, get_sample_rate()) {
+        Ok(_) => println!("✅ Successfully created: {}", wav_path),
+        Err(e) => {
+            eprintln!("❌ Error saving WAV file: {}", e);
+            return;
+        }
+    }
+    
+    // Save MP3 file (if enabled in config)
+    if config.generation.encode_mp3 {
+        match encode_to_mp3(&audio_samples, &mp3_path, &song_name, &config.metadata.artist) {
+            Ok(_) => println!("✅ Successfully created: {}", mp3_path),
+            Err(e) => eprintln!("⚠️  Warning: Could not create MP3: {}", e),
+        }
+    }
+    
+    // Save JSON metadata (if enabled in config)
+    if config.generation.write_metadata_json {
+        let metadata = serde_json::json!({
+            "name": song_name,
+            "artist": config.metadata.artist,
+            "genre": genre_tags,
+            "tempo": song.tempo as f32,
+            "duration": duration_seconds,
+            "date": date,
+            "subgenre": format!("{:?}", song.subgenre),
+            "key": format!("{:?} {:?}", song.key.root, song.key.scale_type),
+            "tuning": format!("{:?}", song.tuning),
+            "sections": song.sections.len(),
+        });
+        
+        match fs::write(&json_path, serde_json::to_string_pretty(&metadata).unwrap()) {
+            Ok(_) => println!("✅ Successfully created: {}", json_path),
+            Err(e) => eprintln!("⚠️  Warning: Could not write metadata: {}", e),
+        }
+    }
+    
+    println!();
+    println!("🎉 Metal song generation complete!");
+    println!("   Name: {}", song_name);
+    println!("   Artist: {}", config.metadata.artist);
+    println!("   Style: {:?}", subgenre);
+    println!("   Tempo: {} BPM", song.tempo);
+    println!("   Duration: {:.1}s", duration_seconds);
 }
+
+/// Save audio samples to a WAV file
+fn save_wav(filename: &str, samples: &[f32], sample_rate: u32) -> Result<(), Box<dyn std::error::Error>> {
+    use std::fs::File;
+    use std::io::Write;
+    
+    let mut file = File::create(filename)?;
+    
+    // WAV header
+    let num_samples = samples.len() as u32;
+    let byte_rate = sample_rate * 2; // 16-bit mono
+    let data_size = num_samples * 2;
+    let file_size = data_size + 36;
+    
+    // RIFF header
+    file.write_all(b"RIFF")?;
+    file.write_all(&file_size.to_le_bytes())?;
+    file.write_all(b"WAVE")?;
+    
+    // fmt chunk
+    file.write_all(b"fmt ")?;
+    file.write_all(&16u32.to_le_bytes())?; // chunk size
+    file.write_all(&1u16.to_le_bytes())?;  // audio format (PCM)
+    file.write_all(&1u16.to_le_bytes())?;  // num channels (mono)
+    file.write_all(&sample_rate.to_le_bytes())?;
+    file.write_all(&byte_rate.to_le_bytes())?;
+    file.write_all(&2u16.to_le_bytes())?;  // block align
+    file.write_all(&16u16.to_le_bytes())?; // bits per sample
+    
+    // data chunk
+    file.write_all(b"data")?;
+    file.write_all(&data_size.to_le_bytes())?;
+    
+    // Write audio data (convert f32 to i16)
+    for &sample in samples {
+        let sample_i16 = (sample.clamp(-1.0, 1.0) * 32767.0) as i16;
+        file.write_all(&sample_i16.to_le_bytes())?;
+    }
+    
+    Ok(())
+}
+
+/// Calculate section duration based on bars and tempo
+fn get_section_duration(section: composition::metal_song_generator::MetalSection, tempo: u16) -> f32 {
+    use composition::metal_song_generator::MetalSection;
+    
+    let bars = match section {
+        MetalSection::Intro => 4,
+        MetalSection::Verse => 8,
+        MetalSection::Chorus => 8,
+        MetalSection::Breakdown => 4,
+        MetalSection::Solo => 12,
+        MetalSection::Outro => 4,
+    };
+    
+    // Calculate duration: bars * beats_per_bar * seconds_per_beat
+    let beats_per_bar = 4.0;
+    let seconds_per_beat = 60.0 / tempo as f32;
+    bars as f32 * beats_per_bar * seconds_per_beat
+}
+
