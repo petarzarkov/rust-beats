@@ -1,16 +1,86 @@
 [
-  {"filename": "2025-11-27_petar_zarkov_cult_altar.mp3", "date": "2025-11-27", "size": 2840031, "name": "Cult Altar", "genre": ["Swamp Metal","Groove"]}
-,
-  {"filename": "2025-11-26_petar_zarkov_steel_sludge.mp3", "date": "2025-11-26", "size": 3834356, "name": "Steel Sludge", "genre": ["Swamp Metal","Doom","Southern"]}
-,
-  {"filename": "2025-11-25_petar_zarkov_skull_swamp.mp3", "date": "2025-11-25", "size": 3529037, "name": "Skull Swamp", "genre": ["Swamp Metal","Doom","Instrumental"]}
-,
-  {"filename": "2025-11-24_petar_zarkov_black_thunder_sensation.mp3", "date": "2025-11-24", "size": 4498911, "name": "Black Thunder Sensation", "genre": ["Swamp Metal","Sludge"]}
-,
-  {"filename": "2025-11-23_petar_zarkov_mire_flesh.mp3", "date": "2025-11-23", "size": 7497559, "name": "Mire Flesh", "genre": ["Swamp Metal","Sludge"]}
-,
-  {"filename": "2025-11-22_petar_zarkov_twisted_abyssal_darkness.mp3", "date": "2025-11-22", "size": 9096253, "name": "Twisted Abyssal Darkness", "genre": ["Swamp Metal","Heavy"]}
-,
-  {"filename": "2025-11-21_petar_zarkov_burning_winter_spell.mp3", "date": "2025-11-21", "size": 8948923, "name": "Burning Winter Spell", "genre": ["Swamp Metal","Doom","Groove"]}
-
+  {
+    "filename": "2025-11-27_petar_zarkov_abyssal_chains_supreme.mp3",
+    "date": "2025-11-27",
+    "size": 3967267,
+    "name": "Abyssal Chains Supreme",
+    "genre": [
+      "Swamp Metal",
+      "Groove",
+      "Southern"
+    ]
+  },
+  {
+    "filename": "2025-11-27_petar_zarkov_cult_altar.mp3",
+    "date": "2025-11-27",
+    "size": 2840031,
+    "name": "Cult Altar",
+    "genre": [
+      "Swamp Metal",
+      "Groove"
+    ]
+  },
+  {
+    "filename": "2025-11-26_petar_zarkov_steel_sludge.mp3",
+    "date": "2025-11-26",
+    "size": 3834356,
+    "name": "Steel Sludge",
+    "genre": [
+      "Swamp Metal",
+      "Doom",
+      "Southern"
+    ]
+  },
+  {
+    "filename": "2025-11-25_petar_zarkov_skull_swamp.mp3",
+    "date": "2025-11-25",
+    "size": 3529037,
+    "name": "Skull Swamp",
+    "genre": [
+      "Swamp Metal",
+      "Doom",
+      "Instrumental"
+    ]
+  },
+  {
+    "filename": "2025-11-24_petar_zarkov_black_thunder_sensation.mp3",
+    "date": "2025-11-24",
+    "size": 4498911,
+    "name": "Black Thunder Sensation",
+    "genre": [
+      "Swamp Metal",
+      "Sludge"
+    ]
+  },
+  {
+    "filename": "2025-11-23_petar_zarkov_mire_flesh.mp3",
+    "date": "2025-11-23",
+    "size": 7497559,
+    "name": "Mire Flesh",
+    "genre": [
+      "Swamp Metal",
+      "Sludge"
+    ]
+  },
+  {
+    "filename": "2025-11-22_petar_zarkov_twisted_abyssal_darkness.mp3",
+    "date": "2025-11-22",
+    "size": 9096253,
+    "name": "Twisted Abyssal Darkness",
+    "genre": [
+      "Swamp Metal",
+      "Heavy"
+    ]
+  },
+  {
+    "filename": "2025-11-21_petar_zarkov_burning_winter_spell.mp3",
+    "date": "2025-11-21",
+    "size": 8948923,
+    "name": "Burning Winter Spell",
+    "genre": [
+      "Swamp Metal",
+      "Doom",
+      "Groove"
+    ]
+  }
 ]
