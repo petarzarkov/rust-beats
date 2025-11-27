@@ -1,88 +1,16 @@
 [
-  {
-    "filename": "2025-11-27_petar_zarkov_rotting_spikes_special.mp3",
-    "date": "2025-11-27",
-    "size": 3325909,
-    "name": "Rotting Spikes Special",
-    "genre": [
-      "Swamp Metal",
-      "Groove",
-      "Heavy",
-      "Instrumental"
-    ]
-  },
-  {
-    "filename": "2025-11-27_petar_zarkov_nightmare_chains.mp3",
-    "date": "2025-11-27",
-    "size": 3939682,
-    "name": "Nightmare Chains",
-    "genre": [
-      "Swamp Metal",
-      "Heavy"
-    ]
-  },
-  {
-    "filename": "2025-11-27_petar_zarkov_broken_doom_delight.mp3",
-    "date": "2025-11-27",
-    "size": 7024848,
-    "name": "Broken Doom Delight",
-    "genre": [
-      "Swamp Metal",
-      "Sludge"
-    ]
-  },
-  {
-    "filename": "2025-11-26_petar_zarkov_brutal_eclipse_journey.mp3",
-    "date": "2025-11-26",
-    "size": 7397876,
-    "name": "Brutal Eclipse Journey",
-    "genre": [
-      "Swamp Metal",
-      "Heavy",
-      "Sludge"
-    ]
-  },
-  {
-    "filename": "2025-11-25_petar_zarkov_forgotten_altar_spell.mp3",
-    "date": "2025-11-25",
-    "size": 3129050,
-    "name": "Forgotten Altar Spell",
-    "genre": [
-      "Swamp Metal",
-      "Southern",
-      "Instrumental"
-    ]
-  },
-  {
-    "filename": "2025-11-24_petar_zarkov_twisted_doom_special.mp3",
-    "date": "2025-11-24",
-    "size": 3572296,
-    "name": "Twisted Doom Special",
-    "genre": [
-      "Swamp Metal",
-      "Heavy"
-    ]
-  },
-  {
-    "filename": "2025-11-23_petar_zarkov_sludge_shadows_supreme.mp3",
-    "date": "2025-11-23",
-    "size": 3364779,
-    "name": "Sludge Shadows Supreme",
-    "genre": [
-      "Swamp Metal",
-      "Southern"
-    ]
-  },
-  {
-    "filename": "2025-11-22_petar_zarkov_steel_chains.mp3",
-    "date": "2025-11-22",
-    "size": 6608560,
-    "name": "Steel Chains",
-    "genre": [
-      "Swamp Metal",
-      "Sludge",
-      "Southern",
-      "Instrumental"
-    ]
-  }
+  {"filename": "2025-11-27_petar_zarkov_cult_altar.mp3", "date": "2025-11-27", "size": 2840031, "name": "Cult Altar", "genre": ["Swamp Metal","Groove"]}
+,
+  {"filename": "2025-11-26_petar_zarkov_steel_sludge.mp3", "date": "2025-11-26", "size": 3834356, "name": "Steel Sludge", "genre": ["Swamp Metal","Doom","Southern"]}
+,
+  {"filename": "2025-11-25_petar_zarkov_skull_swamp.mp3", "date": "2025-11-25", "size": 3529037, "name": "Skull Swamp", "genre": ["Swamp Metal","Doom","Instrumental"]}
+,
+  {"filename": "2025-11-24_petar_zarkov_black_thunder_sensation.mp3", "date": "2025-11-24", "size": 4498911, "name": "Black Thunder Sensation", "genre": ["Swamp Metal","Sludge"]}
+,
+  {"filename": "2025-11-23_petar_zarkov_mire_flesh.mp3", "date": "2025-11-23", "size": 7497559, "name": "Mire Flesh", "genre": ["Swamp Metal","Sludge"]}
+,
+  {"filename": "2025-11-22_petar_zarkov_twisted_abyssal_darkness.mp3", "date": "2025-11-22", "size": 9096253, "name": "Twisted Abyssal Darkness", "genre": ["Swamp Metal","Heavy"]}
+,
+  {"filename": "2025-11-21_petar_zarkov_burning_winter_spell.mp3", "date": "2025-11-21", "size": 8948923, "name": "Burning Winter Spell", "genre": ["Swamp Metal","Doom","Groove"]}
+
 ]

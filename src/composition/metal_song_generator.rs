@@ -1,11 +1,17 @@
 use crate::composition::{
     drum_humanizer::{DrumHumanizer, BlastBeatStyle, generate_blast_beat, blast_beat_velocity},
-    fretboard::{FretboardPathfinder, calculate_playability_score},
+    fretboard::{FretboardPathfinder, PlayabilityMode, calculate_playability_score},
     music_theory::{Key, ScaleType, MidiNote},
     tuning::GuitarTuning,
-    rhythm::{euclidean_rhythm, rotate_rhythm},
-    riff_generator::{MetalMarkovPresets, PedalPointGenerator},
+    rhythm::{euclidean_rhythm, rotate_rhythm, OddSubdivisionPattern, DisplacedAccentGenerator, PolymetricInterference},
+    riff_generator::{MetalMarkovPresets, PedalPointGenerator, ChromaticMutator},
+    riff_motifs::{RiffMotif, MotifLibrary, MotifRecombinator},
+    drum_articulations::DrumArticulationGenerator,
+    breakdown_generator::{BreakdownGenerator, BreakdownPattern},
+    bar_memory::BarMotifStore,
+    phrase_drums::{PhraseAwareDrumGenerator, GuitarContext},
 };
+use crate::synthesis::aggressive_mix::AggressiveMixPipeline;
 use rand::Rng;
 
 /// Legacy genre enum for compatibility
@@ -79,6 +85,9 @@ impl RhythmPattern {
             RhythmPattern::SixteenthNote => 0.25,
             RhythmPattern::ThirtySecondNote => 0.125,
             RhythmPattern::Gallop => 0.5, // Gallop is a compound pattern
+            RhythmPattern::Quintuplet => 0.8, // 5 notes in 4 beats = 4/5 per note
+            RhythmPattern::Septuplet => 0.571, // 7 notes in 4 beats = 4/7 per note
+            RhythmPattern::DottedEighth => 0.75, // 3/16 of a bar
             RhythmPattern::Rest => 0.0,
         }
     }
@@ -167,6 +176,9 @@ pub enum RhythmPattern {
     SixteenthNote,  // Quarter beat
     ThirtySecondNote, // Eighth beat (tremolo)
     Gallop,         // Eighth + two sixteenths (special pattern)
+    Quintuplet,     // 5 notes in 4 beats
+    Septuplet,      // 7 notes in 4 beats
+    DottedEighth,   // Dotted 8th note (3/16)
     Rest,           // Silence
 }
 
@@ -206,6 +218,15 @@ pub struct MetalSongGenerator {
     tuning: GuitarTuning,
     key: Key,
     tempo: u16,
+    pub motif_library: MotifLibrary,
+    pub chromatic_mutator: ChromaticMutator,
+    pub breakdown_generator: BreakdownGenerator,
+    pub aggressive_pathfinder: FretboardPathfinder,
+    pub bar_memory: BarMotifStore,
+    pub phrase_drums: PhraseAwareDrumGenerator,
+    pub polymeter: PolymetricInterference,
+    pub mix_pipeline: AggressiveMixPipeline,
+    pub chaos_level: f32,
 }
 
 impl MetalSongGenerator {
@@ -228,17 +249,79 @@ impl MetalSongGenerator {
         let (min_tempo, max_tempo) = subgenre.tempo_range();
         let tempo = rng.gen_range(min_tempo..=max_tempo);
         
+        // Initialize new enhancement systems
+        let motif_library = MotifLibrary::new();
+        
+        // Chromatic intensity varies by subgenre
+        let chromatic_intensity = match subgenre {
+            MetalSubgenre::DeathMetal => 0.8,      // Very chromatic
+            MetalSubgenre::ProgressiveMetal => 0.7, // Complex
+            MetalSubgenre::ThrashMetal => 0.6,     // Moderately chromatic
+            MetalSubgenre::HeavyMetal => 0.4,      // Less chromatic
+            MetalSubgenre::DoomMetal => 0.5,       // Moderate
+        };
+        let chromatic_mutator = ChromaticMutator::new(chromatic_intensity);
+        
+        // Breakdown generator - aggressive for most subgenres
+        let breakdown_generator = if matches!(subgenre, MetalSubgenre::DoomMetal) {
+            BreakdownGenerator::new() // Standard for doom
+        } else {
+            BreakdownGenerator::aggressive()
+        };
+        
+        let sample_rate = crate::utils::get_sample_rate();
+        
+        // Determine playability mode based on subgenre
+        let playability_mode = match subgenre {
+            MetalSubgenre::ProgressiveMetal => PlayabilityMode::Aggressive,
+            MetalSubgenre::DeathMetal => PlayabilityMode::Aggressive,
+            _ => PlayabilityMode::Standard,
+        };
+        
+        let pathfinder = FretboardPathfinder::with_mode(tuning, playability_mode);
+        
         MetalSongGenerator {
             subgenre,
             tuning,
             key,
             tempo,
+            motif_library,
+            chromatic_mutator,
+            breakdown_generator,
+            aggressive_pathfinder: pathfinder,
+            bar_memory: BarMotifStore::new(),
+            phrase_drums: PhraseAwareDrumGenerator::new(sample_rate, tempo),
+            polymeter: PolymetricInterference::prog_metal(),
+            mix_pipeline: AggressiveMixPipeline::new(sample_rate),
+            chaos_level: match subgenre {
+                MetalSubgenre::ProgressiveMetal => 0.7,
+                MetalSubgenre::DeathMetal => 0.8,
+                _ => 0.5,
+            },
         }
     }
 
     /// Generate a complete metal riff for a section
     /// Now varies based on section intensity and type
     pub fn generate_riff(&self, section: MetalSection) -> MetalRiff {
+        let mut rng = rand::thread_rng();
+        
+        // Use breakdown generator for breakdowns
+        if section == MetalSection::Breakdown {
+            return self.generate_breakdown_riff();
+        }
+        
+        // Use motif-based generation for some riffs (40% chance)
+        if section != MetalSection::Intro && rng.gen_bool(0.4) {
+            return self.generate_motif_based_riff(section);
+        }
+        
+        // Use polymetric riffs for progressive metal
+        if matches!(self.subgenre, MetalSubgenre::ProgressiveMetal) && rng.gen_bool(0.3) {
+            return self.generate_polymetric_riff(section);
+        }
+        
+        // Standard generation
         match section {
             MetalSection::Intro => {
                 let root = self.key.root;
@@ -259,11 +342,8 @@ impl MetalSongGenerator {
                 self.build_riff_from_notes(notes, section)
             },
             MetalSection::Breakdown => {
-                let root = self.key.root;
-                // Breakdown: Force root notes (0s) and simple rhythms
-                // Fewer notes = Heavier
-                let notes = vec![root; 8]; // 8 notes is enough for a sparse breakdown
-                self.build_riff_from_notes(notes, section)
+                // Already handled above
+                self.generate_breakdown_riff()
             },
             MetalSection::Solo => {
                 let root = self.key.root;
@@ -282,21 +362,28 @@ impl MetalSongGenerator {
 
     /// Generate polymetric riff for Progressive Metal (Djent)
     /// Research Section 3.1: Uses PolymetricRiff for complex rhythmic structures
+    /// Generate a polymetric riff for progressive metal
     fn generate_polymetric_riff(&self, section: MetalSection) -> MetalRiff {
-        use crate::composition::rhythm::PolymetricRiff;
+        // Use PolymetricInterference for prog-metal
+        let polymeter = PolymetricInterference::prog_metal();
         
-        // Create a 7/16 polymetric pattern over 4/4 bars
-        let poly = PolymetricRiff::new(7, 16, false);
+        // Generate guitar pattern in odd meter (5/16)
+        let guitar_positions = polymeter.guitar_pattern(4); // 4 bars
         
-        // Generate a short melodic phrase
-        let root = self.key.root;
-        let scale = self.key.scale_type;
-        let phrase = self.generate_markov_sequence_with_pedal(root, scale, 7, 0.4);
+        // Convert positions to notes from scale
+        let scale_notes = self.key.get_scale_notes();
+        let mut notes = Vec::new();
         
-        // Fill 2 bars with the polymetric pattern
-        let notes = poly.fill_bars(&phrase, 2);
+        for pos in guitar_positions {
+            let note_idx = (pos / polymeter.guitar_meter) % scale_notes.len();
+            notes.push(scale_notes[note_idx]);
+        }
         
-        self.build_riff_from_notes(notes, section)
+        // Apply chromatic mutations for complexity
+        let mutated_notes = self.chromatic_mutator.apply_mutations(notes);
+        
+        // Build riff
+        self.build_riff_from_notes(mutated_notes, section)
     }
 
     /// Build a MetalRiff from notes with appropriate palm muting, chords, and rhythms
@@ -729,5 +816,68 @@ impl MetalSongGenerator {
         }
 
         drum_hits
+    }
+
+    /// Generate a motif-based riff with chromatic mutations
+    fn generate_motif_based_riff(&self, section: MetalSection) -> MetalRiff {
+        let mut rng = rand::thread_rng();
+        let root = self.key.root;
+        
+        // Select random motif
+        let motif = self.motif_library.random_motif();
+        
+        // Apply motif to root note
+        let base_notes = motif.apply(root);
+        
+        // Apply chromatic mutations for dissonance
+        let mutated_notes = self.chromatic_mutator.apply_mutations(base_notes);
+        
+        // Use aggressive pathfinding if available
+        let _fret_positions = if matches!(self.subgenre, MetalSubgenre::ProgressiveMetal) {
+            self.aggressive_pathfinder.find_aggressive_path(&mutated_notes)
+        } else {
+            self.aggressive_pathfinder.find_playable_path(&mutated_notes)
+        };
+        
+        // Build riff from mutated notes
+        self.build_riff_from_notes(mutated_notes, section)
+    }
+
+    /// Generate a breakdown riff with syncopated silences and dotted-eighth stabs
+    fn generate_breakdown_riff(&self) -> MetalRiff {
+        let root = self.key.root;
+        
+        // Generate breakdown pattern with syncopated silences
+        let pattern = self.breakdown_generator.generate_breakdown_pattern(root, 2);
+        
+        let mut notes = Vec::new();
+        let mut rhythms = Vec::new();
+        let mut palm_muted = Vec::new();
+        let mut chord_types = Vec::new();
+        
+        for (_pos, note, _duration_mult, is_silent) in pattern {
+            if !is_silent {
+                notes.push(note);
+                rhythms.push(RhythmPattern::DottedEighth); // Dotted eighth stabs
+                palm_muted.push(true); // Heavy palm muting
+                chord_types.push(ChordType::Power); // Power chords
+            }
+        }
+        
+        // Ensure we have at least some notes
+        if notes.is_empty() {
+            notes = vec![root; 4];
+            rhythms = vec![RhythmPattern::QuarterNote; 4];
+            palm_muted = vec![true; 4];
+            chord_types = vec![ChordType::Power; 4];
+        }
+        
+        MetalRiff {
+            notes,
+            palm_muted,
+            chord_types,
+            rhythms,
+            playability_score: 0.8,
+        }
     }
 }

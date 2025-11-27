@@ -151,6 +151,128 @@ impl MetalMarkovPresets {
     }
 }
 
+/// Chromatic mutation system for breaking free from scale-locking
+/// Applies chromatic bends, tritone substitutions, and interval enforcement
+#[derive(Debug, Clone)]
+pub struct ChromaticMutator {
+    pub bend_probability: f32,      // Probability of bending note ±1 semitone
+    pub tritone_probability: f32,   // Probability of tritone substitution
+    pub chromatic_run_probability: f32, // Probability of inserting chromatic run
+    pub interval_enforcement: f32,  // Probability of forcing dissonant intervals
+}
+
+impl ChromaticMutator {
+    pub fn new(mutation_intensity: f32) -> Self {
+        ChromaticMutator {
+            bend_probability: mutation_intensity * 0.15,
+            tritone_probability: mutation_intensity * 0.10,
+            chromatic_run_probability: mutation_intensity * 0.20,
+            interval_enforcement: mutation_intensity * 0.20,
+        }
+    }
+
+    /// Apply all mutations to a note sequence
+    pub fn apply_mutations(&self, mut notes: Vec<MidiNote>) -> Vec<MidiNote> {
+        // Apply bends
+        notes = self.bend_notes(notes);
+        
+        // Apply tritone substitutions
+        notes = self.tritone_substitute(notes);
+        
+        // Insert chromatic runs
+        notes = self.insert_chromatic_runs(notes);
+        
+        // Enforce dissonant intervals
+        notes = self.enforce_intervals(notes);
+        
+        notes
+    }
+
+    /// Bend notes ±1 semitone with probability
+    fn bend_notes(&self, notes: Vec<MidiNote>) -> Vec<MidiNote> {
+        let mut rng = rand::thread_rng();
+        notes.iter()
+            .map(|&note| {
+                if rng.gen_bool(self.bend_probability as f64) {
+                    let bend = if rng.gen_bool(0.5) { 1 } else { -1 };
+                    ((note as i16 + bend).clamp(0, 127)) as MidiNote
+                } else {
+                    note
+                }
+            })
+            .collect()
+    }
+
+    /// Replace notes with tritone (+6 semitones) with probability
+    fn tritone_substitute(&self, notes: Vec<MidiNote>) -> Vec<MidiNote> {
+        let mut rng = rand::thread_rng();
+        notes.iter()
+            .map(|&note| {
+                if rng.gen_bool(self.tritone_probability as f64) {
+                    ((note as i16 + 6).clamp(0, 127)) as MidiNote
+                } else {
+                    note
+                }
+            })
+            .collect()
+    }
+
+    /// Insert 2-4 note chromatic passages every 4-8 notes
+    fn insert_chromatic_runs(&self, notes: Vec<MidiNote>) -> Vec<MidiNote> {
+        let mut rng = rand::thread_rng();
+        let mut result = Vec::new();
+        let mut i = 0;
+
+        while i < notes.len() {
+            result.push(notes[i]);
+            
+            // Check if we should insert a chromatic run
+            if i > 0 && i % rng.gen_range(4..=8) == 0 && rng.gen_bool(self.chromatic_run_probability as f64) {
+                let run_length = rng.gen_range(2..=4);
+                let start_note = notes[i];
+                let direction = if rng.gen_bool(0.5) { 1 } else { -1 };
+                
+                for j in 1..=run_length {
+                    let chromatic_note = ((start_note as i16 + (j as i16 * direction)).clamp(0, 127)) as MidiNote;
+                    result.push(chromatic_note);
+                }
+            }
+            
+            i += 1;
+        }
+
+        result
+    }
+
+    /// Enforce dissonant intervals (m2, m3, tritone) with probability
+    fn enforce_intervals(&self, notes: Vec<MidiNote>) -> Vec<MidiNote> {
+        let mut rng = rand::thread_rng();
+        let mut result = Vec::new();
+
+        for (i, &note) in notes.iter().enumerate() {
+            result.push(note);
+            
+            if i > 0 && rng.gen_bool(self.interval_enforcement as f64) {
+                let last_idx = result.len() - 1;
+                let prev_idx = result.len() - 2;
+                let prev_note = result[prev_idx];
+                let interval = (note as i16 - prev_note as i16).abs();
+                
+                // If interval is too consonant (perfect 4th, 5th, octave), make it dissonant
+                if interval == 5 || interval == 7 || interval == 12 {
+                    let dissonant_intervals = vec![1, 3, 6]; // m2, m3, tritone
+                    let chosen_interval = dissonant_intervals[rng.gen_range(0..dissonant_intervals.len())];
+                    let new_note = ((prev_note as i16 + chosen_interval).clamp(0, 127)) as MidiNote;
+                    result[last_idx] = new_note;
+                }
+            }
+        }
+
+        result
+    }
+}
+
+
 /// Pedal point riff generator
 /// Based on research: most metal riffs return to a static bass note (pedal)
 #[derive(Debug, Clone)]

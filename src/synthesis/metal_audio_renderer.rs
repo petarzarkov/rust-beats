@@ -284,11 +284,15 @@ impl MetalAudioRenderer {
             }
             
             // Calculate note duration from rhythm pattern
-            let note_duration = match rhythm {
+            // Add minimum sustain to prevent cutoff at fast tempos
+            let base_duration = match rhythm {
                 RhythmPattern::QuarterNote => beat_duration,
                 RhythmPattern::EighthNote => beat_duration / 2.0,
                 RhythmPattern::SixteenthNote => beat_duration / 4.0,
                 RhythmPattern::ThirtySecondNote => beat_duration / 8.0,
+                RhythmPattern::Quintuplet => beat_duration * 0.8, // 5 notes in 4 beats
+                RhythmPattern::Septuplet => beat_duration * 0.571, // 7 notes in 4 beats
+                RhythmPattern::DottedEighth => beat_duration * 0.75, // 3/4 of a beat
                 RhythmPattern::Gallop => {
                     // Gallop is handled specially - render 3 notes
                     if let Some(gallop_samples) = self.render_gallop_pattern(riff, i, beat_duration, palm_muted, chord_type) {
@@ -298,6 +302,11 @@ impl MetalAudioRenderer {
                 },
                 RhythmPattern::Rest => beat_duration / 4.0, // Shouldn't reach here
             };
+            
+            // Add minimum sustain to prevent cutoff at fast tempos
+            // At 200+ BPM, sixteenth notes can be <0.075s which sounds clipped
+            let min_sustain = if palm_muted { 0.08 } else { 0.12 }; // Minimum sustain in seconds
+            let note_duration = base_duration.max(min_sustain);
             
             // Convert MIDI note to frequency: f = 440 * 2.0_f32.powf((n-69)/12)
             let freq_root = 440.0 * 2.0_f32.powf((note as f32 - 69.0) / 12.0);

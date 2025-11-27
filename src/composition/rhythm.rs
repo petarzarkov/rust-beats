@@ -179,6 +179,309 @@ pub fn generate_breakdown_pattern(
     pattern
 }
 
+/// Odd subdivision pattern generator (quintuplets, septuplets, etc.)
+#[derive(Debug, Clone)]
+pub struct OddSubdivisionPattern {
+    pub notes_per_beat: usize, // 5 for quintuplets, 7 for septuplets, etc.
+    pub beats: usize,           // Number of beats to fill
+}
+
+impl OddSubdivisionPattern {
+    pub fn quintuplet(beats: usize) -> Self {
+        OddSubdivisionPattern {
+            notes_per_beat: 5,
+            beats,
+        }
+    }
+
+    pub fn septuplet(beats: usize) -> Self {
+        OddSubdivisionPattern {
+            notes_per_beat: 7,
+            beats,
+        }
+    }
+
+    pub fn custom(notes_per_beat: usize, beats: usize) -> Self {
+        OddSubdivisionPattern {
+            notes_per_beat,
+            beats,
+        }
+    }
+
+    /// Generate a pattern with the specified subdivision
+    /// Returns positions in beats (0.0 = start of bar)
+    pub fn generate_positions(&self) -> Vec<f32> {
+        let total_notes = self.notes_per_beat * self.beats;
+        let subdivision = self.beats as f32 / total_notes as f32;
+        
+        (0..total_notes)
+            .map(|i| i as f32 * subdivision)
+            .collect()
+    }
+
+    /// Get the duration of each note in beats
+    pub fn note_duration(&self) -> f32 {
+        self.beats as f32 / (self.notes_per_beat * self.beats) as f32
+    }
+}
+
+/// Displaced accent generator for off-grid rhythms
+#[derive(Debug, Clone)]
+pub struct DisplacedAccentGenerator {
+    pub start_offset: f32,      // Offset from beat 1 (in beats)
+    pub accent_interval: usize, // Accent every N notes
+}
+
+impl DisplacedAccentGenerator {
+    /// Create a pattern that starts late (after beat 1)
+    pub fn start_late(offset_beats: f32) -> Self {
+        DisplacedAccentGenerator {
+            start_offset: offset_beats,
+            accent_interval: 4,
+        }
+    }
+
+    /// Create a pattern with custom accent interval
+    pub fn with_accents(start_offset: f32, accent_interval: usize) -> Self {
+        DisplacedAccentGenerator {
+            start_offset,
+            accent_interval,
+        }
+    }
+
+    /// Apply displacement to a pattern
+    /// Returns (position, is_accent) pairs
+    pub fn apply_to_pattern(&self, positions: &[f32]) -> Vec<(f32, bool)> {
+        positions
+            .iter()
+            .enumerate()
+            .map(|(i, &pos)| {
+                let displaced_pos = pos + self.start_offset;
+                let is_accent = i % self.accent_interval == 0;
+                (displaced_pos, is_accent)
+            })
+            .collect()
+    }
+
+    /// Check if a riff overlaps the barline
+    pub fn overlaps_barline(&self, pattern_length: f32, bar_length: f32) -> bool {
+        (self.start_offset + pattern_length) > bar_length
+    }
+}
+
+/// Polymeter interference system for phasing guitar/drum patterns
+#[derive(Debug, Clone)]
+pub struct PolymetricInterference {
+    pub guitar_meter: usize,  // e.g., 5 for 5/16
+    pub kick_meter: usize,    // e.g., 4 for 4/4
+    pub snare_meter: usize,   // e.g., 2 for half-time feel
+}
+
+impl PolymetricInterference {
+    /// Create a standard prog-metal polymeter (guitars in 5, drums in 4)
+    pub fn prog_metal() -> Self {
+        PolymetricInterference {
+            guitar_meter: 5,
+            kick_meter: 4,
+            snare_meter: 2, // Half-time feel
+        }
+    }
+
+    /// Create a djent-style polymeter (guitars in 7, drums in 4)
+    pub fn djent() -> Self {
+        PolymetricInterference {
+            guitar_meter: 7,
+            kick_meter: 4,
+            snare_meter: 4,
+        }
+    }
+
+    /// Custom polymeter
+    pub fn custom(guitar_meter: usize, kick_meter: usize, snare_meter: usize) -> Self {
+        PolymetricInterference {
+            guitar_meter,
+            kick_meter,
+            snare_meter,
+        }
+    }
+
+    /// Calculate when all meters align (resolution point)
+    pub fn resolution_point(&self) -> usize {
+        let guitar_kick_lcm = lcm(self.guitar_meter, self.kick_meter);
+        lcm(guitar_kick_lcm, self.snare_meter)
+    }
+
+    /// Calculate how many bars until resolution (assuming 4/4 time signature)
+    pub fn bars_to_resolution(&self) -> usize {
+        self.resolution_point() / 4
+    }
+
+    /// Generate guitar pattern positions (in 16th notes)
+    pub fn guitar_pattern(&self, bars: usize) -> Vec<usize> {
+        let total_sixteenths = bars * 16;
+        let mut positions = Vec::new();
+        let mut pos = 0;
+        
+        while pos < total_sixteenths {
+            positions.push(pos);
+            pos += self.guitar_meter;
+        }
+        
+        positions
+    }
+
+    /// Generate kick pattern positions (in 16th notes)
+    pub fn kick_pattern(&self, bars: usize) -> Vec<usize> {
+        let total_sixteenths = bars * 16;
+        let mut positions = Vec::new();
+        let mut pos = 0;
+        
+        while pos < total_sixteenths {
+            positions.push(pos);
+            pos += self.kick_meter;
+        }
+        
+        positions
+    }
+
+    /// Generate snare pattern positions (in 16th notes)
+    /// Typically on beat 3 in half-time feel
+    pub fn snare_pattern(&self, bars: usize) -> Vec<usize> {
+        let total_sixteenths = bars * 16;
+        let mut positions = Vec::new();
+        
+        // Half-time: snare on beat 3 (position 8 in 16ths)
+        for bar in 0..bars {
+            let snare_pos = bar * 16 + 8;
+            if snare_pos < total_sixteenths {
+                positions.push(snare_pos);
+            }
+        }
+        
+        positions
+    }
+
+    /// Check if patterns are aligned at a given position
+    pub fn is_aligned(&self, position: usize) -> bool {
+        position % self.guitar_meter == 0
+            && position % self.kick_meter == 0
+            && position % self.snare_meter == 0
+    }
+
+    /// CHAOS: Partial reset - reset guitar meter but keep drums going
+    pub fn partial_reset(&mut self, bar_num: usize) -> bool {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        
+        // Every 4-8 bars, 30% chance of partial reset
+        if bar_num % rng.gen_range(4..=8) == 0 && rng.gen_bool(0.3) {
+            // Reset guitar meter to a different odd number
+            self.guitar_meter = match rng.gen_range(0..3) {
+                0 => 5,
+                1 => 7,
+                _ => 9,
+            };
+            true
+        } else {
+            false
+        }
+    }
+
+    /// CHAOS: Generate mismatched overlap (guitar bleeds into next bar)
+    pub fn mismatched_overlap(&self, bars: usize) -> Vec<usize> {
+        let mut positions = Vec::new();
+        let mut pos = 0;
+        let total_sixteenths = bars * 16;
+        
+        // Don't truncate at bar boundaries - let it bleed
+        while pos < total_sixteenths + self.guitar_meter {
+            positions.push(pos);
+            pos += self.guitar_meter;
+        }
+        
+        positions
+    }
+
+    /// CHAOS: Sudden meter drop (7 → 3, 5 → 2)
+    pub fn sudden_drop(&mut self) -> usize {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        
+        let old_meter = self.guitar_meter;
+        
+        // Drop to a smaller meter
+        self.guitar_meter = match old_meter {
+            7 | 9 => 3,
+            5 => 2,
+            _ => 3,
+        };
+        
+        old_meter
+    }
+
+    /// CHAOS: Generate a bar that completely ignores meter
+    pub fn chaos_bar(&self) -> Vec<usize> {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let mut positions = Vec::new();
+        
+        // Random number of hits (3-11)
+        let num_hits = rng.gen_range(3..=11);
+        
+        // Random positions within 16 sixteenths
+        for _ in 0..num_hits {
+            positions.push(rng.gen_range(0..16));
+        }
+        
+        positions.sort();
+        positions.dedup();
+        positions
+    }
+
+    /// Generate chaotic guitar pattern with controlled sabotage
+    pub fn chaotic_guitar_pattern(&mut self, bars: usize) -> Vec<usize> {
+        use rand::Rng;
+        let mut rng = rand::thread_rng();
+        let mut all_positions = Vec::new();
+        
+        for bar in 0..bars {
+            let bar_offset = bar * 16;
+            
+            // 5% chance of full chaos bar
+            if rng.gen_bool(0.05) {
+                let chaos = self.chaos_bar();
+                all_positions.extend(chaos.iter().map(|&p| p + bar_offset));
+                continue;
+            }
+            
+            // 10% chance of sudden meter drop
+            if rng.gen_bool(0.1) {
+                self.sudden_drop();
+            }
+            
+            // 20% chance of mismatched overlap
+            if rng.gen_bool(0.2) {
+                let overlap = self.mismatched_overlap(1);
+                all_positions.extend(overlap.iter().map(|&p| p + bar_offset));
+            } else {
+                // Normal pattern for this bar
+                let mut pos = 0;
+                while pos < 16 {
+                    all_positions.push(bar_offset + pos);
+                    pos += self.guitar_meter;
+                }
+            }
+            
+            // Check for partial reset
+            self.partial_reset(bar);
+        }
+        
+        all_positions.sort();
+        all_positions.dedup();
+        all_positions
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
