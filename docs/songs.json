@@ -1,16 +1,51 @@
 [
-  {"filename": "2025-11-27_petar_zarkov_broken_doom_delight.mp3", "date": "2025-11-27", "size": 7024848, "name": "Broken Doom Delight", "genre": ["Swamp Metal","Sludge"]}
-,
-  {"filename": "2025-11-26_petar_zarkov_brutal_eclipse_journey.mp3", "date": "2025-11-26", "size": 7397876, "name": "Brutal Eclipse Journey", "genre": ["Swamp Metal","Heavy","Sludge"]}
-,
-  {"filename": "2025-11-25_petar_zarkov_forgotten_altar_spell.mp3", "date": "2025-11-25", "size": 3129050, "name": "Forgotten Altar Spell", "genre": ["Swamp Metal","Southern","Instrumental"]}
-,
-  {"filename": "2025-11-24_petar_zarkov_twisted_doom_special.mp3", "date": "2025-11-24", "size": 3572296, "name": "Twisted Doom Special", "genre": ["Swamp Metal","Heavy"]}
-,
-  {"filename": "2025-11-23_petar_zarkov_sludge_shadows_supreme.mp3", "date": "2025-11-23", "size": 3364779, "name": "Sludge Shadows Supreme", "genre": ["Swamp Metal","Southern"]}
-,
-  {"filename": "2025-11-22_petar_zarkov_steel_chains.mp3", "date": "2025-11-22", "size": 6608560, "name": "Steel Chains", "genre": ["Swamp Metal","Sludge","Southern","Instrumental"]}
-,
-  {"filename": "2025-11-21_petar_zarkov_doom_flesh_experience.mp3", "date": "2025-11-21", "size": 4199861, "name": "Doom Flesh Experience", "genre": ["Swamp Metal","Groove"]}
-
+  {
+    "filename": "2025-11-27_petar_zarkov_broken_doom_delight.mp3",
+    "date": "2025-11-27",
+    "size": 7024848,
+    "name": "Broken Doom Delight",
+    "genre": ["Swamp Metal", "Sludge"]
+  },
+  {
+    "filename": "2025-11-26_petar_zarkov_brutal_eclipse_journey.mp3",
+    "date": "2025-11-26",
+    "size": 7397876,
+    "name": "Brutal Eclipse Journey",
+    "genre": ["Swamp Metal", "Heavy", "Sludge"]
+  },
+  {
+    "filename": "2025-11-25_petar_zarkov_forgotten_altar_spell.mp3",
+    "date": "2025-11-25",
+    "size": 3129050,
+    "name": "Forgotten Altar Spell",
+    "genre": ["Swamp Metal", "Southern", "Instrumental"]
+  },
+  {
+    "filename": "2025-11-24_petar_zarkov_twisted_doom_special.mp3",
+    "date": "2025-11-24",
+    "size": 3572296,
+    "name": "Twisted Doom Special",
+    "genre": ["Swamp Metal", "Heavy"]
+  },
+  {
+    "filename": "2025-11-23_petar_zarkov_sludge_shadows_supreme.mp3",
+    "date": "2025-11-23",
+    "size": 3364779,
+    "name": "Sludge Shadows Supreme",
+    "genre": ["Swamp Metal", "Southern"]
+  },
+  {
+    "filename": "2025-11-22_petar_zarkov_steel_chains.mp3",
+    "date": "2025-11-22",
+    "size": 6608560,
+    "name": "Steel Chains",
+    "genre": ["Swamp Metal", "Sludge", "Southern", "Instrumental"]
+  },
+  {
+    "filename": "2025-11-21_petar_zarkov_doom_flesh_experience.mp3",
+    "date": "2025-11-21",
+    "size": 4199861,
+    "name": "Doom Flesh Experience",
+    "genre": ["Swamp Metal", "Groove"]
+  }
 ]
