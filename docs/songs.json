@@ -1,13 +1,12 @@
 [
   {
-    "filename": "2025-11-27_petar_zarkov_abyssal_chains_supreme.mp3",
-    "date": "2025-11-27",
-    "size": 3967267,
-    "name": "Abyssal Chains Supreme",
+    "filename": "2025-11-28_petar_zarkov_doom_lost_thunder.mp3",
+    "date": "2025-11-28",
+    "size": 3640005,
+    "name": "Doom Lost Thunder",
     "genre": [
       "Swamp Metal",
-      "Groove",
-      "Southern"
+      "Doom"
     ]
   },
   {
@@ -18,6 +17,17 @@
     "genre": [
       "Swamp Metal",
       "Groove"
+    ]
+  },
+  {
+    "filename": "2025-11-27_petar_zarkov_abyssal_chains_supreme.mp3",
+    "date": "2025-11-27",
+    "size": 3967267,
+    "name": "Abyssal Chains Supreme",
+    "genre": [
+      "Swamp Metal",
+      "Groove",
+      "Southern"
     ]
   },
   {
@@ -70,17 +80,6 @@
     "genre": [
       "Swamp Metal",
       "Heavy"
-    ]
-  },
-  {
-    "filename": "2025-11-21_petar_zarkov_burning_winter_spell.mp3",
-    "date": "2025-11-21",
-    "size": 8948923,
-    "name": "Burning Winter Spell",
-    "genre": [
-      "Swamp Metal",
-      "Doom",
-      "Groove"
     ]
   }
 ]
