@@ -1,5 +1,16 @@
 [
   {
+    "filename": "2025-11-29_petar_zarkov_twisted_ooze_spell.mp3",
+    "date": "2025-11-29",
+    "size": 3197386,
+    "name": "Twisted Ooze Spell",
+    "genre": [
+      "Swamp Metal",
+      "Southern",
+      "Groove"
+    ]
+  },
+  {
     "filename": "2025-11-28_petar_zarkov_doom_lost_thunder.mp3",
     "date": "2025-11-28",
     "size": 3640005,
@@ -70,16 +81,6 @@
     "genre": [
       "Swamp Metal",
       "Sludge"
-    ]
-  },
-  {
-    "filename": "2025-11-22_petar_zarkov_twisted_abyssal_darkness.mp3",
-    "date": "2025-11-22",
-    "size": 9096253,
-    "name": "Twisted Abyssal Darkness",
-    "genre": [
-      "Swamp Metal",
-      "Heavy"
     ]
   }
 ]
