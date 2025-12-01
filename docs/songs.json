@@ -1,5 +1,15 @@
 [
   {
+    "filename": "2025-12-01_petar_zarkov_burning_doom_delight.mp3",
+    "date": "2025-12-01",
+    "size": 3710849,
+    "name": "Burning Doom Delight",
+    "genre": [
+      "Swamp Metal",
+      "Heavy"
+    ]
+  },
+  {
     "filename": "2025-11-30_petar_zarkov_hollow_swamp_sensation.mp3",
     "date": "2025-11-30",
     "size": 3734673,
@@ -72,16 +82,6 @@
       "Swamp Metal",
       "Doom",
       "Instrumental"
-    ]
-  },
-  {
-    "filename": "2025-11-24_petar_zarkov_black_thunder_sensation.mp3",
-    "date": "2025-11-24",
-    "size": 4498911,
-    "name": "Black Thunder Sensation",
-    "genre": [
-      "Swamp Metal",
-      "Sludge"
     ]
   }
 ]
