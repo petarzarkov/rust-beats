@@ -31,16 +31,17 @@ impl DrumSoundParams {
 }
 
 /// Generate a Metal Kick: Massive click, sub weight, aggressive compression
+/// PHASE 3: ADVANCED DRUM SYNTHESIS - Layered samples, pitch envelope, transient shaping
 pub fn generate_kick(amplitude: f32) -> Vec<f32> {
     generate_kick_with_params(amplitude, None)
 }
 
 pub fn generate_kick_with_params(amplitude: f32, params: Option<&DrumSoundParams>) -> Vec<f32> {
     let mut rng = rand::thread_rng();
-    let duration = 0.4; // Slightly shorter for tighter sound
-    let base_pitch = 60.0; // Higher base for more click
+    let duration = 0.5; // Extended for more sub weight
+    let base_pitch = 60.0;
     
-    let start_pitch = if let Some(p) = params { base_pitch + p.kick_pitch_offset } else { base_pitch };
+    let _start_pitch = if let Some(p) = params { base_pitch + p.kick_pitch_offset } else { base_pitch };
     
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
@@ -48,27 +49,47 @@ pub fn generate_kick_with_params(amplitude: f32, params: Option<&DrumSoundParams
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
 
-        // AGGRESSIVE pitch envelope: Start at 220Hz (beater attack), drop to 45Hz (sub)
-        let pitch_drop = (-time * 50.0).exp(); // Faster drop
-        let pitch = 45.0 + (175.0 * pitch_drop);
+        // ===== PHASE 3.1: ENHANCED PITCH ENVELOPE =====
+        // Start at 220Hz (beater attack), drop to 35Hz (deep sub)
+        let pitch_drop = (-time * 60.0).exp(); // Faster, more aggressive drop
+        let pitch = 35.0 + (185.0 * pitch_drop); // Lower sub, higher attack
 
-        // SHARPER amplitude envelope for punch
-        let amp_env = (-time * 8.0).exp();
+        // ===== PHASE 3.2: LAYERED SAMPLES =====
+        
+        // LAYER 1: SUB BODY (Pure sine for deep low end)
+        let sub_phase = 2.0 * std::f32::consts::PI * pitch * time;
+        let sub_env = (-time * 6.0).exp(); // Slower decay for sub weight
+        let sub_layer = sub_phase.sin() * sub_env * 0.6;
+        
+        // LAYER 2: BEATER ATTACK (Triangle wave for mid punch)
+        let beater_phase = 2.0 * std::f32::consts::PI * (pitch * 2.0) * time;
+        let beater_env = (-time * 12.0).exp(); // Faster decay
+        let beater_layer = (beater_phase * 0.5).sin().signum() * beater_env * 0.3;
+        
+        // LAYER 3: CLICK (Noise burst for transient)
+        let click_amp = params.map(|p| p.kick_click_amount).unwrap_or(1.3); 
+        let click_env = (-time * 200.0).exp(); // Very fast decay
+        let click_layer = (rng.gen_range(-1.0..1.0)) * click_amp * click_env * 0.4;
 
-        // Main Body (Sine + Triangle blend for weight)
-        let phase = 2.0 * std::f32::consts::PI * pitch * time;
-        let body = (phase.sin() * 0.7 + (phase * 0.5).sin().signum() * 0.3) * amp_env;
+        // ===== PHASE 3.3: TRANSIENT SHAPER =====
+        // Boost the first 10ms for extreme punch
+        let transient_boost = if time < 0.01 {
+            1.0 + (1.0 - time / 0.01) * 0.5 // 50% boost in first 10ms
+        } else {
+            1.0
+        };
 
-        // AGGRESSIVE CLICK: Sharp beater attack
-        let click_amp = params.map(|p| p.kick_click_amount).unwrap_or(1.2); 
-        let click_env = (-time * 180.0).exp(); // Very fast decay
-        let click = (rng.gen_range(-1.0..1.0)) * click_amp * click_env;
+        // Mix all layers
+        let mut sample = (sub_layer + beater_layer + click_layer) * transient_boost;
 
-        // More click in the mix for modern metal
-        let mut sample = body + click * 0.4;
+        // ===== PHASE 3.4: PARALLEL COMPRESSION =====
+        // Compress a copy and blend for punch
+        let compressed = (sample * 6.0).tanh() * 0.4;
+        let dry = sample * 0.6;
+        sample = dry + compressed;
 
-        // HARD saturation for that "basketball" thud
-        sample = (sample * 4.5).tanh(); 
+        // Final saturation for that "basketball" thud
+        sample = (sample * 3.5).tanh(); 
 
         samples.push(sample * amplitude);
     }
@@ -77,14 +98,15 @@ pub fn generate_kick_with_params(amplitude: f32, params: Option<&DrumSoundParams
 }
 
 /// Generate a Metal Snare: Gunshot quality
+/// PHASE 3: ADVANCED DRUM SYNTHESIS - Layered samples for realistic snare
 pub fn generate_snare(amplitude: f32) -> Vec<f32> {
     generate_snare_with_params(amplitude, None)
 }
 
 pub fn generate_snare_with_params(amplitude: f32, params: Option<&DrumSoundParams>) -> Vec<f32> {
     let mut rng = rand::thread_rng();
-    let duration = 0.3; // Shorter for tighter sound
-    let base_freq = 190.0; // Slightly higher for more crack
+    let duration = 0.35; // Extended for more tail
+    let base_freq = 190.0;
     
     let freq = if let Some(p) = params { base_freq + p.snare_freq_offset } else { base_freq };
 
@@ -94,22 +116,42 @@ pub fn generate_snare_with_params(amplitude: f32, params: Option<&DrumSoundParam
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
 
-        // SHARPER envelope for more attack
-        let amp_env = (-time * 12.0).exp();
-
-        // Tonal Body (Pitch dive)
-        let pitch_mod = 1.0 - (-time * 25.0).exp() * 0.3;
-        let phase = 2.0 * std::f32::consts::PI * freq * pitch_mod * time;
-        let body = phase.sin() * amp_env * 0.35;
-
-        // MORE NOISE for aggressive crack
-        let noise_amp = params.map(|p| p.snare_noise_amount).unwrap_or(1.2);
-        let noise = rng.gen_range(-1.0..1.0) * amp_env * 0.9 * noise_amp;
-
-        let mut sample = body + noise;
+        // ===== PHASE 3.2: LAYERED SAMPLES =====
         
-        // HARDER clipping for that "gunshot" quality
-        sample = (sample * 3.0).clamp(-0.95, 0.95);
+        // LAYER 1: TONAL BODY (Pitch dive for shell resonance)
+        let pitch_mod = 1.0 - (-time * 30.0).exp() * 0.4; // More aggressive pitch dive
+        let phase = 2.0 * std::f32::consts::PI * freq * pitch_mod * time;
+        let body_env = (-time * 15.0).exp(); // Faster decay
+        let body_layer = phase.sin() * body_env * 0.25;
+
+        // LAYER 2: NOISE RATTLE (Snare wires)
+        let noise_amp = params.map(|p| p.snare_noise_amount).unwrap_or(1.3);
+        let noise_env = (-time * 10.0).exp(); // Snare wire decay
+        let noise_layer = rng.gen_range(-1.0..1.0) * noise_env * 0.7 * noise_amp;
+
+        // LAYER 3: CRACK TRANSIENT (Stick attack)
+        let crack_env = (-time * 100.0).exp(); // Very fast decay
+        let crack_layer = rng.gen_range(-1.0..1.0) * crack_env * 0.5;
+
+        // ===== PHASE 3.3: TRANSIENT SHAPER =====
+        // Boost the first 5ms for extreme crack
+        let transient_boost = if time < 0.005 {
+            1.0 + (1.0 - time / 0.005) * 0.8 // 80% boost in first 5ms
+        } else {
+            1.0
+        };
+
+        // Mix all layers
+        let mut sample = (body_layer + noise_layer + crack_layer) * transient_boost;
+        
+        // ===== PHASE 3.4: PARALLEL COMPRESSION =====
+        // Compress a copy and blend for punch
+        let compressed = (sample * 5.0).tanh() * 0.5;
+        let dry = sample * 0.5;
+        sample = dry + compressed;
+
+        // Final hard clipping for that "gunshot" quality
+        sample = (sample * 2.5).clamp(-0.95, 0.95);
 
         samples.push(sample * amplitude);
     }

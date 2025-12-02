@@ -1,16 +1,16 @@
 {
   "artist": "Petar Zarkov",
-  "date": "2025-11-29",
-  "duration": 100.25190734863281,
+  "date": "2025-11-27",
+  "duration": 133.03884887695312,
   "genre": [
     "Swamp Metal",
-    "Doom",
-    "Groove"
+    "Sludge",
+    "Doom"
   ],
   "key": "38 Phrygian",
-  "name": "Heavy Witch Special",
+  "name": "Toxic Death Spell",
   "sections": 10,
   "subgenre": "DeathMetal",
-  "tempo": 178.0,
+  "tempo": 153.0,
   "tuning": "DStandard"
 }

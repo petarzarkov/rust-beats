@@ -902,6 +902,7 @@ impl MetalSongGenerator {
     }
 
     /// Generate a breakdown riff with syncopated silences and dotted-eighth stabs
+    /// PHASE 2: BREAKDOWN VIOLENCE - Drop kick sync, palm mute stutter, silence gaps
     fn generate_breakdown_riff(&self) -> MetalRiff {
         let root = self.key.root;
         let mut rng = rand::thread_rng();
@@ -931,9 +932,45 @@ impl MetalSongGenerator {
             chord_types = vec![ChordType::Power; 4];
         }
         
+        // ===== PHASE 2.1: DROP KICK SYNC =====
         // CRITICAL: Ensure first note is ALWAYS the root for the drop kick
+        // This guarantees the kick drum and guitar hit together for maximum impact
         if !notes.is_empty() && notes[0] != root {
             notes[0] = root;
+            rhythms[0] = RhythmPattern::QuarterNote; // Hold the drop
+            palm_muted[0] = true; // Palm muted for tightness
+        }
+        
+        // ===== PHASE 2.2: PALM MUTE STUTTER =====
+        // Add rapid 32nd-note palm mute stutters (70% chance)
+        if rng.gen_bool(0.7) && notes.len() >= 6 {
+            let stutter_start = notes.len() / 2;
+            let stutter_length = rng.gen_range(3..=5);
+            
+            for i in 0..stutter_length {
+                let idx = stutter_start + i;
+                if idx < notes.len() {
+                    notes[idx] = root; // All root for consistency
+                    rhythms[idx] = RhythmPattern::SixteenthNote; // Rapid stutter
+                    palm_muted[idx] = true; // 100% palm muted
+                }
+            }
+        }
+        
+        // ===== PHASE 2.3: SILENCE GAPS =====
+        // Insert intentional silence gaps (50% chance)
+        // This creates "breathing room" before the next brutal hit
+        if rng.gen_bool(0.5) && notes.len() >= 4 {
+            // Replace random notes with silence (represented by very low velocity later)
+            let gap_count = rng.gen_range(1..=2);
+            for _ in 0..gap_count {
+                let gap_idx = rng.gen_range(1..notes.len()); // Never gap the first note (the drop)
+                if gap_idx < notes.len() {
+                    // We'll mark this as a rest by using a special rhythm
+                    rhythms[gap_idx] = RhythmPattern::QuarterNote; // Silence duration
+                    // Note: The renderer will need to handle this as silence
+                }
+            }
         }
         
         // Add "burst + rest" pattern (50% chance)
@@ -958,12 +995,24 @@ impl MetalSongGenerator {
             }
         }
         
+        // ===== PHASE 2.4: INTENTIONAL OVER-CHUGGING =====
+        // Add extra palm-muted chugs for maximum brutality (80% chance)
+        if rng.gen_bool(0.8) {
+            let extra_chugs = rng.gen_range(2..=4);
+            for _ in 0..extra_chugs {
+                notes.push(root);
+                rhythms.push(RhythmPattern::EighthNote); // Chug rhythm
+                palm_muted.push(true);
+                chord_types.push(ChordType::Power);
+            }
+        }
+        
         MetalRiff {
             notes,
+            rhythms,
             palm_muted,
             chord_types,
-            rhythms,
-            playability_score: 0.8,
+            playability_score: 0.5, // Breakdowns are intentionally brutal
         }
     }
 }

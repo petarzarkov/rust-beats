@@ -122,6 +122,14 @@ impl MetalAudioRenderer {
             &riff,
         );
 
+        // ===== PHASE 5: MIX GLUE & SIDECHAIN COMPRESSION =====
+        // Extract kick hits for sidechain trigger
+        let kick_envelope = self.extract_kick_envelope(&drum_audio, beat_duration);
+        
+        // Apply sidechain compression to guitar and bass
+        let guitar_sidechained = self.apply_sidechain(&guitar_audio, &kick_envelope);
+        let bass_sidechained = self.apply_sidechain(&bass_audio, &kick_envelope);
+
         // 5. Dynamic Mixing (Turn down instruments to avoid clipping/noise)
         let (guitar_level, bass_level, drum_level) = match intensity {
             SectionIntensity::Low => (0.35, 0.40, 0.50),
@@ -130,19 +138,86 @@ impl MetalAudioRenderer {
             SectionIntensity::Extreme => (0.50, 0.55, 0.70), // Louder, but safe
         };
 
-        let max_len = guitar_audio.len().max(bass_audio.len()).max(drum_audio.len());
+        let max_len = guitar_sidechained.len().max(bass_sidechained.len()).max(drum_audio.len());
         section_audio.resize(section_audio.len() + max_len, 0.0);
         let offset = section_audio.len() - max_len;
 
         for i in 0..max_len {
-            let guitar = if i < guitar_audio.len() { guitar_audio[i] } else { 0.0 };
-            let bass = if i < bass_audio.len() { bass_audio[i] } else { 0.0 };
+            let guitar = if i < guitar_sidechained.len() { guitar_sidechained[i] } else { 0.0 };
+            let bass = if i < bass_sidechained.len() { bass_sidechained[i] } else { 0.0 };
             let drums = if i < drum_audio.len() { drum_audio[i] } else { 0.0 };
             
             section_audio[offset + i] = guitar * guitar_level + bass * bass_level + drums * drum_level;
         }
 
         section_audio
+    }
+    
+    /// PHASE 5.1: Extract kick drum envelope for sidechain trigger
+    fn extract_kick_envelope(&self, drum_audio: &[f32], beat_duration: f32) -> Vec<f32> {
+        let mut envelope = vec![0.0; drum_audio.len()];
+        let window_size = (beat_duration * self.sample_rate as f32 / 16.0) as usize; // Sixteenth note window
+        
+        for i in 0..drum_audio.len() {
+            // Simple peak detection in sliding window
+            let start = i.saturating_sub(window_size / 2);
+            let end = (i + window_size / 2).min(drum_audio.len());
+            
+            let mut peak = 0.0_f32;
+            for j in start..end {
+                peak = peak.max(drum_audio[j].abs());
+            }
+            
+            envelope[i] = peak;
+        }
+        
+        envelope
+    }
+    
+    /// PHASE 5.2: Apply sidechain compression (ducking) based on kick envelope
+    fn apply_sidechain(&self, audio: &[f32], kick_envelope: &[f32]) -> Vec<f32> {
+        let mut output = Vec::with_capacity(audio.len());
+        let max_len = audio.len().min(kick_envelope.len());
+        
+        // Sidechain parameters
+        let threshold = 0.3; // Kick level threshold to trigger ducking
+        let attack_samples = (0.010 * self.sample_rate as f32) as usize; // 10ms attack
+        let release_samples = (0.150 * self.sample_rate as f32) as usize; // 150ms release
+        let reduction = 0.7; // Reduce to 70% (30% ducking)
+        
+        let mut gain_reduction = 1.0;
+        
+        for i in 0..max_len {
+            let kick_level = if i < kick_envelope.len() { kick_envelope[i] } else { 0.0 };
+            let input = if i < audio.len() { audio[i] } else { 0.0 };
+            
+            // Calculate target gain based on kick level
+            let target_gain = if kick_level > threshold {
+                reduction // Duck when kick hits
+            } else {
+                1.0 // Full level otherwise
+            };
+            
+            // Smooth gain changes with attack/release
+            if target_gain < gain_reduction {
+                // Attack (fast reduction)
+                let attack_coeff = 1.0 / attack_samples as f32;
+                gain_reduction = gain_reduction - (gain_reduction - target_gain) * attack_coeff;
+            } else {
+                // Release (slow recovery)
+                let release_coeff = 1.0 / release_samples as f32;
+                gain_reduction = gain_reduction + (target_gain - gain_reduction) * release_coeff;
+            }
+            
+            output.push(input * gain_reduction);
+        }
+        
+        // Extend with remaining audio if any
+        for i in max_len..audio.len() {
+            output.push(audio[i]);
+        }
+        
+        output
     }
 
     /// Render bass guitar riff with locking support
@@ -210,6 +285,7 @@ impl MetalAudioRenderer {
 
     /// Generate drum patterns based on RhythmicFeel (Tempo Decoupling)
     /// IMPROVED: More variety based on section and subgenre
+    /// PHASE 1.1: Added kick overload modes for extreme aggression
     fn generate_drum_patterns(
         &self,
         section: MetalSection,
@@ -278,35 +354,287 @@ impl MetalAudioRenderer {
                 kick = rhythm_generator::generate_euclidean_pattern(steps, pulses);
                 
                 // Rotate pattern for variety
-                let rotation = rng.gen_range(0..steps.min(8));
+                let rotation = rng.gen_range(0..steps.min(16));
                 kick.rotate_left(rotation);
                 
+                // Snare on 2 and 4 (every 16 steps, offset 4 and 12)
                 for i in 0..steps {
-                    // Snare on 2 and 4 (Steps 4 and 12)
-                    if i % 16 == 4 || i % 16 == 12 {
-                        snare[i] = true;
-                        kick[i] = false; // Clear kick for snare
+                    if i % 16 == 4 || i % 16 == 12 { snare[i] = true; }
+                    if i % 4 == 0 { cymbal[i] = true; } // Hi-hat on every quarter note
+                }
+                
+                // Occasional crash accents
+                for i in (0..steps).step_by(32) {
+                    if rng.gen_bool(0.7) { cymbal[i] = true; }
+                }
+            },
+        }
+        
+        // ===== PHASE 1.1: KICK OVERLOAD MODES =====
+        // Add extreme aggression for death metal and breakdown sections
+        
+        // 1. BURST KICK CLUSTERS (4-6 rapid kicks every 8-12 beats)
+        if matches!(subgenre, MetalSubgenre::DeathMetal) || matches!(section, MetalSection::Breakdown | MetalSection::Solo) {
+            let burst_interval = rng.gen_range(32..=48); // Every 8-12 beats (32-48 sixteenths)
+            for i in (0..steps).step_by(burst_interval) {
+                if rng.gen_bool(0.6) { // 60% chance of burst
+                    let burst_length = rng.gen_range(4..=6);
+                    for j in 0..burst_length {
+                        if i + j < steps {
+                            kick[i + j] = true;
+                        }
                     }
-                    // Sparse cymbals: only on beat 1 of each bar (every 16th step)
-                    if i % 16 == 0 {
+                }
+            }
+        }
+        
+        // 2. DOUBLE-KICK ALTERNATING-FOOT SIMULATION
+        // Add double-kick patterns for extreme sections
+        if matches!(subgenre, MetalSubgenre::DeathMetal | MetalSubgenre::ThrashMetal) {
+            for i in 0..steps {
+                // On every existing kick, add a chance for a double-kick follow-up
+                if kick[i] && i + 1 < steps && rng.gen_bool(0.4) {
+                    kick[i + 1] = true; // Alternating foot
+                }
+            }
+        }
+        
+        // 3. 32ND-NOTE KICK PEPPERING (extreme sections only)
+        if matches!(section, MetalSection::Solo) && matches!(subgenre, MetalSubgenre::DeathMetal) {
+            for i in 0..steps {
+                // Add random 32nd-note kicks (every other sixteenth)
+                if i % 2 == 1 && rng.gen_bool(0.25) {
+                    kick[i] = true;
+                }
+            }
+        }
+        
+        // 4. INTENTIONAL OVER-DENSIFICATION (breakdowns and death metal)
+        if matches!(section, MetalSection::Breakdown) || (matches!(subgenre, MetalSubgenre::DeathMetal) && rng.gen_bool(0.5)) {
+            // Add extra kicks to create overwhelming density
+            for i in 0..steps {
+                if !kick[i] && rng.gen_bool(0.15) { // 15% chance to add extra kick
+                    kick[i] = true;
+                }
+            }
+        }
+        
+        // ===== PHASE 6: DYNAMIC DRUM PATTERNS =====
+        // Add intelligent fills, transitions, and section-aware variations
+        
+        // 6.1: DRUM FILLS AT SECTION BOUNDARIES
+        // Add tom cascades and snare rolls before transitions
+        if steps >= 16 {
+            // Fill in last 4 steps (one beat) of the section
+            let fill_start = steps.saturating_sub(4);
+            
+            // 70% chance of fill for transitions
+            if rng.gen_bool(0.7) {
+                match rng.gen_range(0..3) {
+                    0 => {
+                        // TOM CASCADE: Descending tom pattern
+                        for i in fill_start..steps {
+                            kick[i] = false; // Clear kicks
+                            snare[i] = true; // Use snare for tom simulation
+                            cymbal[i] = i == fill_start; // Crash on first hit
+                        }
+                    },
+                    1 => {
+                        // SNARE ROLL: Rapid snare hits
+                        for i in fill_start..steps {
+                            snare[i] = true;
+                            kick[i] = false;
+                            cymbal[i] = i == steps - 1; // Crash on last hit
+                        }
+                    },
+                    _ => {
+                        // KICK/SNARE COMBO: Alternating pattern
+                        for i in fill_start..steps {
+                            if (i - fill_start) % 2 == 0 {
+                                kick[i] = true;
+                                snare[i] = false;
+                            } else {
+                                kick[i] = false;
+                                snare[i] = true;
+                            }
+                            cymbal[i] = i == steps - 1; // Crash on last hit
+                        }
+                    }
+                }
+            }
+        }
+        
+        // 6.2: TRANSITION MARKERS
+        // Add crash accents and cymbal swells at key moments
+        
+        // Crash on first beat of chorus/breakdown
+        if matches!(section, MetalSection::Chorus | MetalSection::Breakdown) && steps > 0 {
+            cymbal[0] = true;
+            kick[0] = true; // Emphasize with kick
+        }
+        
+        // Cymbal swell before breakdown (last 8 steps)
+        if matches!(section, MetalSection::Verse | MetalSection::Chorus) && steps >= 8 {
+            let swell_start = steps.saturating_sub(8);
+            for i in swell_start..steps {
+                if (i - swell_start) % 2 == 0 {
+                    cymbal[i] = true; // Alternating cymbal hits for swell effect
+                }
+            }
+        }
+        
+        // 6.3: SECTION-AWARE VARIATIONS
+        // Adjust patterns based on section type
+        
+        match section {
+            MetalSection::Intro => {
+                // Simplify intro: reduce kick density by 30%
+                for i in 0..steps {
+                    if kick[i] && rng.gen_bool(0.3) {
+                        kick[i] = false;
+                    }
+                }
+                // Add ride cymbal pattern instead of hi-hat
+                for i in (0..steps).step_by(2) {
+                    cymbal[i] = true;
+                }
+            },
+            MetalSection::Outro => {
+                // Simplify outro: reduce overall density
+                for i in 0..steps {
+                    if kick[i] && rng.gen_bool(0.4) {
+                        kick[i] = false;
+                    }
+                    if snare[i] && rng.gen_bool(0.3) {
+                        snare[i] = false;
+                    }
+                }
+                // Fade cymbal pattern
+                for i in 0..steps {
+                    let fade_factor = 1.0 - (i as f32 / steps as f32);
+                    if cymbal[i] && rng.gen_bool(1.0 - fade_factor as f64) {
+                        cymbal[i] = false;
+                    }
+                }
+            },
+            MetalSection::Verse => {
+                // Verse: Add ghost notes (light snare hits)
+                for i in 0..steps {
+                    if !snare[i] && i % 4 == 2 && rng.gen_bool(0.4) {
+                        snare[i] = true; // Ghost note
+                    }
+                }
+            },
+            MetalSection::Chorus => {
+                // Chorus: Increase cymbal density for energy
+                for i in 0..steps {
+                    if i % 2 == 0 && rng.gen_bool(0.6) {
                         cymbal[i] = true;
+                    }
+                }
+            },
+            MetalSection::Solo => {
+                // Solo: Add syncopated kick patterns
+                for i in 0..steps {
+                    if i % 6 == 3 && rng.gen_bool(0.5) { // Off-beat kicks
                         kick[i] = true;
                     }
-                    
-                    // Add occasional crash accents in chorus
-                    if section == MetalSection::Chorus && i % 8 == 0 && rng.gen_bool(0.3) {
+                }
+            },
+            MetalSection::Breakdown => {
+                // Breakdown: Sparse, heavy hits (already handled above)
+                // Add occasional china cymbal hits
+                for i in (0..steps).step_by(16) {
+                    if rng.gen_bool(0.8) {
                         cymbal[i] = true;
+                        kick[i] = true;
                     }
                 }
             },
         }
         
+        // 6.4: DYNAMIC INTENSITY SCALING
+        // Gradually increase density throughout the section for building tension
+        if matches!(section, MetalSection::Verse | MetalSection::Chorus) {
+            for i in 0..steps {
+                let intensity = i as f32 / steps as f32; // 0.0 to 1.0
+                
+                // Add progressive kick density
+                if !kick[i] && rng.gen_bool(intensity as f64 * 0.2) {
+                    kick[i] = true;
+                }
+                
+                // Add progressive cymbal density
+                if !cymbal[i] && i % 4 == 0 && rng.gen_bool(intensity as f64 * 0.3) {
+                    cymbal[i] = true;
+                }
+            }
+        }
+
+        
+        // ===== PHASE 1.4: CYMBAL BRUTALITY =====
+        // Add chaotic cymbal patterns for extreme aggression
+        
+        // 1. CHINA SPAM on breakdowns (explosive china walls)
+        if matches!(section, MetalSection::Breakdown) {
+            for i in 0..steps {
+                // China on every downbeat + random chaos
+                if i % 4 == 0 || rng.gen_bool(0.3) {
+                    cymbal[i] = true;
+                }
+            }
+        }
+        
+        // 2. CYMBAL CLUSTERS on motif resets/transitions (every 32 steps = 2 bars)
+        for i in (0..steps).step_by(32) {
+            if rng.gen_bool(0.7) {
+                // Cluster: 3-5 rapid cymbal hits
+                let cluster_length = rng.gen_range(3..=5);
+                for j in 0..cluster_length {
+                    if i + j < steps {
+                        cymbal[i + j] = true;
+                    }
+                }
+            }
+        }
+        
+        // 3. CRASH ACCENTS on section changes (first beat of section)
+        if steps > 0 {
+            cymbal[0] = true; // Always crash on section start
+        }
+        
+        // 4. BELL RIDE on upbeats for thrash metal
+        if matches!(subgenre, MetalSubgenre::ThrashMetal) {
+            for i in 0..steps {
+                // Bell ride on off-beats (8th notes offset)
+                if i % 8 == 2 || i % 8 == 6 {
+                    if rng.gen_bool(0.5) {
+                        cymbal[i] = true;
+                    }
+                }
+            }
+        }
+        
+        // 5. CHAOTIC CRASHES on extreme genre transitions
+        if matches!(subgenre, MetalSubgenre::DeathMetal) {
+            for i in 0..steps {
+                // Random crash spam (10% chance any step)
+                if rng.gen_bool(0.1) {
+                    cymbal[i] = true;
+                }
+            }
+        }
+
         (kick, snare, cymbal)
     }
 
     /// Render guitar riff with chords support and variable durations
+    /// PHASE 4: STEREO WIDTH & DOUBLE-TRACKING - Renders left and right channels with variations
     fn render_guitar_riff(&mut self, riff: &MetalRiff, beat_duration: f32) -> Vec<f32> {
-        let mut guitar_audio = Vec::new();
+        let mut rng = rand::thread_rng();
+        
+        // ===== PHASE 4.1: RENDER LEFT CHANNEL =====
+        let mut left_channel = Vec::new();
         
         for (i, &note) in riff.notes.iter().enumerate() {
             let palm_muted = riff.palm_muted[i];
@@ -315,107 +643,153 @@ impl MetalAudioRenderer {
             
             // Handle rests
             if rhythm == RhythmPattern::Rest {
-                let rest_duration = beat_duration / 4.0; // Default to sixteenth rest
+                let rest_duration = beat_duration / 4.0;
                 let rest_samples = (rest_duration * self.sample_rate as f32) as usize;
-                guitar_audio.extend(vec![0.0; rest_samples]);
+                left_channel.extend(vec![0.0; rest_samples]);
                 continue;
             }
             
-            // Calculate note duration from rhythm pattern
-            // Add minimum sustain to prevent cutoff at fast tempos
             let base_duration = match rhythm {
                 RhythmPattern::QuarterNote => beat_duration,
                 RhythmPattern::EighthNote => beat_duration / 2.0,
                 RhythmPattern::SixteenthNote => beat_duration / 4.0,
                 RhythmPattern::ThirtySecondNote => beat_duration / 8.0,
-                RhythmPattern::Quintuplet => beat_duration * 0.8, // 5 notes in 4 beats
-                RhythmPattern::Septuplet => beat_duration * 0.571, // 7 notes in 4 beats
-                RhythmPattern::DottedEighth => beat_duration * 0.75, // 3/4 of a beat
+                RhythmPattern::Quintuplet => beat_duration * 0.8,
+                RhythmPattern::Septuplet => beat_duration * 0.571,
+                RhythmPattern::DottedEighth => beat_duration * 0.75,
                 RhythmPattern::Gallop => {
-                    // Gallop is handled specially - render 3 notes
                     if let Some(gallop_samples) = self.render_gallop_pattern(riff, i, beat_duration, palm_muted, chord_type) {
-                        guitar_audio.extend(gallop_samples);
+                        left_channel.extend(gallop_samples);
                     }
-                    continue; // Skip normal note rendering for gallop
+                    continue;
                 },
-                RhythmPattern::Rest => beat_duration / 4.0, // Shouldn't reach here
+                RhythmPattern::Rest => beat_duration / 4.0,
             };
             
-            // Add minimum sustain to prevent cutoff at fast tempos
-            // At 200+ BPM, sixteenth notes can be <0.075s which sounds clipped
-            let min_sustain = if palm_muted { 0.08 } else { 0.12 }; // Minimum sustain in seconds
+            let min_sustain = if palm_muted { 0.08 } else { 0.12 };
             let note_duration = base_duration.max(min_sustain);
             
-            // Convert MIDI note to frequency: f = 440 * 2.0_f32.powf((n-69)/12)
+            // LEFT CHANNEL: Standard tuning
             let freq_root = 440.0 * 2.0_f32.powf((note as f32 - 69.0) / 12.0);
-            
-            let is_palm_muted = palm_muted;
-            let velocity = 0.8;
-
-            let mut note_samples = Vec::new();
-
-            match chord_type {
-                ChordType::Power => {
-                    // Render Root
-                    let root_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::PowerChordRoot);
-                    
-                    // Render 5th (+7 semitones)
-                    let freq_5th = 440.0 * 2.0_f32.powf(((note + 7) as f32 - 69.0) / 12.0);
-                    let fifth_samples = generate_metal_guitar_note(freq_5th, note_duration, velocity, is_palm_muted, PlayingTechnique::PowerChordFifth);
-                    
-                    // Render Octave (+12 semitones)
-                    let freq_oct = 440.0 * 2.0_f32.powf(((note + 12) as f32 - 69.0) / 12.0);
-                    let oct_samples = generate_metal_guitar_note(freq_oct, note_duration, velocity, is_palm_muted, PlayingTechnique::PowerChordOctave);
-                    
-                    // Mix voices (Root loudest, 5th and Octave slightly quieter)
-                    let max_len = root_samples.len().max(fifth_samples.len()).max(oct_samples.len());
-                    note_samples.resize(max_len, 0.0);
-                    
-                    for j in 0..max_len {
-                        let s1 = if j < root_samples.len() { root_samples[j] } else { 0.0 };
-                        let s2 = if j < fifth_samples.len() { fifth_samples[j] } else { 0.0 };
-                        let s3 = if j < oct_samples.len() { oct_samples[j] } else { 0.0 };
-                        note_samples[j] = s1 * 0.5 + s2 * 0.3 + s3 * 0.2;
-                    }
-                },
-                ChordType::Minor => {
-                    // Render Minor chord (Root, 3rd, 5th)
-                    let root_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::MinorChordRoot);
-                    
-                    // Render 3rd (+3 semitones)
-                    let freq_3rd = 440.0 * 2.0_f32.powf(((note + 3) as f32 - 69.0) / 12.0);
-                    let third_samples = generate_metal_guitar_note(freq_3rd, note_duration, velocity, is_palm_muted, PlayingTechnique::MinorChordThird);
-                    
-                    // Render 5th (+7 semitones)
-                    let freq_5th = 440.0 * 2.0_f32.powf(((note + 7) as f32 - 69.0) / 12.0);
-                    let fifth_samples = generate_metal_guitar_note(freq_5th, note_duration, velocity, is_palm_muted, PlayingTechnique::MinorChordFifth);
-                    
-                    // Mix
-                    let max_len = root_samples.len().max(third_samples.len()).max(fifth_samples.len());
-                    note_samples.resize(max_len, 0.0);
-                    
-                    for j in 0..max_len {
-                        let s1 = if j < root_samples.len() { root_samples[j] } else { 0.0 };
-                        let s2 = if j < third_samples.len() { third_samples[j] } else { 0.0 };
-                        let s3 = if j < fifth_samples.len() { fifth_samples[j] } else { 0.0 };
-                        note_samples[j] = s1 * 0.4 + s2 * 0.3 + s3 * 0.3;
-                    }
-                },
-                ChordType::Diminished | ChordType::Octave => {
-                    // Fallback to single note for unsupported chord types
-                    note_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::SingleNote);
-                },
-                ChordType::Single => {
-                    // Render single note
-                    note_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::SingleNote);
-                },
-            }
-            
-            guitar_audio.extend(note_samples);
+            let note_samples = self.render_chord(note, chord_type, freq_root, note_duration, palm_muted, 0.8);
+            left_channel.extend(note_samples);
         }
         
-        // Apply distortion and cabinet simulation to the whole riff
-        self.process_guitar_chain(&guitar_audio)
+        // ===== PHASE 4.2: RENDER RIGHT CHANNEL WITH VARIATIONS =====
+        let mut right_channel = Vec::new();
+        
+        for (i, &note) in riff.notes.iter().enumerate() {
+            let palm_muted = riff.palm_muted[i];
+            let chord_type = riff.chord_types.get(i).copied().unwrap_or(ChordType::Single);
+            let rhythm = riff.rhythms.get(i).copied().unwrap_or(RhythmPattern::SixteenthNote);
+            
+            if rhythm == RhythmPattern::Rest {
+                let rest_duration = beat_duration / 4.0;
+                let rest_samples = (rest_duration * self.sample_rate as f32) as usize;
+                right_channel.extend(vec![0.0; rest_samples]);
+                continue;
+            }
+            
+            let base_duration = match rhythm {
+                RhythmPattern::QuarterNote => beat_duration,
+                RhythmPattern::EighthNote => beat_duration / 2.0,
+                RhythmPattern::SixteenthNote => beat_duration / 4.0,
+                RhythmPattern::ThirtySecondNote => beat_duration / 8.0,
+                RhythmPattern::Quintuplet => beat_duration * 0.8,
+                RhythmPattern::Septuplet => beat_duration * 0.571,
+                RhythmPattern::DottedEighth => beat_duration * 0.75,
+                RhythmPattern::Gallop => {
+                    if let Some(gallop_samples) = self.render_gallop_pattern(riff, i, beat_duration, palm_muted, chord_type) {
+                        right_channel.extend(gallop_samples);
+                    }
+                    continue;
+                },
+                RhythmPattern::Rest => beat_duration / 4.0,
+            };
+            
+            let min_sustain = if palm_muted { 0.08 } else { 0.12 };
+            let note_duration = base_duration.max(min_sustain);
+            
+            // RIGHT CHANNEL: Slightly detuned (±5 cents = ±0.05 semitones)
+            let detune_cents = rng.gen_range(-5.0..5.0);
+            let freq_root = 440.0 * 2.0_f32.powf((note as f32 - 69.0 + detune_cents / 100.0) / 12.0);
+            
+            let note_samples = self.render_chord(note, chord_type, freq_root, note_duration, palm_muted, 0.8);
+            right_channel.extend(note_samples);
+        }
+        
+        // ===== PHASE 4.3: APPLY TIMING OFFSET TO RIGHT CHANNEL =====
+        // Delay right channel by 5-15ms for "Haas effect" stereo width
+        let timing_offset_ms = rng.gen_range(5.0..15.0);
+        let timing_offset_samples = (timing_offset_ms / 1000.0 * self.sample_rate as f32) as usize;
+        let mut right_delayed = vec![0.0; timing_offset_samples];
+        right_delayed.extend(right_channel);
+        
+        // ===== PHASE 4.4: MIX TO STEREO (INTERLEAVED L/R) =====
+        let max_len = left_channel.len().max(right_delayed.len());
+        let mut stereo_audio = Vec::with_capacity(max_len * 2);
+        
+        for i in 0..max_len {
+            let left = if i < left_channel.len() { left_channel[i] } else { 0.0 };
+            let right = if i < right_delayed.len() { right_delayed[i] } else { 0.0 };
+            
+            // Hard pan: 100% L, 100% R for maximum width
+            stereo_audio.push(left);   // Left channel
+            stereo_audio.push(right);  // Right channel
+        }
+        
+        // Apply distortion and cabinet simulation to stereo signal
+        self.process_guitar_chain(&stereo_audio)
+    }
+    
+    /// Helper function to render a chord with given parameters
+    fn render_chord(&mut self, note: u8, chord_type: ChordType, freq_root: f32, note_duration: f32, is_palm_muted: bool, velocity: f32) -> Vec<f32> {
+        let mut note_samples = Vec::new();
+        
+        match chord_type {
+            ChordType::Power => {
+                let root_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::PowerChordRoot);
+                let freq_5th = 440.0 * 2.0_f32.powf(((note + 7) as f32 - 69.0) / 12.0);
+                let fifth_samples = generate_metal_guitar_note(freq_5th, note_duration, velocity, is_palm_muted, PlayingTechnique::PowerChordFifth);
+                let freq_oct = 440.0 * 2.0_f32.powf(((note + 12) as f32 - 69.0) / 12.0);
+                let oct_samples = generate_metal_guitar_note(freq_oct, note_duration, velocity, is_palm_muted, PlayingTechnique::PowerChordOctave);
+                
+                let max_len = root_samples.len().max(fifth_samples.len()).max(oct_samples.len());
+                note_samples.resize(max_len, 0.0);
+                
+                for j in 0..max_len {
+                    let s1 = if j < root_samples.len() { root_samples[j] } else { 0.0 };
+                    let s2 = if j < fifth_samples.len() { fifth_samples[j] } else { 0.0 };
+                    let s3 = if j < oct_samples.len() { oct_samples[j] } else { 0.0 };
+                    note_samples[j] = s1 * 0.5 + s2 * 0.3 + s3 * 0.2;
+                }
+            },
+            ChordType::Minor => {
+                let root_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::MinorChordRoot);
+                let freq_3rd = 440.0 * 2.0_f32.powf(((note + 3) as f32 - 69.0) / 12.0);
+                let third_samples = generate_metal_guitar_note(freq_3rd, note_duration, velocity, is_palm_muted, PlayingTechnique::MinorChordThird);
+                let freq_5th = 440.0 * 2.0_f32.powf(((note + 7) as f32 - 69.0) / 12.0);
+                let fifth_samples = generate_metal_guitar_note(freq_5th, note_duration, velocity, is_palm_muted, PlayingTechnique::MinorChordFifth);
+                
+                let max_len = root_samples.len().max(third_samples.len()).max(fifth_samples.len());
+                note_samples.resize(max_len, 0.0);
+                
+                for j in 0..max_len {
+                    let s1 = if j < root_samples.len() { root_samples[j] } else { 0.0 };
+                    let s2 = if j < third_samples.len() { third_samples[j] } else { 0.0 };
+                    let s3 = if j < fifth_samples.len() { fifth_samples[j] } else { 0.0 };
+                    note_samples[j] = s1 * 0.4 + s2 * 0.3 + s3 * 0.3;
+                }
+            },
+            ChordType::Diminished | ChordType::Octave => {
+                note_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::SingleNote);
+            },
+            ChordType::Single => {
+                note_samples = generate_metal_guitar_note(freq_root, note_duration, velocity, is_palm_muted, PlayingTechnique::SingleNote);
+            },
+        }
+        
+        note_samples
     }
 
     /// Render a gallop pattern (eighth + two sixteenths)
@@ -503,13 +877,44 @@ impl MetalAudioRenderer {
         // Initialize RNG for humanization
         let mut rng = rand::thread_rng();
         
-        // Section-specific velocity ranges
-        let (base_velocity, velocity_variance) = match section {
-            MetalSection::Breakdown => (0.95_f32, 0.05_f32), // High velocity, tight variance
-            MetalSection::Solo => (0.85_f32, 0.10_f32),      // Medium velocity, more variance
-            MetalSection::Intro | MetalSection::Outro => (0.75_f32, 0.08_f32), // Lower velocity
-            _ => (0.85_f32, 0.08_f32),                        // Default
+        // ===== PHASE 1.3: EXTREME HUMANIZATION =====
+        // Aggressive presets for extreme metal (not jazz-level ±5 ticks)
+        let is_extreme_genre = matches!(subgenre, MetalSubgenre::DeathMetal | MetalSubgenre::ThrashMetal);
+        
+        // Section-specific velocity ranges with EXTREME variance for death metal
+        let (base_velocity, velocity_variance) = match (section, is_extreme_genre) {
+            (MetalSection::Breakdown, _) => (0.95_f32, 0.05_f32), // High velocity, tight variance
+            (MetalSection::Solo, true) => (0.85_f32, 0.20_f32),   // EXTREME variance for death metal solos
+            (MetalSection::Solo, false) => (0.85_f32, 0.10_f32),  // Medium variance for other genres
+            (MetalSection::Intro | MetalSection::Outro, _) => (0.75_f32, 0.08_f32), // Lower velocity
+            (_, true) => (0.85_f32, 0.15_f32),                    // Higher variance for extreme genres
+            (_, false) => (0.85_f32, 0.08_f32),                   // Default
         };
+        
+        // EXTREME TIMING VARIANCE (25-40 ticks, not 5-10)
+        let timing_variance_ms = if is_extreme_genre {
+            rng.gen_range(25.0..=40.0) // Extreme chaos
+        } else {
+            rng.gen_range(10.0..=20.0) // Moderate chaos
+        };
+        
+        // ACCENT PROBABILITY (40-60%, not 10-20%)
+        let accent_probability = if is_extreme_genre {
+            rng.gen_range(0.4..=0.6) // 40-60% chance
+        } else {
+            0.3 // 30% for other genres
+        };
+        
+        // LIMB IMBALANCE (±20 velocity, not ±5)
+        let limb_imbalance = if is_extreme_genre {
+            rng.gen_range(-0.20..=0.20) // ±20% velocity difference
+        } else {
+            rng.gen_range(-0.10..=0.10) // ±10% for other genres
+        };
+        
+        // ===== PHASE 1.2: BLAST BEAT CHAOS DETECTION =====
+        // Detect if we're in a blast beat section (kick + snare + cymbal on same step)
+        let is_blast_section = matches!(feel, RhythmicFeel::DoubleTime | RhythmicFeel::Blast);
         
         // Micro-timing offsets (in milliseconds)
         let snare_timing_offset = match section {
@@ -517,46 +922,96 @@ impl MetalAudioRenderer {
             _ if matches!(subgenre, MetalSubgenre::ThrashMetal) => -rng.gen_range(5.0..=10.0), // Push snare for "urgency"
             _ => 0.0,
         };
+        
+        // ===== PHASE 1.3: FATIGUE COLLAPSE TRACKING =====
+        let mut kick_count = 0;
+        let mut fatigue_penalty = 0.0_f32;
 
         // Render loop
         for i in 0..kick_pattern.len() {
             let base_time = i as f32 * sixteenth_duration;
             
+            // Track kick hits for fatigue
+            if kick_pattern[i] {
+                kick_count += 1;
+                
+                // FATIGUE COLLAPSE: After 120+ kicks, velocity drops
+                if kick_count > 120 {
+                    fatigue_penalty = rng.gen_range(0.15..=0.40); // 15-40% velocity drop
+                }
+            }
+            
             // Accent first beat of each bar (every 16 sixteenth notes = 1 bar in 4/4)
             let is_first_beat = i % 16 == 0;
-            let accent_boost = if is_first_beat { 0.1_f32 } else { 0.0_f32 };
+            
+            // EXTREME ACCENT BOOST (random accents, not just first beat)
+            let random_accent = rng.gen_bool(accent_probability as f64);
+            let accent_boost = if is_first_beat || random_accent { 
+                rng.gen_range(0.10..=0.15) // 10-15% boost
+            } else { 
+                0.0_f32 
+            };
+            
+            // EXTREME timing variance (25-40ms, not 4ms)
+            let extreme_timing_offset = rng.gen_range(-timing_variance_ms..=timing_variance_ms);
             
             // Micro-randomization (±3-5 velocity)
             let micro_random = rng.gen_range(-0.04_f32..=0.04_f32);
             
-            // Calculate final velocity with humanization
-            let humanized_velocity = (base_velocity + accent_boost + micro_random + velocity_variance * rng.gen_range(-0.5_f32..=0.5_f32))
-                .clamp(0.7_f32, 1.0_f32);
+            // Calculate final velocity with humanization + limb imbalance + fatigue
+            let humanized_velocity = (base_velocity + accent_boost + micro_random + velocity_variance * rng.gen_range(-0.5_f32..=0.5_f32) + limb_imbalance - fatigue_penalty)
+                .clamp(0.5_f32, 1.0_f32); // Allow lower floor for fatigue
 
-            // Kick drum
+            // ===== PHASE 1.2: BLAST BEAT CHAOS - TIMING DESYNC =====
+            // Apply extreme timing chaos for blast beats (not per-hit randomness, but drift)
+            let (kick_timing_offset, snare_blast_offset, cymbal_timing_offset) = if is_blast_section {
+                // BLAST BEAT DESYNC:
+                // - Kick early by 3-7 ticks (samples)
+                // - Snare late by 4-12 ticks (samples)  
+                // - Cymbal fluctuates ±15 ticks (samples)
+                let kick_drift = -rng.gen_range(3.0..=7.0); // Early (negative)
+                let snare_drift = rng.gen_range(4.0..=12.0); // Late (positive)
+                let cymbal_drift = rng.gen_range(-15.0..=15.0); // Random
+                (kick_drift, snare_drift, cymbal_drift)
+            } else {
+                (0.0, 0.0, 0.0)
+            };
+
+            // Kick drum with blast beat timing + extreme humanization
             if kick_pattern[i] {
-                let sample_idx = (base_time * sample_rate) as usize;
+                let blast_offset = kick_timing_offset as isize;
+                let extreme_offset = (extreme_timing_offset / 1000.0 * sample_rate) as isize;
+                let total_offset = blast_offset + extreme_offset;
+                let sample_idx = ((base_time * sample_rate) as isize + total_offset).max(0) as usize;
                 if sample_idx < num_samples {
                     let kick_sound = self.drums.generate_kick(humanized_velocity);
                     self.mix_drum_hit(&mut drum_audio, &kick_sound, sample_idx);
                 }
             }
             
-            // Snare drum with micro-timing
+            // Snare drum with micro-timing + blast beat chaos + extreme humanization
             if snare_pattern[i] {
-                let timing_offset_samples = (snare_timing_offset / 1000.0 * sample_rate) as isize;
-                let sample_idx = ((base_time * sample_rate) as isize + timing_offset_samples).max(0) as usize;
+                let base_offset = (snare_timing_offset / 1000.0 * sample_rate) as isize;
+                let blast_offset = snare_blast_offset as isize;
+                let extreme_offset = (extreme_timing_offset / 1000.0 * sample_rate) as isize;
+                let total_offset = base_offset + blast_offset + extreme_offset;
+                let sample_idx = ((base_time * sample_rate) as isize + total_offset).max(0) as usize;
                 if sample_idx < num_samples {
-                    let snare_sound = self.drums.generate_snare(humanized_velocity);
+                    // Snare gets extra limb imbalance (right hand dominant)
+                    let snare_velocity = (humanized_velocity + limb_imbalance * 0.5).clamp(0.5, 1.0);
+                    let snare_sound = self.drums.generate_snare(snare_velocity);
                     self.mix_drum_hit(&mut drum_audio, &snare_sound, sample_idx);
                 }
             }
             
-            // Cymbal/Hi-hat
+            // Cymbal/Hi-hat with blast beat timing fluctuation + extreme humanization
             if cymbal_pattern[i] {
-                let sample_idx = (base_time * sample_rate) as usize;
+                let blast_offset = cymbal_timing_offset as isize;
+                let extreme_offset = (extreme_timing_offset / 1000.0 * sample_rate) as isize;
+                let total_offset = blast_offset + extreme_offset;
+                let sample_idx = ((base_time * sample_rate) as isize + total_offset).max(0) as usize;
                 if sample_idx < num_samples {
-                    let cymbal_velocity = humanized_velocity * 0.8; // Slightly quieter than kick/snare
+                    let cymbal_velocity = (humanized_velocity * 0.8 - limb_imbalance * 0.3).clamp(0.4, 0.9); // Cymbals quieter + left hand weaker
                     let crash_sound = self.drums.generate_crash(cymbal_velocity);
                     self.mix_drum_hit(&mut drum_audio, &crash_sound, sample_idx);
                 }

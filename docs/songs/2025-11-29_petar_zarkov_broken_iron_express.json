@@ -1,17 +1,15 @@
 {
   "artist": "Petar Zarkov",
-  "date": "2025-11-30",
-  "duration": 91.2755126953125,
+  "date": "2025-11-29",
+  "duration": 117.02152252197266,
   "genre": [
     "Swamp Metal",
-    "Groove",
-    "Doom",
-    "Instrumental"
+    "Sludge"
   ],
   "key": "40 Phrygian",
-  "name": "Feral Flesh",
+  "name": "Broken Iron Express",
   "sections": 10,
   "subgenre": "ThrashMetal",
-  "tempo": 196.0,
+  "tempo": 173.0,
   "tuning": "EStandard"
 }
