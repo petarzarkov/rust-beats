@@ -1,5 +1,17 @@
 [
   {
+    "filename": "2025-12-02_petar_zarkov_ancient_black_chains.mp3",
+    "date": "2025-12-02",
+    "size": 3663202,
+    "name": "Ancient Black Chains",
+    "genre": [
+      "Swamp Metal",
+      "Heavy",
+      "Sludge",
+      "Instrumental"
+    ]
+  },
+  {
     "filename": "2025-12-01_petar_zarkov_burning_doom_delight.mp3",
     "date": "2025-12-01",
     "size": 3710849,
@@ -71,17 +83,6 @@
       "Swamp Metal",
       "Doom",
       "Southern"
-    ]
-  },
-  {
-    "filename": "2025-11-25_petar_zarkov_skull_swamp.mp3",
-    "date": "2025-11-25",
-    "size": 3529037,
-    "name": "Skull Swamp",
-    "genre": [
-      "Swamp Metal",
-      "Doom",
-      "Instrumental"
     ]
   }
 ]
