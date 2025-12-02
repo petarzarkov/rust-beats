@@ -1,16 +1,51 @@
 [
-  {"filename": "2025-12-02_petar_zarkov_broken_decay_journey.mp3", "date": "2025-12-02", "size": 4090774, "name": "Broken Decay Journey", "genre": ["Swamp Metal","Groove","Sludge"]}
-,
-  {"filename": "2025-12-01_petar_zarkov_tomb_darkness.mp3", "date": "2025-12-01", "size": 8352704, "name": "Tomb Darkness", "genre": ["Swamp Metal","Southern"]}
-,
-  {"filename": "2025-11-30_petar_zarkov_spikes_cult.mp3", "date": "2025-11-30", "size": 2804296, "name": "Spikes Cult", "genre": ["Swamp Metal","Heavy","Instrumental"]}
-,
-  {"filename": "2025-11-29_petar_zarkov_broken_iron_express.mp3", "date": "2025-11-29", "size": 2808684, "name": "Broken Iron Express", "genre": ["Swamp Metal","Sludge"]}
-,
-  {"filename": "2025-11-28_petar_zarkov_dark_swamp_experience.mp3", "date": "2025-11-28", "size": 2377977, "name": "Dark Swamp Experience", "genre": ["Swamp Metal","Southern"]}
-,
-  {"filename": "2025-11-27_petar_zarkov_toxic_death_spell.mp3", "date": "2025-11-27", "size": 3192998, "name": "Toxic Death Spell", "genre": ["Swamp Metal","Sludge","Doom"]}
-,
-  {"filename": "2025-11-26_petar_zarkov_lost_thunder_fever.mp3", "date": "2025-11-26", "size": 6757772, "name": "Lost Thunder Fever", "genre": ["Swamp Metal","Heavy"]}
-
+  {
+    "filename": "2025-12-02_petar_zarkov_broken_decay_journey.mp3",
+    "date": "2025-12-02",
+    "size": 4090774,
+    "name": "Broken Decay Journey",
+    "genre": ["Swamp Metal", "Groove", "Sludge"]
+  },
+  {
+    "filename": "2025-12-01_petar_zarkov_tomb_darkness.mp3",
+    "date": "2025-12-01",
+    "size": 8352704,
+    "name": "Tomb Darkness",
+    "genre": ["Swamp Metal", "Southern"]
+  },
+  {
+    "filename": "2025-11-30_petar_zarkov_spikes_cult.mp3",
+    "date": "2025-11-30",
+    "size": 2804296,
+    "name": "Spikes Cult",
+    "genre": ["Swamp Metal", "Heavy", "Instrumental"]
+  },
+  {
+    "filename": "2025-11-29_petar_zarkov_broken_iron_express.mp3",
+    "date": "2025-11-29",
+    "size": 2808684,
+    "name": "Broken Iron Express",
+    "genre": ["Swamp Metal", "Sludge"]
+  },
+  {
+    "filename": "2025-11-28_petar_zarkov_dark_swamp_experience.mp3",
+    "date": "2025-11-28",
+    "size": 2377977,
+    "name": "Dark Swamp Experience",
+    "genre": ["Swamp Metal", "Southern"]
+  },
+  {
+    "filename": "2025-11-27_petar_zarkov_toxic_death_spell.mp3",
+    "date": "2025-11-27",
+    "size": 3192998,
+    "name": "Toxic Death Spell",
+    "genre": ["Swamp Metal", "Sludge", "Doom"]
+  },
+  {
+    "filename": "2025-11-26_petar_zarkov_lost_thunder_fever.mp3",
+    "date": "2025-11-26",
+    "size": 6757772,
+    "name": "Lost Thunder Fever",
+    "genre": ["Swamp Metal", "Heavy"]
+  }
 ]
