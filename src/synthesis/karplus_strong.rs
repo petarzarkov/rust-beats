@@ -159,7 +159,15 @@ impl KarplusStrong {
                 }
             };
             
-            let sample = synth.next_sample() * envelope;
+            let mut sample = synth.next_sample() * envelope;
+            // Clamp to valid range to prevent clipping
+            if !sample.is_finite() {
+                sample = 0.0;
+            } else if sample > 1.0 {
+                sample = 1.0;
+            } else if sample < -1.0 {
+                sample = -1.0;
+            }
             buffer.push(sample);
         }
         
@@ -177,9 +185,17 @@ pub fn generate_metal_guitar_note(
 ) -> Vec<f32> {
     let mut buffer = KarplusStrong::generate_note(frequency, duration, technique);
     
-    // Apply velocity scaling
+    // Apply velocity scaling and clamp to valid range
     for sample in buffer.iter_mut() {
         *sample *= velocity;
+        // Handle NaN and infinity
+        if !sample.is_finite() {
+            *sample = 0.0;
+        } else if *sample > 1.0 {
+            *sample = 1.0;
+        } else if *sample < -1.0 {
+            *sample = -1.0;
+        }
     }
     
     buffer
