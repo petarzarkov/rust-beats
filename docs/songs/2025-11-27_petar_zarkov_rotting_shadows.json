@@ -1,15 +1,15 @@
 {
   "artist": "Petar Zarkov",
   "date": "2025-11-27",
-  "duration": 118.3309326171875,
+  "duration": 115.26909637451172,
   "genre": [
     "Swamp Metal",
-    "Groove"
+    "Heavy"
   ],
   "key": "40 Phrygian",
-  "name": "Cult Altar",
-  "sections": 12,
+  "name": "Rotting Shadows",
+  "sections": 11,
   "subgenre": "ThrashMetal",
-  "tempo": 198.0,
+  "tempo": 185.0,
   "tuning": "EStandard"
 }

@@ -90,12 +90,15 @@ impl KarplusStrong {
     /// Generate a complete note with envelope
     pub fn generate_note(frequency: f32, duration: f32, technique: PlayingTechnique) -> Vec<f32> {
         let sample_rate = get_sample_rate() as f32;
-        let num_samples = (duration * sample_rate) as usize;
+        
+        // FIX: Extend duration by 20% to allow for natural decay tail
+        let extended_duration = duration * 1.2;
+        let num_samples = (extended_duration * sample_rate) as usize;
         let mut synth = KarplusStrong::new(frequency, technique);
         
         let mut buffer = Vec::with_capacity(num_samples);
         
-        // Simple envelope for amplitude shaping
+        // Improved envelope with proper ADSR phases
         for i in 0..num_samples {
             let t = i as f32 / num_samples as f32;
             
@@ -105,35 +108,53 @@ impl KarplusStrong {
                 PlayingTechnique::PowerChordRoot | PlayingTechnique::PowerChordFifth | 
                 PlayingTechnique::PowerChordOctave | PlayingTechnique::MinorChordRoot |
                 PlayingTechnique::MinorChordThird | PlayingTechnique::MinorChordFifth => {
-                    // Quick attack, long sustain
+                    // Attack (0-1%), Sustain (1-80%), Release (80-100%)
                     if t < 0.01 {
+                        // Attack: fast rise
                         t / 0.01
+                    } else if t < 0.80 {
+                        // Sustain: slight decay
+                        1.0 - (t - 0.01) * 0.15
                     } else {
-                        1.0 - (t - 0.01) * 0.3
+                        // Release: smooth exponential fade
+                        let release_t = (t - 0.80) / 0.20;
+                        (1.0 - (t - 0.01) * 0.15) * (1.0 - release_t).powf(2.5)
                     }
                 }
                 PlayingTechnique::PalmMute => {
                     // Quick attack, fast decay (percussive)
                     if t < 0.005 {
                         t / 0.005
+                    } else if t < 0.70 {
+                        (1.0 - (t - 0.005) / 0.695).powf(1.8)
                     } else {
-                        (1.0 - t).powf(2.0)
+                        // Release phase for palm mute
+                        let release_t = (t - 0.70) / 0.30;
+                        (1.0 - (t - 0.005) / 0.695).powf(1.8) * (1.0 - release_t).powf(3.0)
                     }
                 }
                 PlayingTechnique::Harmonic | PlayingTechnique::PinchHarmonic => {
                     // Very smooth, sustained
                     if t < 0.02 {
                         t / 0.02
+                    } else if t < 0.85 {
+                        1.0 - (t - 0.02) * 0.10
                     } else {
-                        1.0 - (t - 0.02) * 0.2
+                        // Smooth release
+                        let release_t = (t - 0.85) / 0.15;
+                        (1.0 - (t - 0.02) * 0.10) * (1.0 - release_t).powf(2.0)
                     }
                 }
                 PlayingTechnique::TremoloPick => {
                     // Sharp attack, medium sustain
                     if t < 0.005 {
                         t / 0.005
+                    } else if t < 0.75 {
+                        1.0 - (t - 0.005) * 0.35
                     } else {
-                        1.0 - (t - 0.005) * 0.5
+                        // Release
+                        let release_t = (t - 0.75) / 0.25;
+                        (1.0 - (t - 0.005) * 0.35) * (1.0 - release_t).powf(2.2)
                     }
                 }
             };

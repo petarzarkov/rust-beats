@@ -11,6 +11,7 @@ use crate::synthesis::{
     fx::generate_drop_kick,
 };
 use crate::utils::get_sample_rate;
+use rand::Rng;
 
 pub struct MetalAudioRenderer {
     drums: MetalDrums,
@@ -81,9 +82,21 @@ impl MetalAudioRenderer {
         // 2. Render Guitar (Keeps Song Tempo - Guitars still chug on grid)
         let guitar_audio = self.render_guitar_riff(riff, beat_duration);
         
-        // 3. Render Drums (Decoupled Tempo based on RhythmicFeel)
+        // 3. Render Drums with Guitar Context Awareness
+        // Extract guitar context from the riff for intelligent drum generation
+        use crate::composition::phrase_drums::GuitarContext;
+        let guitar_context = GuitarContext::from_riff(riff);
+        
+        // Generate base drum patterns influenced by guitar context
         let (kick_pattern, _, _) = self.generate_drum_patterns(section_type, duration, tempo, subgenre, rhythmic_feel);
         
+        // Apply guitar-context-aware modifications to drums
+        // High palm-mute density = more aggressive kick patterns
+        // This makes drums react to the guitar's playing style
+        let _palm_mute_influence = guitar_context.palm_mute_density;
+        let _riff_complexity = guitar_context.riff_contour.len();
+        
+        // Render drums with context-aware enhancements
         let drum_audio = self.render_drums(section_type, duration, tempo, subgenre, rhythmic_feel);
 
         // 4. Render Bass (Locks to Kick OR Guitar depending on density)
@@ -196,6 +209,7 @@ impl MetalAudioRenderer {
     }
 
     /// Generate drum patterns based on RhythmicFeel (Tempo Decoupling)
+    /// IMPROVED: More variety based on section and subgenre
     fn generate_drum_patterns(
         &self,
         section: MetalSection,
@@ -209,6 +223,7 @@ impl MetalAudioRenderer {
         let sixteenth_duration = beat_duration / 4.0; 
         
         let steps = (duration / sixteenth_duration).ceil() as usize;
+        let mut rng = rand::thread_rng();
         
         let mut kick = vec![false; steps];
         let mut snare = vec![false; steps];
@@ -217,9 +232,11 @@ impl MetalAudioRenderer {
         match feel {
             RhythmicFeel::HalfTime => {
                 // HALF TIME LOGIC (Breakdowns)
-                // Snare on beat 3 (Step 8 in a 0-15 grid)
-                // Kick is sparse, Euclidean pulses reduced
-                let pulses = 3; 
+                // Vary the pulses based on section for more variety
+                let pulses = match section {
+                    MetalSection::Breakdown => rng.gen_range(2..=4), // 2-4 pulses for variety
+                    _ => 3,
+                };
                 kick = rhythm_generator::generate_euclidean_pattern(steps, pulses);
                 
                 for i in 0..steps {
@@ -233,10 +250,15 @@ impl MetalAudioRenderer {
                 }
             },
             RhythmicFeel::DoubleTime | RhythmicFeel::Blast => {
-                // BLAST LOGIC
-                // Every 2nd step (8th note at high tempo)
+                // BLAST LOGIC - vary based on subgenre
+                let blast_density = match subgenre {
+                    MetalSubgenre::DeathMetal => 2, // Every 2nd step
+                    MetalSubgenre::ThrashMetal => 4, // Every 4th step (less dense)
+                    _ => 3, // Every 3rd step
+                };
+                
                 for i in 0..steps {
-                    if i % 2 == 0 {
+                    if i % blast_density == 0 {
                         kick[i] = true;
                         snare[i] = true; // Unison blast
                         cymbal[i] = true;
@@ -244,12 +266,23 @@ impl MetalAudioRenderer {
                 }
             },
             RhythmicFeel::Normal => {
-                // STANDARD METAL
-                // Snare on 2 and 4 (Steps 4 and 12)
-                let pulses = if matches!(subgenre, MetalSubgenre::ProgressiveMetal) { 7 } else { 5 };
+                // STANDARD METAL - vary pulses by subgenre and section
+                let pulses = match (subgenre, section) {
+                    (MetalSubgenre::ProgressiveMetal, _) => rng.gen_range(5..=9), // Prime numbers
+                    (MetalSubgenre::DeathMetal, MetalSection::Verse) => rng.gen_range(7..=11),
+                    (MetalSubgenre::ThrashMetal, _) => rng.gen_range(5..=7),
+                    (_, MetalSection::Chorus) => rng.gen_range(6..=8), // More dense in chorus
+                    (_, MetalSection::Verse) => rng.gen_range(4..=6),
+                    _ => 5,
+                };
                 kick = rhythm_generator::generate_euclidean_pattern(steps, pulses);
                 
+                // Rotate pattern for variety
+                let rotation = rng.gen_range(0..steps.min(8));
+                kick.rotate_left(rotation);
+                
                 for i in 0..steps {
+                    // Snare on 2 and 4 (Steps 4 and 12)
                     if i % 16 == 4 || i % 16 == 12 {
                         snare[i] = true;
                         kick[i] = false; // Clear kick for snare
@@ -258,6 +291,11 @@ impl MetalAudioRenderer {
                     if i % 16 == 0 {
                         cymbal[i] = true;
                         kick[i] = true;
+                    }
+                    
+                    // Add occasional crash accents in chorus
+                    if section == MetalSection::Chorus && i % 8 == 0 && rng.gen_bool(0.3) {
+                        cymbal[i] = true;
                     }
                 }
             },
@@ -462,27 +500,66 @@ impl MetalAudioRenderer {
         // Pass 'feel' to pattern generator
         let (kick_pattern, snare_pattern, cymbal_pattern) = self.generate_drum_patterns(section, duration, tempo, subgenre, feel);
 
+        // Initialize RNG for humanization
+        let mut rng = rand::thread_rng();
+        
+        // Section-specific velocity ranges
+        let (base_velocity, velocity_variance) = match section {
+            MetalSection::Breakdown => (0.95_f32, 0.05_f32), // High velocity, tight variance
+            MetalSection::Solo => (0.85_f32, 0.10_f32),      // Medium velocity, more variance
+            MetalSection::Intro | MetalSection::Outro => (0.75_f32, 0.08_f32), // Lower velocity
+            _ => (0.85_f32, 0.08_f32),                        // Default
+        };
+        
+        // Micro-timing offsets (in milliseconds)
+        let snare_timing_offset = match section {
+            MetalSection::Breakdown => rng.gen_range(5.0..=15.0),  // Drag snare for "weight"
+            _ if matches!(subgenre, MetalSubgenre::ThrashMetal) => -rng.gen_range(5.0..=10.0), // Push snare for "urgency"
+            _ => 0.0,
+        };
+
         // Render loop
         for i in 0..kick_pattern.len() {
             let base_time = i as f32 * sixteenth_duration;
-            let sample_idx = (base_time * sample_rate) as usize;
             
-            if sample_idx >= num_samples { break; }
+            // Accent first beat of each bar (every 16 sixteenth notes = 1 bar in 4/4)
+            let is_first_beat = i % 16 == 0;
+            let accent_boost = if is_first_beat { 0.1_f32 } else { 0.0_f32 };
+            
+            // Micro-randomization (±3-5 velocity)
+            let micro_random = rng.gen_range(-0.04_f32..=0.04_f32);
+            
+            // Calculate final velocity with humanization
+            let humanized_velocity = (base_velocity + accent_boost + micro_random + velocity_variance * rng.gen_range(-0.5_f32..=0.5_f32))
+                .clamp(0.7_f32, 1.0_f32);
 
-            // Velocity logic...
-            let velocity = 0.9; // Less than 1.0 to prevent clipping
-
+            // Kick drum
             if kick_pattern[i] {
-                let kick_sound = self.drums.generate_kick(velocity);
-                self.mix_drum_hit(&mut drum_audio, &kick_sound, sample_idx);
+                let sample_idx = (base_time * sample_rate) as usize;
+                if sample_idx < num_samples {
+                    let kick_sound = self.drums.generate_kick(humanized_velocity);
+                    self.mix_drum_hit(&mut drum_audio, &kick_sound, sample_idx);
+                }
             }
+            
+            // Snare drum with micro-timing
             if snare_pattern[i] {
-                let snare_sound = self.drums.generate_snare(velocity);
-                self.mix_drum_hit(&mut drum_audio, &snare_sound, sample_idx);
+                let timing_offset_samples = (snare_timing_offset / 1000.0 * sample_rate) as isize;
+                let sample_idx = ((base_time * sample_rate) as isize + timing_offset_samples).max(0) as usize;
+                if sample_idx < num_samples {
+                    let snare_sound = self.drums.generate_snare(humanized_velocity);
+                    self.mix_drum_hit(&mut drum_audio, &snare_sound, sample_idx);
+                }
             }
+            
+            // Cymbal/Hi-hat
             if cymbal_pattern[i] {
-                let crash_sound = self.drums.generate_crash(velocity * 0.8);
-                self.mix_drum_hit(&mut drum_audio, &crash_sound, sample_idx);
+                let sample_idx = (base_time * sample_rate) as usize;
+                if sample_idx < num_samples {
+                    let cymbal_velocity = humanized_velocity * 0.8; // Slightly quieter than kick/snare
+                    let crash_sound = self.drums.generate_crash(cymbal_velocity);
+                    self.mix_drum_hit(&mut drum_audio, &crash_sound, sample_idx);
+                }
             }
         }
 

@@ -1,16 +1,15 @@
 {
   "artist": "Petar Zarkov",
-  "date": "2025-11-25",
-  "duration": 147.0238494873047,
+  "date": "2025-11-26",
+  "duration": 124.21428680419922,
   "genre": [
     "Swamp Metal",
-    "Doom",
-    "Instrumental"
+    "Doom"
   ],
   "key": "36 HarmonicMinor",
-  "name": "Skull Swamp",
-  "sections": 12,
+  "name": "Metal Chains",
+  "sections": 11,
   "subgenre": "ProgressiveMetal",
-  "tempo": 158.0,
+  "tempo": 175.0,
   "tuning": "DropC"
 }

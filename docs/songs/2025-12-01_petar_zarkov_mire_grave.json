@@ -1,14 +1,16 @@
 {
   "artist": "Petar Zarkov",
-  "date": "2025-11-24",
-  "duration": 187.43865966796875,
+  "date": "2025-12-01",
+  "duration": 143.96322631835938,
   "genre": [
     "Swamp Metal",
-    "Sludge"
+    "Southern",
+    "Sludge",
+    "Instrumental"
   ],
   "key": "36 HarmonicMinor",
-  "name": "Black Thunder Sensation",
-  "sections": 12,
+  "name": "Mire Grave",
+  "sections": 9,
   "subgenre": "ProgressiveMetal",
   "tempo": 123.0,
   "tuning": "DropC"

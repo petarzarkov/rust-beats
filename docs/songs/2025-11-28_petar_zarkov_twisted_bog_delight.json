@@ -1,16 +1,17 @@
 {
   "artist": "Petar Zarkov",
-  "date": "2025-11-26",
-  "duration": 159.75802612304688,
+  "date": "2025-11-28",
+  "duration": 192.0,
   "genre": [
     "Swamp Metal",
-    "Doom",
-    "Southern"
+    "Groove",
+    "Southern",
+    "Instrumental"
   ],
   "key": "36 HarmonicMinor",
-  "name": "Steel Sludge",
+  "name": "Twisted Bog Delight",
   "sections": 12,
   "subgenre": "ProgressiveMetal",
-  "tempo": 145.0,
+  "tempo": 120.0,
   "tuning": "DropC"
 }
