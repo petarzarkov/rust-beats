@@ -1,5 +1,12 @@
 [
   {
+    "filename": "2025-12-03_petar_zarkov_wicked_mire_connection.mp3",
+    "date": "2025-12-03",
+    "size": 3208671,
+    "name": "Wicked Mire Connection",
+    "genre": ["Swamp Metal", "Heavy"]
+  },
+  {
     "filename": "2025-12-02_petar_zarkov_frost_fire.mp3",
     "date": "2025-12-02",
     "size": 2673892,
@@ -47,12 +54,5 @@
     "size": 3192998,
     "name": "Toxic Death Spell",
     "genre": ["Swamp Metal", "Sludge", "Doom"]
-  },
-  {
-    "filename": "2025-11-26_petar_zarkov_lost_thunder_fever.mp3",
-    "date": "2025-11-26",
-    "size": 6757772,
-    "name": "Lost Thunder Fever",
-    "genre": ["Swamp Metal", "Heavy"]
   }
 ]
