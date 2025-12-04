@@ -1,4 +1,4 @@
-use crate::utils::get_sample_rate;
+use crate::{synthesis::mixing::Compressor, utils::get_sample_rate};
 
 /// Advanced distortion with tube-style waveshaping and oversampling
 /// Based on research: tanh for tube emulation, oversampling to prevent aliasing
@@ -374,6 +374,48 @@ impl MetalDSPChain {
         for sample in buffer.iter_mut() {
             *sample = self.process(*sample);
         }
+    }
+}
+
+#[derive(Debug, Clone)]
+pub struct SplitBandBassDrive {
+    low_lp: SimpleLowPass,      // Filters out highs for the low band
+    high_hp: SimpleHighPass,    // Filters out lows for the high band
+    distortion: TubeDistortion, // Distorts only the top end
+    compressor: Compressor,     // Compresses the low end for stability
+    mix: f32,
+}
+
+impl SplitBandBassDrive {
+    pub fn new() -> Self {
+        Self {
+            // 200Hz is the standard metal crossover point
+            low_lp: SimpleLowPass::new(200.0),
+            high_hp: SimpleHighPass::new(200.0),
+            
+            // Aggressive drive on highs for the "clank"
+            distortion: TubeDistortion::new(8.0, 1.0),
+            
+            // Smash the sub-bass to keep it consistent
+            // Threshold -15dB, Ratio 8:1 (Limiting)
+            compressor: Compressor::new(-15.0, 8.0, 5.0, 50.0, 2.0),
+            
+            mix: 0.85, 
+        }
+    }
+
+    pub fn process(&mut self, input: f32) -> f32 {
+        // 1. Split Signal
+        let low_end = self.low_lp.process(input);
+        let top_end = self.high_hp.process(input);
+
+        // 2. Process Bands independently
+        let compressed_lows = self.compressor.process(low_end);
+        let distorted_highs = self.distortion.process(top_end);
+
+        // 3. Recombine
+        // We boost the clean lows slightly and mix in the distorted highs
+        compressed_lows * 1.1 + (distorted_highs * self.mix)
     }
 }
 

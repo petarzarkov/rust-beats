@@ -36,10 +36,21 @@ impl KarplusStrong {
         let sample_rate = get_sample_rate() as f32;
         let buffer_length = (sample_rate / frequency).round() as usize;
         
-        // Initialize buffer with white noise (the "pluck")
         let mut rng = rand::thread_rng();
         let buffer: Vec<f32> = (0..buffer_length)
-            .map(|_| rng.gen_range(-1.0..1.0))
+            .map(|i| {
+                let noise = rng.gen_range(-1.0..1.0);
+                
+                if technique == PlayingTechnique::PalmMute {
+                    if i < buffer_length / 8 { 
+                        noise * 2.0 // Stronger pick attack for mutes
+                    } else {
+                        noise * 0.8 
+                    }
+                } else {
+                    noise
+                }
+            })
             .collect();
 
         // Set decay factor and filter based on technique
