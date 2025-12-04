@@ -86,6 +86,11 @@ impl BreakdownGenerator {
             }
         }
 
+        // Ensure at least one stab is generated (guarantee for breakdown patterns)
+        if positions.is_empty() {
+            positions.push(0);
+        }
+
         positions
     }
 
