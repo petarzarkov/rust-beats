@@ -1,5 +1,15 @@
 [
   {
+    "filename": "2025-12-05_petar_zarkov_forgotten_cult_journey.mp3",
+    "date": "2025-12-05",
+    "size": 1960436,
+    "name": "Forgotten Cult Journey",
+    "genre": [
+      "Swamp Metal",
+      "Heavy"
+    ]
+  },
+  {
     "filename": "2025-12-04_petar_zarkov_marsh_mire.mp3",
     "date": "2025-12-04",
     "size": 2680789,
@@ -69,16 +79,6 @@
     "genre": [
       "Swamp Metal",
       "Sludge"
-    ]
-  },
-  {
-    "filename": "2025-11-28_petar_zarkov_dark_swamp_experience.mp3",
-    "date": "2025-11-28",
-    "size": 2377977,
-    "name": "Dark Swamp Experience",
-    "genre": [
-      "Swamp Metal",
-      "Southern"
     ]
   }
 ]
