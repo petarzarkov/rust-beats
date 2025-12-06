@@ -1,5 +1,16 @@
 [
   {
+    "filename": "2025-12-06_petar_zarkov_sludge_storm_supreme.mp3",
+    "date": "2025-12-06",
+    "size": 3175444,
+    "name": "Sludge Storm Supreme",
+    "genre": [
+      "Swamp Metal",
+      "Groove",
+      "Southern"
+    ]
+  },
+  {
     "filename": "2025-12-05_petar_zarkov_forgotten_cult_journey.mp3",
     "date": "2025-12-05",
     "size": 1960436,
@@ -69,16 +80,6 @@
       "Swamp Metal",
       "Heavy",
       "Instrumental"
-    ]
-  },
-  {
-    "filename": "2025-11-29_petar_zarkov_broken_iron_express.mp3",
-    "date": "2025-11-29",
-    "size": 2808684,
-    "name": "Broken Iron Express",
-    "genre": [
-      "Swamp Metal",
-      "Sludge"
     ]
   }
 ]
