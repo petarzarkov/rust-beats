@@ -70,8 +70,8 @@ fn main() {
     }
     println!();
     
-    // Render the audio
-    println!("🔊 Rendering audio...");
+    // Render the audio (MULTITRACK)
+    println!("🔊 Rendering audio (multi-track)...");
     let mut renderer = MetalAudioRenderer::new();
     
     // Calculate variable durations for each section
@@ -86,19 +86,60 @@ fn main() {
     
     println!("   Estimated Duration: {:.1}s ({:.1} min)", total_duration, total_duration / 60.0);
     
-    // Render each section with its specific duration
-    let mut audio_samples = Vec::new();
-    for ((section, riff), duration) in song.sections.iter().zip(section_durations.iter()) {
-        let section_audio = renderer.render_section(*section, riff, *duration, song.tempo, song.subgenre);
-        audio_samples.extend(section_audio);
+    // PARALLEL MULTITRACK RENDERING using multi-threading
+    use rayon::prelude::*;
+    
+    let section_data: Vec<_> = song.sections.iter()
+        .zip(section_durations.iter())
+        .map(|((section, riff), duration)| (*section, riff.clone(), *duration, song.tempo, song.subgenre))
+        .collect();
+    
+    // Render sections in parallel
+    let section_tracks: Vec<(Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>)> = section_data.par_iter()
+        .map(|(section, riff, duration, tempo, subgenre)| {
+            let mut local_renderer = MetalAudioRenderer::new();
+            local_renderer.render_section_separate_tracks(*section, riff, *duration, *tempo, *subgenre)
+        })
+        .collect();
+    
+    // Concatenate all sections
+    let mut guitar_track = Vec::new();
+    let mut bass_track = Vec::new();
+    let mut drum_track = Vec::new();
+    let mut melody_track = Vec::new();
+    
+    for (guitar, bass, drums, melody) in section_tracks {
+        guitar_track.extend(guitar);
+        bass_track.extend(bass);
+        drum_track.extend(drums);
+        melody_track.extend(melody);
+    }
+    
+    // Create master mix from separate tracks (in parallel)
+    let mut audio_samples = vec![0.0; guitar_track.len()];
+    audio_samples.par_iter_mut().enumerate().for_each(|(i, sample)| {
+        let guitar = *guitar_track.get(i).unwrap_or(&0.0) * 0.85;  // LOUD
+        let bass = *bass_track.get(i).unwrap_or(&0.0) * 0.58;      // Medium
+        let drums = *drum_track.get(i).unwrap_or(&0.0) * 0.45;     // Support
+        let melody = *melody_track.get(i).unwrap_or(&0.0) * 0.65;  // Clear
+        
+        *sample = guitar + bass + drums + melody;
+    });
+    
+    // Apply final limiter to master mix
+    let peak = audio_samples.par_iter().map(|&s| s.abs()).reduce(|| 0.0, f32::max);
+    if peak > 0.0 {
+        let scale = 0.95 / peak;
+        audio_samples.par_iter_mut().for_each(|sample| {
+            *sample *= scale;
+        });
     }
     
     let duration_seconds = audio_samples.len() as f32 / get_sample_rate() as f32;
     println!("   Duration: {:.1}s", duration_seconds);
-    println!("   Samples: {}", audio_samples.len());
     println!();
     
-    // Save files
+    // Save ONLY the master mix (no individual tracks)
     println!("💾 Saving audio...");
     let date = get_current_date();
     

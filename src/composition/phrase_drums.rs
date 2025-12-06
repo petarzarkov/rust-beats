@@ -139,12 +139,13 @@ impl PhraseAwareDrumGenerator {
 
         // High stress = blast beat
         if stress_ratio > 0.3 {
-            // Generate 16th note blast pattern
-            for i in 0..16 {
+            // FIXED: Generate 8th note blast pattern (not 16th notes - too fast/DnB)
+            // Research Section 5.3: Traditional blast beats should be 8th notes for metal
+            for i in (0..16).step_by(2) {
                 hits.push(DrumHit {
                     position: i,
-                    velocity: 110 + (i % 2) as u8 * 10, // Alternating velocities
-                    is_accent: i % 4 == 0,
+                    velocity: 90 + (i % 4) as u8 * 10, // Research: 90-110 velocity range, not 110-120
+                    is_accent: i % 8 == 0,
                 });
             }
         }

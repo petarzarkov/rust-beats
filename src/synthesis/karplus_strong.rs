@@ -55,14 +55,15 @@ impl KarplusStrong {
 
         // Set decay factor and filter based on technique
         // Research Section 6.3: Tuned palm mute for modern metal (tighter, more aggressive)
+        // FIXED: Increased open note decay for sustained, continuous guitar sound
         let (decay_factor, filter_cutoff) = match technique {
-            PlayingTechnique::Open | PlayingTechnique::SingleNote => (0.996, 8000.0),
+            PlayingTechnique::Open | PlayingTechnique::SingleNote => (0.9985, 8000.0), // Increased from 0.996 for longer sustain
             PlayingTechnique::PalmMute => (0.90, 800.0), // Lower decay factor for faster damping (palm mute)
             PlayingTechnique::Harmonic | PlayingTechnique::PinchHarmonic => (0.999, 12000.0),
             PlayingTechnique::TremoloPick => (0.95, 6000.0),
-            PlayingTechnique::PowerChordRoot | PlayingTechnique::MinorChordRoot => (0.98, 5000.0),
-            PlayingTechnique::PowerChordFifth | PlayingTechnique::MinorChordFifth => (0.98, 5500.0),
-            PlayingTechnique::PowerChordOctave | PlayingTechnique::MinorChordThird => (0.97, 6000.0),
+            PlayingTechnique::PowerChordRoot | PlayingTechnique::MinorChordRoot => (0.9975, 5000.0), // Increased from 0.98
+            PlayingTechnique::PowerChordFifth | PlayingTechnique::MinorChordFifth => (0.9975, 5500.0), // Increased from 0.98
+            PlayingTechnique::PowerChordOctave | PlayingTechnique::MinorChordThird => (0.997, 6000.0), // Increased from 0.97
         };
 
         KarplusStrong {

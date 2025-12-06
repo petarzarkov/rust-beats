@@ -377,45 +377,88 @@ impl MetalDSPChain {
     }
 }
 
+/// Darkglass-style split-band bass drive
+/// Research Section 3.2: Split-band distortion with sub-harmonic generation
 #[derive(Debug, Clone)]
 pub struct SplitBandBassDrive {
     low_lp: SimpleLowPass,      // Filters out highs for the low band
     high_hp: SimpleHighPass,    // Filters out lows for the high band
+    sub_lp: SimpleLowPass,      // Ultra-low filter for sub-harmonic generation
     distortion: TubeDistortion, // Distorts only the top end
     compressor: Compressor,     // Compresses the low end for stability
+    sub_harmonic_phase: f32,    // Phase accumulator for sub-harmonic generation
     mix: f32,
+    grit_amount: f32,           // Amount of high-end grit (Darkglass-style)
 }
 
 impl SplitBandBassDrive {
     pub fn new() -> Self {
         Self {
-            // 200Hz is the standard metal crossover point
-            low_lp: SimpleLowPass::new(200.0),
-            high_hp: SimpleHighPass::new(200.0),
+            // ENHANCED: Lower crossover for more sub-bass clarity
+            low_lp: SimpleLowPass::new(150.0),  // Reduced from 200Hz
+            high_hp: SimpleHighPass::new(150.0), // Match the low-pass
+            sub_lp: SimpleLowPass::new(60.0),    // NEW: Sub-bass filter for harmonic generation
             
-            // Aggressive drive on highs for the "clank"
-            distortion: TubeDistortion::new(8.0, 1.0),
+            // ENHANCED: More aggressive drive on highs for the "Darkglass grit"
+            distortion: TubeDistortion::new(12.0, 1.0), // Increased from 8.0
             
             // Smash the sub-bass to keep it consistent
-            // Threshold -15dB, Ratio 8:1 (Limiting)
-            compressor: Compressor::new(-15.0, 8.0, 5.0, 50.0, 2.0),
+            // Threshold -18dB (lower), Ratio 10:1 (harder limiting)
+            compressor: Compressor::new(-18.0, 10.0, 3.0, 50.0, 2.0),
             
-            mix: 0.85, 
+            sub_harmonic_phase: 0.0, // Initialize phase
+            mix: 0.90, // Increased from 0.85 for more grit
+            grit_amount: 1.3, // NEW: Boost high-end grit
         }
     }
 
     pub fn process(&mut self, input: f32) -> f32 {
-        // 1. Split Signal
+        // 1. Split Signal into three bands
         let low_end = self.low_lp.process(input);
         let top_end = self.high_hp.process(input);
+        let sub_end = self.sub_lp.process(input);
 
         // 2. Process Bands independently
+        
+        // LOW BAND: Heavy compression for consistent sub-bass
         let compressed_lows = self.compressor.process(low_end);
-        let distorted_highs = self.distortion.process(top_end);
+        
+        // SUB-HARMONIC GENERATION (Research Section 3.2)
+        // Add an octave-down harmonic for frequencies below 60Hz
+        // This creates massive sub-bass presence without muddiness
+        let sub_harmonic = self.generate_sub_harmonic(sub_end);
+        
+        // HIGH BAND: Aggressive Darkglass-style distortion
+        let distorted_highs = self.distortion.process(top_end) * self.grit_amount;
 
-        // 3. Recombine
-        // We boost the clean lows slightly and mix in the distorted highs
-        compressed_lows * 1.1 + (distorted_highs * self.mix)
+        // 3. Recombine with enhanced balance
+        // Research: Bass should have clean lows, aggressive highs, and sub-harmonic depth
+        compressed_lows * 1.2        // Boosted clean lows (was 1.1)
+            + sub_harmonic * 0.4     // NEW: Sub-harmonic layer
+            + (distorted_highs * self.mix) // Gritty highs
+    }
+    
+    /// Generate sub-harmonic (octave-down) for ultra-low frequencies
+    /// Research Section 6: Sub-harmonic generator for bass frequencies below 60Hz
+    fn generate_sub_harmonic(&mut self, input: f32) -> f32 {
+        // Simple octave-down using phase accumulation
+        // This creates a sub-harmonic at half the frequency
+        let sample_rate = get_sample_rate() as f32;
+        
+        // Update phase based on input amplitude (envelope follower)
+        let input_abs = input.abs();
+        self.sub_harmonic_phase += input_abs * 0.5;
+        
+        // Wrap phase
+        if self.sub_harmonic_phase >= 1.0 {
+            self.sub_harmonic_phase -= 1.0;
+        }
+        
+        // Generate sine wave at half frequency (octave down)
+        let sub_wave = (self.sub_harmonic_phase * 2.0 * std::f32::consts::PI).sin();
+        
+        // Only apply when we have sub-bass content
+        sub_wave * input_abs * 0.6
     }
 }
 

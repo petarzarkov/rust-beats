@@ -1,4 +1,4 @@
-use crate::composition::music_theory::{Key, MidiNote};
+use crate::composition::music_theory::{Key, MidiNote, ScaleType};
 use rand::Rng;
 use std::collections::HashMap;
 
@@ -62,31 +62,38 @@ pub struct MetalMarkovPresets;
 
 impl MetalMarkovPresets {
     /// Create a heavy metal / thrash metal transition matrix
-    /// Emphasizes minor seconds (b2) and power intervals (P4, P5)
+    /// Research Section 4.2: Emphasizes minor seconds (b2) and power intervals (P4, P5)
     pub fn heavy_metal(key: &Key) -> MarkovChain {
         let root = key.root;
         let scale = key.get_scale_notes();
+        let is_phrygian = matches!(key.scale_type, ScaleType::Phrygian | ScaleType::PhrygianDominant);
         
         let mut chain = MarkovChain::new(root);
         
         // For each scale degree, define transitions
         for (i, &note) in scale.iter().enumerate() {
-            // High probability to root (pedal point)
-            chain.add_transition(note, root, 0.4);
+            // High probability to root (pedal point) - Research Section 4.1
+            chain.add_transition(note, root, 0.45); // Increased from 0.4
             
-            // Minor second movement (characteristic of metal)
+            // ENHANCED: Minor second movement (characteristic of metal)
+            // Research: Higher probability for 1→b2 transition in Phrygian
             if i + 1 < scale.len() {
-                chain.add_transition(note, scale[i + 1], 0.25);
+                let minor_second_prob = if is_phrygian && i == 0 {
+                    0.40 // 40% for root→b2 in Phrygian (THE METAL SOUND)
+                } else {
+                    0.30 // Increased from 0.25 for other minor seconds
+                };
+                chain.add_transition(note, scale[i + 1], minor_second_prob);
             }
             
-            // Perfect fourth (power chord)
+            // Perfect fourth (power chord foundation)
             if i + 3 < scale.len() {
-                chain.add_transition(note, scale[i + 3], 0.2);
+                chain.add_transition(note, scale[i + 3], 0.15); // Reduced slightly
             }
             
-            // Perfect fifth (power chord)
+            // Perfect fifth (power chord top note)
             if i + 4 < scale.len() {
-                chain.add_transition(note, scale[i + 4], 0.15);
+                chain.add_transition(note, scale[i + 4], 0.10); // Reduced to prioritize b2
             }
         }
         
@@ -94,25 +101,37 @@ impl MetalMarkovPresets {
     }
 
     /// Create a death metal transition matrix
-    /// Emphasizes chromatic movement and dissonance
+    /// Research: Emphasizes chromatic movement, tritones, and brutal dissonance
     pub fn death_metal(key: &Key) -> MarkovChain {
         let root = key.root;
         let scale = key.get_scale_notes();
+        let is_phrygian = matches!(key.scale_type, ScaleType::Phrygian | ScaleType::Locrian);
         
         let mut chain = MarkovChain::new(root);
         
         for (i, &note) in scale.iter().enumerate() {
-            // Very high probability to root (brutal chugging)
-            chain.add_transition(note, root, 0.5);
+            // Very high probability to root (brutal chugging pedal point)
+            chain.add_transition(note, root, 0.55); // Increased from 0.5
             
-            // Chromatic movement (half-step)
+            // ENHANCED: Chromatic movement (half-step) - THE DEATH METAL SOUND
+            // Research Section 2.1: Minor second creates immediate unease
             if i + 1 < scale.len() {
-                chain.add_transition(note, scale[i + 1], 0.3);
+                let chromatic_prob = if is_phrygian && i == 0 {
+                    0.45 // 45% for root→b2 in Phrygian death metal
+                } else {
+                    0.35 // Increased from 0.30
+                };
+                chain.add_transition(note, scale[i + 1], chromatic_prob);
             }
             
-            // Tritone (diabolus in musica)
+            // ENHANCED: Tritone (diabolus in musica) - Research Section 2.1
             if i + 6 < scale.len() {
-                chain.add_transition(note, scale[i + 6], 0.2);
+                chain.add_transition(note, scale[i + 6], 0.25); // Increased from 0.2
+            }
+            
+            // Add diminished fifth for extra dissonance (Locrian characteristic)
+            if i + 5 < scale.len() && matches!(key.scale_type, ScaleType::Locrian) {
+                chain.add_transition(note, scale[i + 5], 0.20);
             }
         }
         
@@ -301,22 +320,36 @@ impl PedalPointGenerator {
     }
 
     /// Generate a sequence of notes with pedal point technique
+    /// Research Section 4.1: Pedal point is the foundation of metal riffs
     pub fn generate_sequence(&self, length: usize) -> Vec<MidiNote> {
         let mut rng = rand::thread_rng();
         let mut sequence = Vec::with_capacity(length);
         let mut on_pedal = true;
+        let mut pedal_streak = 0; // Track consecutive pedal notes
         
         for _ in 0..length {
             if on_pedal {
-                // Play pedal note
+                // Play pedal note (palm muted "chug")
                 sequence.push(self.pedal_note);
-                // Decide whether to move to melodic note
-                on_pedal = rng.gen::<f32>() > 0.7; // 30% chance to stay on pedal
+                pedal_streak += 1;
+                
+                // ENHANCED: Stay on pedal for at least 2-3 notes before moving
+                // Research: Metal riffs anchor to the root between melodic ideas
+                let min_pedal_streak = 2;
+                if pedal_streak >= min_pedal_streak {
+                    // Only 25% chance to leave pedal (was 70%)
+                    on_pedal = rng.gen::<f32>() > 0.25;
+                    if !on_pedal {
+                        pedal_streak = 0;
+                    }
+                }
             } else {
-                // Play melodic note
+                // Play melodic note (open strings, sustained)
                 let idx = rng.gen_range(0..self.melodic_pool.len());
                 sequence.push(self.melodic_pool[idx]);
-                // Decide whether to return to pedal
+                
+                // ENHANCED: Higher probability to return to pedal
+                // Research: Pedal point probability should be 60-80% for verse/intro
                 on_pedal = rng.gen::<f32>() < self.return_probability;
             }
         }

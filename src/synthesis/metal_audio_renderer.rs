@@ -30,6 +30,44 @@ pub fn new() -> Self {
         }
     }
 
+    /// NEW: Render song as SEPARATE TRACKS (guitar, bass, drums, melody)
+    /// Returns: (guitar_track, bass_track, drum_track, melody_track, master_mix)
+    pub fn render_song_multitrack(&mut self, song: &MetalSong, duration_per_section: f32) -> (Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>) {
+        let mut guitar_track = Vec::new();
+        let mut bass_track = Vec::new();
+        let mut drum_track = Vec::new();
+        let mut melody_track = Vec::new();
+        
+        for (section_type, riff) in &song.sections {
+            let (guitar, bass, drums, melody) = self.render_section_separate_tracks(
+                *section_type, riff, duration_per_section, song.tempo, song.subgenre
+            );
+            
+            guitar_track.extend(guitar);
+            bass_track.extend(bass);
+            drum_track.extend(drums);
+            melody_track.extend(melody);
+        }
+        
+        // Create master mix from the separate tracks
+        let mut master_mix = vec![0.0; guitar_track.len()];
+        let max_len = guitar_track.len();
+        
+        for i in 0..max_len {
+            let guitar_sample = *guitar_track.get(i).unwrap_or(&0.0) * 0.85;
+            let bass_sample = *bass_track.get(i).unwrap_or(&0.0) * 0.58;
+            let drum_sample = *drum_track.get(i).unwrap_or(&0.0) * 0.45;
+            let melody_sample = *melody_track.get(i).unwrap_or(&0.0) * 0.65;
+            
+            master_mix[i] = guitar_sample + bass_sample + drum_sample + melody_sample;
+        }
+        
+        // Apply final limiter to master mix only
+        Self::apply_limiter(&mut master_mix, 0.95);
+        
+        (guitar_track, bass_track, drum_track, melody_track, master_mix)
+    }
+    
     pub fn render_song(&mut self, song: &MetalSong, duration_per_section: f32) -> Vec<f32> {
         let mut full_audio = Vec::new();
         for (section_type, riff) in &song.sections {
@@ -81,7 +119,7 @@ pub fn new() -> Self {
         tempo: u16,
         subgenre: MetalSubgenre,
         section: MetalSection,
-        feel: RhythmicFeel,
+        _feel: RhythmicFeel,
     ) -> Vec<f32> {
         let sample_rate = self.sample_rate as f32;
         let beat_duration = 60.0 / tempo as f32;
@@ -90,16 +128,26 @@ pub fn new() -> Self {
         let mut drum_audio = vec![0.0; num_samples];
         let mut rng = rand::thread_rng();
 
-        // [Humanization Logic]
+        // [INCREASED HUMANIZATION: More organic, less robotic]
         let is_extreme_genre = matches!(subgenre, MetalSubgenre::DeathMetal | MetalSubgenre::ThrashMetal);
-        let base_velocity = 0.9;
-        let velocity_variance = 0.1;
-        let timing_variance_ms = if is_extreme_genre { 25.0 } else { 15.0 };
-        let limb_imbalance = 0.1;
+        let base_velocity = 0.75_f32; // Reduced from 0.9 for wider dynamic range
+        // INCREASED timing variance from 15-25ms to 30-50ms for more human feel
+        let timing_variance_ms = if is_extreme_genre { 50.0 } else { 35.0 };
 
         for i in 0..kick_pattern.len() {
             let base_time = i as f32 * sixteenth_duration;
-            let humanized_velocity = ((base_velocity + rng.gen_range(-0.1..0.1)) as f32).clamp(0.5, 1.0);
+            
+            // WIDER VELOCITY RANGE: 0.3-1.0 (was 0.5-1.0) for ghost notes and accents
+            let velocity_variation = rng.gen_range(-0.25..0.25); // Wider range
+            let humanized_velocity = (base_velocity + velocity_variation).clamp(0.3_f32, 1.0_f32);
+            
+            // ADD OCCASIONAL "MISTAKES": Random velocity spikes (5% chance)
+            let final_velocity = if rng.gen_bool(0.05) {
+                (humanized_velocity * 1.3).min(1.0) // Accidental loud hit
+            } else {
+                humanized_velocity
+            };
+            
             let extreme_timing_offset = rng.gen_range(-timing_variance_ms..timing_variance_ms);
             
             // Kick
@@ -107,7 +155,7 @@ pub fn new() -> Self {
                  let offset = (extreme_timing_offset / 1000.0 * sample_rate) as isize;
                  let sample_idx = ((base_time * sample_rate) as isize + offset).max(0) as usize;
                  if sample_idx < num_samples {
-                     let kick_sound = self.drums.generate_kick(humanized_velocity);
+                     let kick_sound = self.drums.generate_kick(final_velocity);
                      self.mix_drum_hit(&mut drum_audio, &kick_sound, sample_idx);
                  }
             }
@@ -117,22 +165,35 @@ pub fn new() -> Self {
                  let offset = (extreme_timing_offset / 1000.0 * sample_rate) as isize;
                  let sample_idx = ((base_time * sample_rate) as isize + offset).max(0) as usize;
                  if sample_idx < num_samples {
-                     let snare_sound = self.drums.generate_snare(humanized_velocity);
+                     let snare_sound = self.drums.generate_snare(final_velocity);
                      self.mix_drum_hit(&mut drum_audio, &snare_sound, sample_idx);
                  }
             }
             
-            // Cymbal
+            // Cymbal - ADD VARIETY: hi-hat, ride, crash, china
             if cymbal_pattern[i] {
                  let offset = (extreme_timing_offset / 1000.0 * sample_rate) as isize;
                  let sample_idx = ((base_time * sample_rate) as isize + offset).max(0) as usize;
                  if sample_idx < num_samples {
-                     let cymbal_vel = humanized_velocity * 0.8;
-                     let sound = if matches!(section, MetalSection::Breakdown) {
-                         self.drums.generate_china(cymbal_vel)
+                     let cymbal_vel = final_velocity * 0.8;
+                     
+                     // Choose cymbal type based on position and section
+                     let sound = if i % 16 == 0 {
+                         // Downbeat: Use crash or china
+                         if matches!(section, MetalSection::Breakdown) {
+                             self.drums.generate_china(cymbal_vel)
+                         } else {
+                             self.drums.generate_crash(cymbal_vel)
+                         }
+                     } else if i % 4 == 0 {
+                         // Quarter notes: Use ride for groove
+                         self.drums.generate_ride(cymbal_vel)
                      } else {
-                         self.drums.generate_crash(cymbal_vel)
+                         // Off-beats: Use hi-hat for continuous rhythm
+                         let is_open = i % 8 == 2; // Occasional open hi-hat for variation
+                         self.drums.generate_hihat(cymbal_vel * 0.6, is_open)
                      };
+                     
                      self.mix_drum_hit(&mut drum_audio, &sound, sample_idx);
                  }
             }
@@ -141,6 +202,101 @@ pub fn new() -> Self {
         drum_audio
     }
 
+    /// NEW: Render section as SEPARATE TRACKS
+    /// Returns: (guitar, bass, drums, melody)
+    pub fn render_section_separate_tracks(
+        &mut self,
+        section_type: MetalSection,
+        riff: &MetalRiff,
+        duration: f32,
+        tempo: u16,
+        subgenre: MetalSubgenre,
+    ) -> (Vec<f32>, Vec<f32>, Vec<f32>, Vec<f32>) {
+        let beat_duration = 60.0 / tempo as f32;
+        let rhythmic_feel = section_type.rhythmic_feel();
+        
+        // 1. Render Guitar (clean, no mixing)
+        let guitar_audio = self.render_guitar_riff(riff, beat_duration);
+        
+        // 2. Generate Drum Patterns
+        let (kick_pattern, snare_pattern, cymbal_pattern) = self.generate_drum_patterns(
+            section_type, duration, tempo, subgenre, rhythmic_feel
+        );
+        
+        // 3. Render Drums
+        let mut drum_audio = Vec::new();
+        
+        // Add drop for breakdowns
+        if matches!(section_type, MetalSection::Breakdown) {
+            let silence_duration = 0.5;
+            let silence_samples = (silence_duration * self.sample_rate as f32) as usize;
+            let kick_roll_duration = 0.25;
+            let kick_interval = beat_duration / 8.0;
+            let num_kicks = (kick_roll_duration / kick_interval) as usize;
+            
+            let mut kick_roll = vec![0.0; (kick_roll_duration * self.sample_rate as f32) as usize];
+            for k in 0..num_kicks {
+                let kick_time = k as f32 * kick_interval;
+                let kick_idx = (kick_time * self.sample_rate as f32) as usize;
+                if kick_idx < kick_roll.len() {
+                    let velocity = 1.0 - (k as f32 / num_kicks as f32) * 0.3;
+                    let kick_sound = self.drums.generate_kick(velocity);
+                    self.mix_drum_hit(&mut kick_roll, &kick_sound, kick_idx);
+                }
+            }
+            
+            drum_audio.extend(vec![0.0; silence_samples]);
+            drum_audio.extend(kick_roll);
+        }
+        
+        drum_audio.extend(self.render_drums_from_patterns(
+            &kick_pattern, &snare_pattern, &cymbal_pattern,
+            tempo, subgenre, section_type, rhythmic_feel
+        ));
+        
+        // 4. Render Bass
+        let bass_mode = if section_type == MetalSection::Breakdown {
+            BassMode::Lock
+        } else {
+            crate::composition::bass_generator::MetalBassGenerator::mode_for_subgenre(subgenre)
+        };
+        
+        let bass_note_duration = if section_type == MetalSection::Breakdown {
+            beat_duration
+        } else {
+            beat_duration / 4.0
+        };
+        
+        let bass_audio = self.render_bass_riff_locked(
+            &riff.notes,
+            &kick_pattern,
+            bass_note_duration,
+            bass_mode,
+            &riff,
+        );
+        
+        // 5. Generate MELODY TRACK (Piano/Synth playing the riff melody)
+        let melody_audio = self.render_melody_track(riff, beat_duration);
+        
+        // Make all tracks the same length
+        let max_len = guitar_audio.len()
+            .max(bass_audio.len())
+            .max(drum_audio.len())
+            .max(melody_audio.len());
+        
+        let mut guitar_padded = guitar_audio;
+        let mut bass_padded = bass_audio;
+        let mut drum_padded = drum_audio;
+        let mut melody_padded = melody_audio;
+        
+        guitar_padded.resize(max_len, 0.0);
+        bass_padded.resize(max_len, 0.0);
+        drum_padded.resize(max_len, 0.0);
+        melody_padded.resize(max_len, 0.0);
+        
+        (guitar_padded, bass_padded, drum_padded, melody_padded)
+    }
+    
     pub fn render_section(  
         &mut self,
         section_type: MetalSection,
@@ -154,15 +310,32 @@ pub fn new() -> Self {
         let rhythmic_feel = section_type.rhythmic_feel();
         let mut section_audio = Vec::new();
 
-        // 1. THE DROP: Add an aggressive kick drop for breakdowns
+        // 1. THE DROP: Add rapid metal kicks for breakdowns (not a single 808 drop)
         if matches!(section_type, MetalSection::Breakdown) {
             let silence_duration = 0.5;
             let silence_samples = (silence_duration * self.sample_rate as f32) as usize;
-            let drop_kick = generate_drop_kick();
+            
+            // Generate RAPID METAL KICKS (kick roll) - not a single drop
+            let kick_roll_duration = 0.25; // 250ms of rapid kicks
+            let kick_interval = beat_duration / 8.0; // 32nd notes
+            let num_kicks = (kick_roll_duration / kick_interval) as usize;
+            
+            let mut kick_roll = vec![0.0; (kick_roll_duration * self.sample_rate as f32) as usize];
+            for k in 0..num_kicks {
+                let kick_time = k as f32 * kick_interval;
+                let kick_idx = (kick_time * self.sample_rate as f32) as usize;
+                if kick_idx < kick_roll.len() {
+                    // Decreasing velocity for natural feel
+                    let velocity = 1.0 - (k as f32 / num_kicks as f32) * 0.3;
+                    let kick_sound = self.drums.generate_kick(velocity);
+                    self.mix_drum_hit(&mut kick_roll, &kick_sound, kick_idx);
+                }
+            }
+            
             let mut transition = vec![0.0; silence_samples];
-            transition.extend(drop_kick);
+            transition.extend(kick_roll);
             section_audio.extend(transition);
-            println!("💥 THE DROP: Heavy kick drop triggered");
+            println!("💥 THE DROP: Rapid metal kick roll triggered ({} kicks)", num_kicks);
         }
 
         // 2. Render Guitar
@@ -208,12 +381,16 @@ pub fn new() -> Self {
         let guitar_sidechained = self.apply_sidechain(&guitar_audio, &kick_envelope);
         let bass_sidechained = self.apply_sidechain(&bass_audio, &kick_envelope);
 
-        // 7. Dynamic Mixing
+        // 7. Dynamic Mixing - MAXIMUM GUITAR PROMINENCE (METAL = GUITAR MUSIC)
+        // Research: Guitar IS the lead instrument in metal, should DOMINATE the mix
+        // MASSIVELY boosted guitar to 0.75-0.85 range (was 0.55-0.65)
+        // REDUCED drums to 0.35-0.45 (was 0.45-0.60) - drums support, don't lead
+        // INCREASED bass to 0.48-0.58 (was 0.35-0.42) for melodic presence
         let (guitar_level, bass_level, drum_level) = match intensity {
-            SectionIntensity::Low => (0.35, 0.40, 0.50),
-            SectionIntensity::Medium => (0.40, 0.45, 0.60),
-            SectionIntensity::High => (0.45, 0.50, 0.65),
-            SectionIntensity::Extreme => (0.50, 0.55, 0.70),
+            SectionIntensity::Low => (0.75, 0.48, 0.35),      // Guitar LOUD even in quiet sections
+            SectionIntensity::Medium => (0.78, 0.52, 0.38),   // Guitar clearly the lead
+            SectionIntensity::High => (0.82, 0.55, 0.42),     // Guitar dominates
+            SectionIntensity::Extreme => (0.85, 0.58, 0.45),  // Guitar at MAXIMUM (loudest element)
         };
 
         let max_len = guitar_sidechained.len().max(bass_sidechained.len()).max(drum_audio.len());
@@ -257,7 +434,7 @@ pub fn new() -> Self {
 
         // Envelope Follower state
         let mut env_out = 0.0;
-        let attack = 0.95;   // Very fast attack
+        let _attack = 0.95;   // Very fast attack
         let release = 0.999; // Slow release for pumping effect
 
         for &sample in drum_audio {
@@ -309,7 +486,45 @@ pub fn new() -> Self {
                     }
                 }
             },
-            BassMode::Counterpoint | BassMode::Follow => {
+            BassMode::Counterpoint => {
+                // COUNTER-MELODY: Bass moves independently, creating harmonic depth
+                let mut rng = rand::thread_rng();
+                let mut prev_guitar_note = guitar_notes[0];
+                
+                for (i, &guitar_note) in guitar_notes.iter().enumerate() {
+                    let guitar_direction = if guitar_note > prev_guitar_note { 1 } else { -1 };
+                    
+                    // CONTRARY MOTION: When guitar goes up, bass goes down (and vice versa)
+                    let bass_note = if i % 4 == 0 {
+                        // On downbeats: Play root (octave below guitar)
+                        guitar_note.saturating_sub(12)
+                    } else if guitar_direction > 0 {
+                        // Guitar ascending → Bass descending
+                        // Move to 5th below or stay on root
+                        if rng.gen_bool(0.6) {
+                            guitar_note.saturating_sub(12).saturating_sub(7) // Down to 5th
+                        } else {
+                            guitar_note.saturating_sub(12) // Stay on root
+                        }
+                    } else {
+                        // Guitar descending → Bass ascending 
+                        // Walk up chromatically or jump to octave
+                        if rng.gen_bool(0.5) {
+                            guitar_note.saturating_sub(12).saturating_add(5) // Up to 5th
+                        } else {
+                            guitar_note.saturating_sub(12).saturating_add(1) // Chromatic step up
+                        }
+                    };
+                    
+                    let frequency = 440.0 * 2.0_f32.powf((bass_note as f32 - 69.0) / 12.0);
+                    let bass_sample = generate_metal_bass_string(frequency, note_duration, 0.95);
+                    raw_buffer.extend(bass_sample);
+                    
+                    prev_guitar_note = guitar_note;
+                }
+            },
+            BassMode::Follow => {
+                // FOLLOW mode: Simple octave below (for breakdowns)
                  for &note in guitar_notes {
                     let bass_note = note.saturating_sub(12);
                     let frequency = 440.0 * 2.0_f32.powf((bass_note as f32 - 69.0) / 12.0);
@@ -350,46 +565,144 @@ pub fn new() -> Self {
         // Note: For brevity, I am using the standard generation logic here.
         // In the full file, ensure the logic from the previous artifact (Euclidean, Blast, etc.) is here.
         
-        // Basic Pattern Generation Logic:
+        // SIMPLE, COHERENT METAL DRUM BEATS (not random)
+        // Problem: Too much randomness = no beat
+        // Solution: Classic metal patterns that ACTUALLY groove
         match feel {
             RhythmicFeel::HalfTime => {
-                 let pulses = match section { MetalSection::Breakdown => rng.gen_range(2..=4), _ => 3 };
-                 kick = rhythm_generator::generate_euclidean_pattern(steps, pulses);
-                 for i in 0..steps {
-                     if i % 16 == 8 { snare[i] = true; kick[i] = false; }
-                     if i % 16 == 0 { cymbal[i] = true; kick[i] = true; }
-                 }
+                // HALFTIME/BREAKDOWN: Simple, heavy pattern
+                for i in 0..steps {
+                    // Kick on beats 1 and 3 (every 8 steps)
+                    if i % 16 == 0 || i % 16 == 8 {
+                        kick[i] = true;
+                    }
+                    // Snare ONLY on beat 3 (classic halftime)
+                    if i % 16 == 8 {
+                        snare[i] = true;
+                        kick[i] = false; // No kick with snare
+                    }
+                    // Hi-hat on 8th notes for groove
+                    if i % 4 == 0 {
+                        cymbal[i] = true;
+                    }
+                }
             },
             RhythmicFeel::DoubleTime | RhythmicFeel::Blast => {
-                let blast_density = match subgenre { MetalSubgenre::DeathMetal => 2, _ => 4 };
+                // BLAST BEAT: Kick and snare alternate on 8th notes
                 for i in 0..steps {
-                    if i % blast_density == 0 { kick[i] = true; snare[i] = true; cymbal[i] = true; }
+                    if i % 4 == 0 {
+                        kick[i] = true;
+                        snare[i] = true;
+                        // Crash on downbeats only
+                        if i % 16 == 0 {
+                            cymbal[i] = true;
+                        }
+                    }
                 }
             },
             RhythmicFeel::Normal => {
-                let pulses = 5; 
-                kick = rhythm_generator::generate_euclidean_pattern(steps, pulses);
-                kick.rotate_left(rng.gen_range(0..steps.min(16)));
+                // STANDARD METAL BEAT: Kick on 1 and 3, Snare on 2 and 4
                 for i in 0..steps {
-                    if i % 16 == 4 || i % 16 == 12 { snare[i] = true; }
-                    if i % 4 == 0 { cymbal[i] = true; }
+                    let beat_in_bar = i % 16;
+                    
+                    // KICK: Beats 1 and 3, plus some 16th note fills
+                    if beat_in_bar == 0 {
+                        kick[i] = true; // Beat 1
+                    } else if beat_in_bar == 8 {
+                        kick[i] = true; // Beat 3
+                    } else if beat_in_bar == 2 || beat_in_bar == 10 {
+                        // Double bass 16th notes (classic metal)
+                        kick[i] = true;
+                    }
+                    
+                    // SNARE: Beats 2 and 4 (backbeat) - NO RANDOMNESS
+                    if beat_in_bar == 4 || beat_in_bar == 12 {
+                        snare[i] = true;
+                    }
+                    
+                    // HI-HAT: Continuous 8th notes for groove
+                    if i % 4 == 0 {
+                        cymbal[i] = true;
+                    }
+                    
+                    // CRASH: Only on downbeat of each bar
+                    if beat_in_bar == 0 && i % 64 == 0 {
+                        cymbal[i] = true; // Crash every 4 bars
+                    }
+                }
+                
+                // ADD SIMPLE FILL: Last beat of every 4th bar
+                let num_bars = steps / 16;
+                for bar in (3..num_bars).step_by(4) {
+                    let fill_pos = bar * 16 + 14; // Beat 4, last 16th note
+                    if fill_pos < steps {
+                        snare[fill_pos] = true;
+                        snare[fill_pos + 1] = true; // Double hit fill
+                    }
                 }
             },
-        }
-        
-        // KICK OVERLOAD logic
-        if matches!(subgenre, MetalSubgenre::DeathMetal) || matches!(section, MetalSection::Breakdown) {
-             for i in (0..steps).step_by(32) {
-                if rng.gen_bool(0.6) { 
-                    for j in 0..4 { if i+j < steps { kick[i+j] = true; } }
-                }
-             }
         }
 
         (kick, snare, cymbal)
     }
 
 
+    /// NEW: Render a melody track (piano/synth) playing the riff melody
+    fn render_melody_track(&mut self, riff: &MetalRiff, beat_duration: f32) -> Vec<f32> {
+        let mut melody_audio = Vec::new();
+        
+        for (i, &note) in riff.notes.iter().enumerate() {
+            let rhythm = riff.rhythms.get(i).copied().unwrap_or(RhythmPattern::SixteenthNote);
+            
+            // Skip rests for melody
+            if rhythm == RhythmPattern::Rest {
+                let rest_duration = beat_duration / 4.0;
+                let rest_samples = (rest_duration * self.sample_rate as f32) as usize;
+                melody_audio.extend(vec![0.0; rest_samples]);
+                continue;
+            }
+            
+            let note_duration = match rhythm {
+                RhythmPattern::QuarterNote => beat_duration,
+                RhythmPattern::EighthNote => beat_duration / 2.0,
+                RhythmPattern::SixteenthNote => beat_duration / 4.0,
+                RhythmPattern::ThirtySecondNote => beat_duration / 8.0,
+                RhythmPattern::Quintuplet => beat_duration * 0.8,
+                RhythmPattern::Septuplet => beat_duration * 0.571,
+                RhythmPattern::DottedEighth => beat_duration * 0.75,
+                RhythmPattern::Gallop => beat_duration / 2.0,
+                RhythmPattern::Rest => beat_duration / 4.0,
+            };
+            
+            // Generate simple sine wave melody (clean piano-like sound)
+            // Play the melody one octave higher than the guitar
+            let melody_note = note.saturating_add(12); // One octave up
+            let frequency = 440.0 * 2.0_f32.powf((melody_note as f32 - 69.0) / 12.0);
+            
+            let num_samples = (note_duration * self.sample_rate as f32) as usize;
+            let attack_samples = (0.01 * self.sample_rate as f32) as usize; // 10ms attack
+            let decay_factor: f32 = 0.9995; // Slow decay for piano-like sustain
+            
+            for sample_idx in 0..num_samples {
+                let time = sample_idx as f32 / self.sample_rate as f32;
+                
+                // Sine wave
+                let sine = (2.0 * std::f32::consts::PI * frequency * time).sin();
+                
+                // Simple envelope: attack + exponential decay
+                let envelope = if sample_idx < attack_samples {
+                    sample_idx as f32 / attack_samples as f32
+                } else {
+                    decay_factor.powf((sample_idx - attack_samples) as f32)
+                };
+                
+                melody_audio.push(sine * envelope * 0.3); // Quiet (30% volume)
+            }
+        }
+        
+        melody_audio
+    }
+    
     fn render_guitar_riff(&mut self, riff: &MetalRiff, beat_duration: f32) -> Vec<f32> {
         let mut rng = rand::thread_rng();
         
@@ -401,11 +714,14 @@ pub fn new() -> Self {
             let chord_type = riff.chord_types.get(i).copied().unwrap_or(ChordType::Single);
             let rhythm = riff.rhythms.get(i).copied().unwrap_or(RhythmPattern::SixteenthNote);
             
-            // Handle rests
+            // Handle rests - REPLACED WITH QUIET ROOT NOTE DRONE (continuous guitar)
             if rhythm == RhythmPattern::Rest {
                 let rest_duration = beat_duration / 4.0;
-                let rest_samples = (rest_duration * self.sample_rate as f32) as usize;
-                left_channel.extend(vec![0.0; rest_samples]);
+                // Instead of silence, play a quiet root note power chord (wall of sound)
+                let root_note = riff.notes[0]; // Use first note as root
+                let freq_root = 440.0 * 2.0_f32.powf((root_note as f32 - 69.0) / 12.0);
+                let drone_samples = self.render_chord(root_note, ChordType::Power, freq_root, rest_duration, true, 0.2); // Quiet, palm-muted
+                left_channel.extend(drone_samples);
                 continue;
             }
             
@@ -426,12 +742,20 @@ pub fn new() -> Self {
                 RhythmPattern::Rest => beat_duration / 4.0,
             };
             
-            let min_sustain = if palm_muted { 0.08 } else { 0.12 };
+            // FIXED: Open notes need MUCH longer sustain for continuous guitar sound
+            let min_sustain = if palm_muted { 0.08 } else { 0.6 }; // Increased from 0.12 to 0.6
             let note_duration = base_duration.max(min_sustain);
+            
+            // Add overlap for non-palm-muted notes (legato effect)
+            let actual_duration = if !palm_muted {
+                note_duration * 1.5 // 50% overlap for smooth, continuous guitar
+            } else {
+                note_duration
+            };
             
             // LEFT CHANNEL: Standard tuning
             let freq_root = 440.0 * 2.0_f32.powf((note as f32 - 69.0) / 12.0);
-            let note_samples = self.render_chord(note, chord_type, freq_root, note_duration, palm_muted, 0.8);
+            let note_samples = self.render_chord(note, chord_type, freq_root, actual_duration, palm_muted, 0.8);
             left_channel.extend(note_samples);
         }
         
@@ -445,8 +769,12 @@ pub fn new() -> Self {
             
             if rhythm == RhythmPattern::Rest {
                 let rest_duration = beat_duration / 4.0;
-                let rest_samples = (rest_duration * self.sample_rate as f32) as usize;
-                right_channel.extend(vec![0.0; rest_samples]);
+                // Instead of silence, play a quiet root note power chord (wall of sound)
+                let root_note = riff.notes[0]; // Use first note as root
+                let detune_cents = rng.gen_range(-5.0..5.0);
+                let freq_root = 440.0 * 2.0_f32.powf((root_note as f32 - 69.0 + detune_cents / 100.0) / 12.0);
+                let drone_samples = self.render_chord(root_note, ChordType::Power, freq_root, rest_duration, true, 0.2); // Quiet, palm-muted
+                right_channel.extend(drone_samples);
                 continue;
             }
             
@@ -467,14 +795,22 @@ pub fn new() -> Self {
                 RhythmPattern::Rest => beat_duration / 4.0,
             };
             
-            let min_sustain = if palm_muted { 0.08 } else { 0.12 };
+            // FIXED: Open notes need MUCH longer sustain for continuous guitar sound
+            let min_sustain = if palm_muted { 0.08 } else { 0.6 }; // Increased from 0.12 to 0.6
             let note_duration = base_duration.max(min_sustain);
+            
+            // Add overlap for non-palm-muted notes (legato effect)
+            let actual_duration = if !palm_muted {
+                note_duration * 1.5 // 50% overlap for smooth, continuous guitar
+            } else {
+                note_duration
+            };
             
             // RIGHT CHANNEL: Slightly detuned (±5 cents = ±0.05 semitones)
             let detune_cents = rng.gen_range(-5.0..5.0);
             let freq_root = 440.0 * 2.0_f32.powf((note as f32 - 69.0 + detune_cents / 100.0) / 12.0);
             
-            let note_samples = self.render_chord(note, chord_type, freq_root, note_duration, palm_muted, 0.8);
+            let note_samples = self.render_chord(note, chord_type, freq_root, actual_duration, palm_muted, 0.8);
             right_channel.extend(note_samples);
         }
         

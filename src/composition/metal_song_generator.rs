@@ -3,13 +3,12 @@ use crate::composition::{
     fretboard::{FretboardPathfinder, PlayabilityMode, calculate_playability_score},
     music_theory::{Key, ScaleType, MidiNote},
     tuning::GuitarTuning,
-    rhythm::{euclidean_rhythm, rotate_rhythm, OddSubdivisionPattern, DisplacedAccentGenerator, PolymetricInterference},
+    rhythm::{euclidean_rhythm, rotate_rhythm, PolymetricInterference},
     riff_generator::{MetalMarkovPresets, PedalPointGenerator, ChromaticMutator},
-    riff_motifs::{RiffMotif, MotifLibrary, MotifRecombinator},
-    drum_articulations::DrumArticulationGenerator,
-    breakdown_generator::{BreakdownGenerator, BreakdownPattern},
+    riff_motifs::MotifLibrary,
+    breakdown_generator::BreakdownGenerator,
     bar_memory::BarMotifStore,
-    phrase_drums::{PhraseAwareDrumGenerator, GuitarContext},
+    phrase_drums::PhraseAwareDrumGenerator,
 };
 use crate::synthesis::aggressive_mix::AggressiveMixPipeline;
 use rand::Rng;
@@ -311,6 +310,11 @@ impl MetalSongGenerator {
             return self.generate_breakdown_riff();
         }
         
+        // NEW: Use chord progressions 50% of the time for more musical structure
+        if rng.gen_bool(0.5) {
+            return self.generate_chord_progression_riff(section);
+        }
+        
         // Use motif-based generation for some riffs (40% chance)
         if section != MetalSection::Intro && rng.gen_bool(0.4) {
             return self.generate_motif_based_riff(section);
@@ -331,19 +335,19 @@ impl MetalSongGenerator {
             MetalSection::Intro => {
                 let root = self.key.root;
                 let scale = self.key.scale_type;
-                let notes = self.generate_intro_sequence(root, scale, 16);
+                let notes = self.generate_intro_sequence(root, scale, 24);
                 self.build_riff_from_notes(notes, section)
             },
             MetalSection::Verse => {
                 let root = self.key.root;
                 let scale = self.key.scale_type;
-                let notes = self.generate_verse_sequence(root, scale, 16);
+                let notes = self.generate_verse_sequence(root, scale, 32);
                 self.build_riff_from_notes(notes, section)
             },
             MetalSection::Chorus => {
                 let root = self.key.root;
                 let scale = self.key.scale_type;
-                let notes = self.generate_chorus_sequence(root, scale, 16);
+                let notes = self.generate_chorus_sequence(root, scale, 32);
                 self.build_riff_from_notes(notes, section)
             },
             MetalSection::Breakdown => {
@@ -353,16 +357,59 @@ impl MetalSongGenerator {
             MetalSection::Solo => {
                 let root = self.key.root;
                 let scale = self.key.scale_type;
-                let notes = self.generate_solo_sequence(root, scale, 32);
+                let notes = self.generate_solo_sequence(root, scale, 48);
                 self.build_riff_from_notes(notes, section)
             },
             MetalSection::Outro => {
                 let root = self.key.root;
                 let scale = self.key.scale_type;
-                let notes = self.generate_outro_sequence(root, scale, 16);
+                let notes = self.generate_outro_sequence(root, scale, 24);
                 self.build_riff_from_notes(notes, section)
             },
         }
+    }
+
+    /// Generate a metal chord progression riff (I-IV-V-I style)
+    /// Creates actual chord progressions for more musical structure
+    fn generate_chord_progression_riff(&self, section: MetalSection) -> MetalRiff {
+        let scale_notes = self.key.get_scale_notes();
+        let root = self.key.root;
+        
+        // Metal chord progressions (using scale degrees)
+        let progression = match section {
+            MetalSection::Intro | MetalSection::Outro => {
+                // Simple: I - VI - III - I (e.g., E - C - G - E for E Phrygian)
+                vec![0, 5, 2, 0]
+            },
+            MetalSection::Verse => {
+                // I - VII - VI - V repeated twice for 8 chords
+                vec![0, 6, 5, 4, 0, 6, 5, 4]
+            },
+            MetalSection::Chorus => {
+                // I - IV - V - I repeated twice (power progression)
+                vec![0, 3, 4, 0, 0, 3, 4, 0]
+            },
+            MetalSection::Solo => {
+                // More complex: I - II - III - IV - V - VI - VII - I
+                vec![0, 1, 2, 3, 4, 5, 6, 0]
+            },
+            MetalSection::Breakdown => {
+                // Just root (heavy chugging)
+                vec![0, 0, 0, 0]
+            },
+        };
+        
+        // Convert scale degrees to notes, repeat each chord 8 times (16th notes)
+        let mut notes = Vec::new();
+        for &degree in &progression {
+            let chord_root = scale_notes[degree % scale_notes.len()];
+            // Play each chord 8 times for rhythmic feel
+            for _ in 0..8 {
+                notes.push(chord_root);
+            }
+        }
+        
+        self.build_riff_from_notes(notes, section)
     }
 
     /// Generate polymetric riff for Progressive Metal (Djent)
@@ -555,16 +602,18 @@ impl MetalSongGenerator {
     }
 
     /// Generate intro sequence (low intensity, sparse)
+    /// Research: Intro establishes the pedal point foundation
     fn generate_intro_sequence(&self, root: MidiNote, scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        let notes = self.generate_markov_sequence_with_pedal(root, scale, length, 0.60);
+        let notes = self.generate_markov_sequence_with_pedal(root, scale, length, 0.75); // Increased from 0.60
         // Light chromatic mutations for intro (0.15 intensity)
         let mutator = ChromaticMutator::new(0.15);
         mutator.apply_mutations(notes)
     }
 
     /// Generate verse sequence (palm-muted chugs, tight rhythm)
+    /// Research: Verses should heavily use pedal point technique (0-1-0-1 pattern)
     fn generate_verse_sequence(&self, root: MidiNote, scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        let notes = self.generate_markov_sequence_with_pedal(root, scale, length, 0.50);
+        let notes = self.generate_markov_sequence_with_pedal(root, scale, length, 0.70); // Increased from 0.50
         // Moderate chromatic mutations for verse (0.25 intensity, higher for death metal)
         let intensity = if matches!(self.subgenre, MetalSubgenre::DeathMetal) { 0.35 } else { 0.25 };
         let mutator = ChromaticMutator::new(intensity);
@@ -572,16 +621,18 @@ impl MetalSongGenerator {
     }
 
     /// Generate chorus sequence (open power chords, melodic)
+    /// Research: Chorus still uses pedal points but with more melodic movement
     fn generate_chorus_sequence(&self, root: MidiNote, scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        let notes = self.generate_markov_sequence_with_pedal(root, scale, length, 0.30);
+        let notes = self.generate_markov_sequence_with_pedal(root, scale, length, 0.45); // Increased from 0.30
         // Moderate chromatic mutations for chorus (0.30 intensity)
         let mutator = ChromaticMutator::new(0.30);
         mutator.apply_mutations(notes)
     }
 
     /// Generate solo sequence (melodic, fast)
+    /// Research: Solos are more melodic, less pedal-focused
     fn generate_solo_sequence(&self, root: MidiNote, scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        let notes = self.generate_markov_sequence_with_pedal(root, scale, length, 0.20);
+        let notes = self.generate_markov_sequence_with_pedal(root, scale, length, 0.30); // Increased from 0.20
         // High chromatic mutations for solo (0.50 intensity, even higher for prog)
         let intensity = if matches!(self.subgenre, MetalSubgenre::ProgressiveMetal) { 0.60 } else { 0.50 };
         let mutator = ChromaticMutator::new(intensity);
@@ -589,53 +640,69 @@ impl MetalSongGenerator {
     }
 
     /// Generate outro sequence (fade out, simple)
+    /// Research: Outro returns to simple pedal point pattern
     fn generate_outro_sequence(&self, root: MidiNote, scale: ScaleType, length: usize) -> Vec<MidiNote> {
-        let notes = self.generate_markov_sequence_with_pedal(root, scale, length, 0.80);
+        let notes = self.generate_markov_sequence_with_pedal(root, scale, length, 0.85); // Increased from 0.80
         // Light chromatic mutations for outro (0.20 intensity)
         let mutator = ChromaticMutator::new(0.20);
         mutator.apply_mutations(notes)
     }
 
-    /// Generate a complete metal song structure with randomization
+    /// Generate a complete metal song structure following IRVD framework
+    /// Research Section 4: Introduction, Repetition, Variation, Destruction
     pub fn generate_song(&self) -> MetalSong {
         let mut rng = rand::thread_rng();
         let mut sections = Vec::new();
 
-        // RANDOMIZED STRUCTURE: Each song is different
-        // Intro (always present)
+        // ==== I: INTRODUCTION ====
+        // Sparse, establishing pedal point foundation
         sections.push((MetalSection::Intro, self.generate_riff(MetalSection::Intro)));
         
-        // Verse-Chorus pattern (randomize count)
-        let verse_chorus_cycles = rng.gen_range(2..=3); // 2 or 3 cycles
-        for _ in 0..verse_chorus_cycles {
-            sections.push((MetalSection::Verse, self.generate_riff(MetalSection::Verse)));
-            sections.push((MetalSection::Chorus, self.generate_riff(MetalSection::Chorus)));
+        // ==== R: REPETITION ====
+        // Generate main verse and chorus riffs ONCE, then repeat with variations
+        let main_verse_riff = self.generate_riff(MetalSection::Verse);
+        let main_chorus_riff = self.generate_riff(MetalSection::Chorus);
+        
+        // Repeat verse-chorus pattern 2-3 times with same core riff
+        let verse_chorus_cycles = rng.gen_range(2..=3);
+        for cycle in 0..verse_chorus_cycles {
+            if cycle == 0 {
+                // First cycle: Use original riffs
+                sections.push((MetalSection::Verse, main_verse_riff.clone()));
+                sections.push((MetalSection::Chorus, main_chorus_riff.clone()));
+            } else {
+                // ==== V: VARIATION ====
+                // Subsequent cycles: Apply subtle variations to the same riff
+                sections.push((MetalSection::Verse, self.apply_variation(&main_verse_riff, 0.15)));
+                sections.push((MetalSection::Chorus, self.apply_variation(&main_chorus_riff, 0.20)));
+            }
         }
         
-        // Optional breakdown before solo (50% chance)
+        // Optional breakdown before solo (climax building)
         if rng.gen_bool(0.5) {
             sections.push((MetalSection::Breakdown, self.generate_riff(MetalSection::Breakdown)));
         }
         
-        // Solo (70% chance to include)
+        // Solo: Peak of melodic expression (70% chance)
         if rng.gen_bool(0.7) {
             sections.push((MetalSection::Solo, self.generate_riff(MetalSection::Solo)));
         }
         
-        // Final chorus
-        sections.push((MetalSection::Chorus, self.generate_riff(MetalSection::Chorus)));
+        // Return to chorus (recognition - same riff with variation)
+        sections.push((MetalSection::Chorus, self.apply_variation(&main_chorus_riff, 0.25)));
         
-        // Final breakdown (80% chance)
-        if rng.gen_bool(0.8) {
+        // ==== D: DESTRUCTION ====
+        // Final breakdown: Maximum intensity and simplicity (brutal chugging)
+        if rng.gen_bool(0.85) { // Increased from 0.8
             sections.push((MetalSection::Breakdown, self.generate_riff(MetalSection::Breakdown)));
         }
         
-        // Optional outro (60% chance)
+        // Optional outro: Return to intro-like simplicity (circular structure)
         if rng.gen_bool(0.6) {
             sections.push((MetalSection::Outro, self.generate_riff(MetalSection::Outro)));
         } else {
-            // End with final chorus if no outro
-            sections.push((MetalSection::Chorus, self.generate_riff(MetalSection::Chorus)));
+            // End with final stripped-down chorus (IRVD conclusion)
+            sections.push((MetalSection::Chorus, self.apply_variation(&main_chorus_riff, 0.10)));
         }
 
         let drum_humanizer = match self.subgenre {
@@ -657,23 +724,6 @@ impl MetalSongGenerator {
     }
 
 
-    /// Get interval weight for metal generation (DEPRECATED - use Markov chains instead)
-    fn get_interval_weight(interval: u8, _scale: ScaleType, subgenre: MetalSubgenre) -> f32 {
-        match interval {
-            1 => 2.0,  // Minor second - very metal (b2)
-            6 => 1.8,  // Tritone - devil's interval (b5)
-            7 => 1.2,  // Perfect fifth
-            10 => 1.1, // Minor seventh
-            3 => if matches!(subgenre, MetalSubgenre::DeathMetal) { 1.0 } else { 0.3 },
-            4 => 0.2,  // Major third
-            2 => 0.5,  // Major second
-            5 => 1.0,  // Perfect fourth
-            8 => 0.8,  // Minor sixth
-            9 => 0.4,  // Major sixth
-            11 => 1.0, // Major seventh
-            _ => 0.5,
-        }
-    }
 
     /// Generate sequence using advanced Markov chains and pedal point logic
     /// This replaces the old weighted random approach with proper music theory
@@ -720,7 +770,7 @@ impl MetalSongGenerator {
                     rhythms.push(RhythmPattern::SixteenthNote);
                     i += 1;
                 }
-            } else if rng.gen_bool(0.3) {
+            } else if rng.gen_bool(0.2) {
                 rhythms.push(RhythmPattern::Rest);
                 i += 1;
             } else if rng.gen_bool(0.5) {
@@ -748,11 +798,11 @@ impl MetalSongGenerator {
                     rhythms.push(RhythmPattern::ThirtySecondNote);
                     i += 1;
                 }
-                if i < length && rng.gen_bool(0.7) {
+                if i < length && rng.gen_bool(0.2) {
                     rhythms.push(RhythmPattern::Rest);
                     i += 1;
                 }
-            } else if rng.gen_bool(0.4) {
+            } else if rng.gen_bool(0.05) {
                 rhythms.push(RhythmPattern::Rest);
                 i += 1;
             } else {
@@ -771,7 +821,7 @@ impl MetalSongGenerator {
         let mut i = 0;
         
         while i < length {
-            if rng.gen_bool(0.5) {
+            if rng.gen_bool(0.2) {
                 rhythms.push(RhythmPattern::Rest);
                 i += 1;
             } else if rng.gen_bool(0.6) {
@@ -791,10 +841,10 @@ impl MetalSongGenerator {
         let mut rng = rand::thread_rng();
         let mut rhythms = Vec::with_capacity(length);
         let rest_prob = match section {
-            MetalSection::Verse => 0.35,
-            MetalSection::Chorus => 0.15,
-            MetalSection::Intro => 0.5,
-            _ => 0.25,
+            MetalSection::Verse => 0.15,
+            MetalSection::Chorus => 0.05,
+            MetalSection::Intro => 0.2,
+            _ => 0.1,
         };
         
         for i in 0..length {
@@ -840,41 +890,44 @@ impl MetalSongGenerator {
         rhythms
     }
 
-    /// Generate drums for a section (Legacy support method)
-    pub fn generate_drums(&self, section: MetalSection, humanizer: &DrumHumanizer) -> Vec<(u8, i32)> {
-        let mut drum_hits = Vec::new();
-        let subdivisions = match section {
-            MetalSection::Breakdown => 8,
-            _ => 16,
-        };
-
-        let use_blast = matches!(
-            (self.subgenre, section),
-            (MetalSubgenre::DeathMetal, MetalSection::Verse) |
-            (MetalSubgenre::DeathMetal, MetalSection::Chorus)
-        );
-
-        if use_blast {
-            let (kicks, snares) = generate_blast_beat(BlastBeatStyle::Traditional, subdivisions);
-            
-            for i in 0..subdivisions {
-                if kicks[i] || snares[i] {
-                    let base_velocity = blast_beat_velocity(100, i == 0);
-                    let (velocity, timing) = humanizer.humanize_hit(base_velocity, i == 0);
-                    drum_hits.push((velocity, timing));
-                }
-            }
-        } else {
-            for i in 0..subdivisions {
-                let is_accent = i % 4 == 0;
-                let base_velocity = if is_accent { 110 } else { 95 };
-                let (velocity, timing) = humanizer.humanize_hit(base_velocity, is_accent);
-                drum_hits.push((velocity, timing));
+    /// Apply variation to an existing riff (IRVD framework - Variation)
+    /// Research Section 4: Variation through rhythm changes and chromatic mutations
+    fn apply_variation(&self, original_riff: &MetalRiff, intensity: f32) -> MetalRiff {
+        let mut rng = rand::thread_rng();
+        let mut varied_riff = original_riff.clone();
+        
+        // Randomly alter some notes (based on intensity)
+        for i in 0..varied_riff.notes.len() {
+            if rng.gen::<f32>() < intensity {
+                // Apply chromatic mutation (±1 semitone)
+                let mutation = if rng.gen_bool(0.5) { 1 } else { -1 };
+                varied_riff.notes[i] = (varied_riff.notes[i] as i8 + mutation).max(20).min(127) as u8;
             }
         }
-
-        drum_hits
+        
+        // Slightly vary rhythm patterns (lower probability)
+        for i in 0..varied_riff.rhythms.len() {
+            if rng.gen::<f32>() < intensity * 0.5 {
+                // Switch between similar rhythms
+                varied_riff.rhythms[i] = match varied_riff.rhythms[i] {
+                    RhythmPattern::SixteenthNote => if rng.gen_bool(0.5) { RhythmPattern::EighthNote } else { RhythmPattern::SixteenthNote },
+                    RhythmPattern::EighthNote => if rng.gen_bool(0.5) { RhythmPattern::SixteenthNote } else { RhythmPattern::QuarterNote },
+                    RhythmPattern::QuarterNote => if rng.gen_bool(0.5) { RhythmPattern::EighthNote } else { RhythmPattern::QuarterNote },
+                    other => other,
+                };
+            }
+        }
+        
+        // Occasionally flip palm muting (adds dynamics)
+        for i in 0..varied_riff.palm_muted.len() {
+            if rng.gen::<f32>() < intensity * 0.3 {
+                varied_riff.palm_muted[i] = !varied_riff.palm_muted[i];
+            }
+        }
+        
+        varied_riff
     }
+
 
     /// Generate a motif-based riff with chromatic mutations
     fn generate_motif_based_riff(&self, section: MetalSection) -> MetalRiff {

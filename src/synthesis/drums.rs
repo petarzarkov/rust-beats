@@ -39,9 +39,10 @@ pub fn generate_kick(amplitude: f32) -> Vec<f32> {
 pub fn generate_kick_with_params(amplitude: f32, params: Option<&DrumSoundParams>) -> Vec<f32> {
     let mut rng = rand::thread_rng();
     let duration = 0.5; // Extended for more sub weight
-    let base_pitch = 60.0;
     
-    let _start_pitch = if let Some(p) = params { base_pitch + p.kick_pitch_offset } else { base_pitch };
+    // ADD PITCH VARIANCE: Not every kick is exactly the same (organic feel)
+    let pitch_variance = rng.gen_range(-3.0..3.0); // ±3Hz variance per hit
+    let start_pitch_base = if let Some(p) = params { 60.0 + p.kick_pitch_offset } else { 60.0 };
     
     let num_samples = (duration * get_sample_rate() as f32) as usize;
     let mut samples = Vec::with_capacity(num_samples);
@@ -49,10 +50,11 @@ pub fn generate_kick_with_params(amplitude: f32, params: Option<&DrumSoundParams
     for i in 0..num_samples {
         let time = i as f32 / get_sample_rate() as f32;
 
-        // ===== PHASE 3.1: ENHANCED PITCH ENVELOPE =====
-        // Start at 220Hz (beater attack), drop to 35Hz (deep sub)
+        // ===== PHASE 3.1: ENHANCED PITCH ENVELOPE WITH ORGANIC VARIANCE =====
+        // Start at 220Hz (beater attack), drop to 30Hz (DEEPER sub for metal)
         let pitch_drop = (-time * 60.0).exp(); // Faster, more aggressive drop
-        let pitch = 35.0 + (185.0 * pitch_drop); // Lower sub, higher attack
+        let base_pitch = 30.0 + pitch_variance + (190.0 * pitch_drop); // DEEPER: 30Hz instead of 35Hz
+        let pitch = base_pitch;
 
         // ===== PHASE 3.2: LAYERED SAMPLES =====
         
@@ -66,10 +68,16 @@ pub fn generate_kick_with_params(amplitude: f32, params: Option<&DrumSoundParams
         let beater_env = (-time * 12.0).exp(); // Faster decay
         let beater_layer = (beater_phase * 0.5).sin().signum() * beater_env * 0.3;
         
-        // LAYER 3: CLICK (Noise burst for transient)
-        let click_amp = params.map(|p| p.kick_click_amount).unwrap_or(1.3); 
-        let click_env = (-time * 200.0).exp(); // Very fast decay
-        let click_layer = (rng.gen_range(-1.0..1.0)) * click_amp * click_env * 0.4;
+        // LAYER 2B: HIGH-FREQUENCY BEATER CLICK (2-5kHz for organic "thud")
+        let click_freq = 3500.0; // 3.5kHz sweet spot for beater impact
+        let click_phase = 2.0 * std::f32::consts::PI * click_freq * time;
+        let click_env = (-time * 150.0).exp(); // Fast decay for click
+        let beater_click_layer = click_phase.sin() * click_env * 0.35; // NEW: Prominent click
+        
+        // LAYER 3: NOISE CLICK (Transient burst)
+        let noise_click_amp = params.map(|p| p.kick_click_amount).unwrap_or(1.0); // Reduced from 1.3
+        let noise_click_env = (-time * 200.0).exp(); // Very fast decay
+        let noise_click_layer = (rng.gen_range(-1.0..1.0)) * noise_click_amp * noise_click_env * 0.25; // Reduced from 0.4
 
         // ===== PHASE 3.3: TRANSIENT SHAPER =====
         // Boost the first 10ms for extreme punch
@@ -79,8 +87,8 @@ pub fn generate_kick_with_params(amplitude: f32, params: Option<&DrumSoundParams
             1.0
         };
 
-        // Mix all layers
-        let mut sample = (sub_layer + beater_layer + click_layer) * transient_boost;
+        // Mix all layers - NOW INCLUDING HIGH-FREQUENCY BEATER CLICK FOR ORGANIC SOUND
+        let mut sample = (sub_layer + beater_layer + beater_click_layer + noise_click_layer) * transient_boost;
 
         // ===== PHASE 3.4: PARALLEL COMPRESSION =====
         // Compress a copy and blend for punch
@@ -118,16 +126,22 @@ pub fn generate_snare_with_params(amplitude: f32, params: Option<&DrumSoundParam
 
         // ===== PHASE 3.2: LAYERED SAMPLES =====
         
-        // LAYER 1: TONAL BODY (Pitch dive for shell resonance)
+        // LAYER 1: TONAL BODY (Pitch dive for shell resonance) - INCREASED FOR "DUB" SOUND
         let pitch_mod = 1.0 - (-time * 30.0).exp() * 0.4; // More aggressive pitch dive
         let phase = 2.0 * std::f32::consts::PI * freq * pitch_mod * time;
-        let body_env = (-time * 15.0).exp(); // Faster decay
-        let body_layer = phase.sin() * body_env * 0.25;
+        let body_env = (-time * 12.0).exp(); // Slower decay for more body
+        let body_layer = phase.sin() * body_env * 0.6; // INCREASED from 0.25 to 0.6
+        
+        // LAYER 1B: LOW-FREQUENCY BODY (200-300Hz fundamental for "DUB")
+        let low_freq = 250.0;
+        let low_phase = 2.0 * std::f32::consts::PI * low_freq * time;
+        let low_env = (-time * 18.0).exp();
+        let low_body_layer = low_phase.sin() * low_env * 0.4; // NEW: Deep tonal component
 
-        // LAYER 2: NOISE RATTLE (Snare wires)
-        let noise_amp = params.map(|p| p.snare_noise_amount).unwrap_or(1.3);
+        // LAYER 2: NOISE RATTLE (Snare wires) - REDUCED FOR LESS "TSSSSS"
+        let noise_amp = params.map(|p| p.snare_noise_amount).unwrap_or(0.8); // Reduced from 1.3
         let noise_env = (-time * 10.0).exp(); // Snare wire decay
-        let noise_layer = rng.gen_range(-1.0..1.0) * noise_env * 0.7 * noise_amp;
+        let noise_layer = rng.gen_range(-1.0..1.0) * noise_env * 0.3 * noise_amp; // REDUCED from 0.7 to 0.3
 
         // LAYER 3: CRACK TRANSIENT (Stick attack)
         let crack_env = (-time * 100.0).exp(); // Very fast decay
@@ -141,8 +155,8 @@ pub fn generate_snare_with_params(amplitude: f32, params: Option<&DrumSoundParam
             1.0
         };
 
-        // Mix all layers
-        let mut sample = (body_layer + noise_layer + crack_layer) * transient_boost;
+        // Mix all layers - NOW INCLUDING LOW BODY FOR "DUB" SOUND
+        let mut sample = (body_layer + low_body_layer + noise_layer + crack_layer) * transient_boost;
         
         // ===== PHASE 3.4: PARALLEL COMPRESSION =====
         // Compress a copy and blend for punch
