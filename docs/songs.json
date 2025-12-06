@@ -1,5 +1,17 @@
 [
   {
+    "filename": "2025-12-06_petar_zarkov_sludge_thorns_charm.mp3",
+    "date": "2025-12-06",
+    "size": 5209860,
+    "name": "Sludge Thorns Charm",
+    "genre": [
+      "Swamp Metal",
+      "Southern",
+      "Sludge",
+      "Instrumental"
+    ]
+  },
+  {
     "filename": "2025-12-06_petar_zarkov_sludge_storm_supreme.mp3",
     "date": "2025-12-06",
     "size": 3175444,
@@ -69,17 +81,6 @@
     "genre": [
       "Swamp Metal",
       "Southern"
-    ]
-  },
-  {
-    "filename": "2025-11-30_petar_zarkov_spikes_cult.mp3",
-    "date": "2025-11-30",
-    "size": 2804296,
-    "name": "Spikes Cult",
-    "genre": [
-      "Swamp Metal",
-      "Heavy",
-      "Instrumental"
     ]
   }
 ]
