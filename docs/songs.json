@@ -1,5 +1,15 @@
 [
   {
+    "filename": "2025-12-07_petar_zarkov_rot_slime.mp3",
+    "date": "2025-12-07",
+    "size": 6298852,
+    "name": "Rot Slime",
+    "genre": [
+      "Swamp Metal",
+      "Sludge"
+    ]
+  },
+  {
     "filename": "2025-12-06_petar_zarkov_sludge_thorns_charm.mp3",
     "date": "2025-12-06",
     "size": 5209860,
@@ -71,16 +81,6 @@
       "Swamp Metal",
       "Groove",
       "Sludge"
-    ]
-  },
-  {
-    "filename": "2025-12-01_petar_zarkov_tomb_darkness.mp3",
-    "date": "2025-12-01",
-    "size": 8352704,
-    "name": "Tomb Darkness",
-    "genre": [
-      "Swamp Metal",
-      "Southern"
     ]
   }
 ]
