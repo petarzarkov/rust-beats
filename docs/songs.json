@@ -1,5 +1,16 @@
 [
   {
+    "filename": "2025-12-08_petar_zarkov_feral_bog_connection.mp3",
+    "date": "2025-12-08",
+    "size": 4290141,
+    "name": "Feral Bog Connection",
+    "genre": [
+      "Swamp Metal",
+      "Southern",
+      "Doom"
+    ]
+  },
+  {
     "filename": "2025-12-07_petar_zarkov_rot_slime.mp3",
     "date": "2025-12-07",
     "size": 6298852,
@@ -70,17 +81,6 @@
     "genre": [
       "Swamp Metal",
       "Groove"
-    ]
-  },
-  {
-    "filename": "2025-12-02_petar_zarkov_broken_decay_journey.mp3",
-    "date": "2025-12-02",
-    "size": 4090774,
-    "name": "Broken Decay Journey",
-    "genre": [
-      "Swamp Metal",
-      "Groove",
-      "Sludge"
     ]
   }
 ]
