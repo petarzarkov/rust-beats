@@ -1,5 +1,16 @@
 [
   {
+    "filename": "2025-12-10_petar_zarkov_forgotten_dark_shadows.mp3",
+    "date": "2025-12-10",
+    "size": 4340923,
+    "name": "Forgotten Dark Shadows",
+    "genre": [
+      "Swamp Metal",
+      "Doom",
+      "Instrumental"
+    ]
+  },
+  {
     "filename": "2025-12-09_petar_zarkov_frozen_brutal_shadows.mp3",
     "date": "2025-12-09",
     "size": 15868446,
@@ -72,16 +83,6 @@
     "genre": [
       "Swamp Metal",
       "Southern"
-    ]
-  },
-  {
-    "filename": "2025-12-03_petar_zarkov_wicked_mire_connection.mp3",
-    "date": "2025-12-03",
-    "size": 3208671,
-    "name": "Wicked Mire Connection",
-    "genre": [
-      "Swamp Metal",
-      "Heavy"
     ]
   }
 ]
