@@ -1,5 +1,15 @@
 [
   {
+    "filename": "2025-12-11_petar_zarkov_ritual_swamp.mp3",
+    "date": "2025-12-11",
+    "size": 10668616,
+    "name": "Ritual Swamp",
+    "genre": [
+      "Swamp Metal",
+      "Sludge"
+    ]
+  },
+  {
     "filename": "2025-12-10_petar_zarkov_forgotten_dark_shadows.mp3",
     "date": "2025-12-10",
     "size": 4340923,
@@ -73,16 +83,6 @@
     "genre": [
       "Swamp Metal",
       "Heavy"
-    ]
-  },
-  {
-    "filename": "2025-12-04_petar_zarkov_marsh_mire.mp3",
-    "date": "2025-12-04",
-    "size": 2680789,
-    "name": "Marsh Mire",
-    "genre": [
-      "Swamp Metal",
-      "Southern"
     ]
   }
 ]
